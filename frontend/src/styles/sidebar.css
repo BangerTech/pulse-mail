@@ -10,7 +10,7 @@
 .sidebar-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 8px;
+  padding: 10px 10px 8px;
 }
 
 .sidebar-account-group {
@@ -76,10 +76,10 @@
 .sidebar-item {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   width: 100%;
-  padding: 7px 10px;
-  border-radius: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
   font-size: 13px;
   color: var(--text-primary);
   transition: background 0.12s ease;
@@ -93,12 +93,34 @@
 .sidebar-item.active {
   background: var(--accent-soft);
   color: var(--accent-color);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .sidebar-item-icon {
   flex-shrink: 0;
   opacity: 0.85;
+}
+
+.sidebar-item-icon.tile {
+  width: 26px;
+  height: 26px;
+  padding: 5px;
+  border-radius: 8px;
+  background: var(--surface-tertiary);
+  opacity: 1;
+}
+
+.sidebar-item-icon.tile.inbox { background: rgba(0, 122, 255, 0.14); color: #007AFF; }
+.sidebar-item-icon.tile.sent { background: rgba(175, 82, 222, 0.14); color: #AF52DE; }
+.sidebar-item-icon.tile.draft { background: rgba(255, 149, 0, 0.16); color: #FF9500; }
+.sidebar-item-icon.tile.archive { background: rgba(52, 199, 89, 0.14); color: #34C759; }
+.sidebar-item-icon.tile.trash { background: rgba(255, 59, 48, 0.14); color: #FF3B30; }
+.sidebar-item-icon.tile.junk { background: rgba(255, 149, 0, 0.14); color: #FF9500; }
+.sidebar-item-icon.tile.folder { background: rgba(142, 142, 147, 0.16); color: #8E8E93; }
+
+.sidebar-item.active .sidebar-item-icon.tile {
+  background: var(--accent-color);
+  color: var(--text-inverse);
 }
 
 .sidebar-item-label {

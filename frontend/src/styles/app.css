@@ -18,6 +18,14 @@
   border-right: 0.5px solid var(--border-color);
 }
 
+.app-pane.list-pane {
+  background: var(--bg-maillist);
+}
+
+.app-split.right .app-pane.list-pane {
+  border-right: none;
+}
+
 .app-split {
   flex: 1;
   display: flex;

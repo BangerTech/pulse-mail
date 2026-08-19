@@ -141,9 +141,15 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 
 ### Darstellung
 - Vorschaufenster rechts oder unten (verschiebbar)
+- Einzelklick zeigt rechts nur eine Vorschau; Doppelklick öffnet die Mail in einem eigenen Fenster
+- Mail-Header mit Avatar, Absenderkarte und Antwort-Pills (Vorschau und Vollansicht)
 - Kompakte oder komfortable Listenansicht
 - Schriftart und -größe für das Verfassen
 - Logo und Favicon unter `frontend/public/`
+
+### MIME / Anzeige
+- HTML- und Textteile werden inkl. Base64 und Quoted-Printable dekodiert
+- Alte Cache-Einträge mit Roh-Encoding werden beim Öffnen und in der Liste repariert
 
 ### Mobile
 - Ab 860px Breite: eigene Smartphone-Ansicht

@@ -101,6 +101,7 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [mobile, setMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 860);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [readingFull, setReadingFull] = useState(false);
   const [searchOptions, setSearchOptions] = useState<SearchOptions>({
     scopeAllAccounts: false,
     from: '',
@@ -126,6 +127,10 @@ export default function App() {
     media.addEventListener('change', apply);
     return () => media.removeEventListener('change', apply);
   }, []);
+
+  useEffect(() => {
+    if (!selectedMessage) setReadingFull(false);
+  }, [selectedMessage]);
 
   useEffect(() => {
     const apply = () => {
@@ -362,6 +367,11 @@ export default function App() {
     }
   }, [setSelectedMessage, setSelectedKeys]);
 
+  const openMessageFull = useCallback((key: string) => {
+    setReadingFull(true);
+    openMessage(key);
+  }, [openMessage]);
+
   const openSearchResult = useCallback(async (accountId: number, folder: string, uid: number) => {
     try {
       const detail = await api.getMessage(accountId, uid, folder);
@@ -540,12 +550,13 @@ export default function App() {
     if (state.showPalette) return setShowPalette(false);
     if (state.composing) return store.closeCompose();
     if (state.showSettings) return setShowSettings(false);
+    if (readingFull) return setReadingFull(false);
     if (state.searchQuery) return setSearchQuery('');
     if (state.selectedMessage) {
       setSelectedMessage(null);
       clearSelection();
     }
-  }, [setShowPalette, setShowSettings, setSearchQuery, setSelectedMessage, clearSelection, store]);
+  }, [readingFull, setShowPalette, setShowSettings, setSearchQuery, setSelectedMessage, clearSelection, store]);
 
   const shortcutsEnabled = !composing && !showSettings && !showPalette;
 
@@ -693,7 +704,7 @@ export default function App() {
         refreshing={refreshing}
         mobile={mobile}
         reading={reading}
-        onBack={() => { setSelectedMessage(null); clearSelection(); }}
+        onBack={() => { setReadingFull(false); setSelectedMessage(null); clearSelection(); }}
         onMenu={() => setDrawerOpen(true)}
         folderTitle={folderTitle}
       />
@@ -738,6 +749,7 @@ export default function App() {
             ) : (
               <MailList
                 onOpen={openMessage}
+                onOpenFull={openMessageFull}
                 onLoadMore={loadMore}
                 onArchive={handleArchive}
                 onDelete={handleDelete}
@@ -754,12 +766,28 @@ export default function App() {
           ))}
 
           <MailContent
+            variant={mobile ? 'full' : 'preview'}
+            onExpand={() => setReadingFull(true)}
             onArchive={handleArchive}
             onDelete={handleDelete}
             onToggleFlag={handleToggleFlag}
           />
         </div>
       </div>
+
+      {!mobile && readingFull && selectedMessage && (
+        <div className="reader-overlay" onMouseDown={() => setReadingFull(false)}>
+          <div className="reader-window" onMouseDown={e => e.stopPropagation()}>
+            <MailContent
+              variant="full"
+              onClose={() => setReadingFull(false)}
+              onArchive={handleArchive}
+              onDelete={handleDelete}
+              onToggleFlag={handleToggleFlag}
+            />
+          </div>
+        </div>
+      )}
 
       {mobile && !reading && !composing && (
         <button className="mobile-fab" onClick={() => openCompose('new')} title="Neue E-Mail">

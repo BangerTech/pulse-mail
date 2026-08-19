@@ -5,12 +5,15 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
-import iconv from 'iconv-lite';
 import { fileURLToPath } from 'url';
 import { decryptPassword } from '../db.js';
 import { withFolder, withClient } from '../imap-pool.js';
 import { assignThreadIds, threadsForPage, extractMessageIds } from '../threading.js';
 import * as cache from '../mail-cache.js';
+import {
+  mimeType, mimeEncoding, mimeCharset, decodeBody, looksEncoded,
+  repairEncodedText, decodeMimeWords, downloadPart
+} from '../mime.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UPLOADS_DIR = path.join(__dirname, '../../uploads/signatures');
@@ -207,8 +210,10 @@ export default function mailRouter(db, broadcast = () => {}) {
         collected.push({
           uid: msg.uid,
           messageId: msg.envelope?.messageId || null,
-          subject: msg.envelope?.subject || '',
-          from: msg.envelope?.from?.[0] || {},
+          subject: decodeMimeWords(msg.envelope?.subject || ''),
+          from: msg.envelope?.from?.[0]
+            ? { ...msg.envelope.from[0], name: decodeMimeWords(msg.envelope.from[0].name || '') }
+            : {},
           to: msg.envelope?.to || [],
           cc: msg.envelope?.cc || [],
           replyTo: msg.envelope?.replyTo || [],
@@ -258,7 +263,7 @@ export default function mailRouter(db, broadcast = () => {}) {
     );
 
     const pending = messages
-      .filter(m => m.textPart && !cached.get(m.uid))
+      .filter(m => m.textPart && (!cached.get(m.uid) || looksEncoded(cached.get(m.uid))))
       .slice(0, SNIPPET_BATCH);
 
     if (!pending.length) return;
@@ -283,7 +288,10 @@ export default function mailRouter(db, broadcast = () => {}) {
             const buffer = msg.bodyParts?.get(group.part);
             if (!buffer) continue;
 
-            const snippet = toSnippet(decodePart(buffer, group.charset, group.encoding), group.isHtml);
+            const snippet = toSnippet(
+              decodeBody(buffer, group.charset, group.encoding),
+              group.isHtml
+            );
             if (!snippet) continue;
 
             const original = messages.find(m => m.uid === msg.uid);
@@ -311,13 +319,19 @@ export default function mailRouter(db, broadcast = () => {}) {
         'SELECT * FROM mail_cache WHERE account_id = ? AND folder = ? AND uid = ?'
       ).get(accountId, folder, uid);
 
+      const cachedHtml = repairEncodedText(cachedRow?.body_html || '');
+      const cachedText = repairEncodedText(cachedRow?.body_text || '');
       const cachedBodyOk = cachedRow
-        && (cachedRow.body_html || cachedRow.body_text)
-        && !looksEncoded(cachedRow.body_html)
-        && !looksEncoded(cachedRow.body_text);
+        && (cachedHtml || cachedText)
+        && !looksEncoded(cachedHtml)
+        && !looksEncoded(cachedText);
+
+      if (cachedRow && (cachedHtml !== (cachedRow.body_html || '') || cachedText !== (cachedRow.body_text || ''))) {
+        cache.writeBody(db, accountId, folder, uid, cachedHtml, cachedText, safeParse(cachedRow.attachments_meta, []));
+      }
 
       if (cachedBodyOk) {
-        return res.json(buildDetail(cachedRow));
+        return res.json(buildDetail({ ...cachedRow, body_html: cachedHtml, body_text: cachedText }));
       }
 
       const parsed = await withFolder(accountId, folder, async (client) => {
@@ -625,14 +639,14 @@ function buildDetail(row) {
     accountId: row.account_id,
     folder: row.folder,
     messageId: row.message_id,
-    subject: row.subject || '',
-    from: { name: row.from_name || undefined, address: row.from_address || undefined },
+    subject: decodeMimeWords(row.subject || ''),
+    from: { name: decodeMimeWords(row.from_name || '') || undefined, address: row.from_address || undefined },
     to: safeParse(row.to_address, []),
     cc: safeParse(row.cc_address, []),
     replyTo: safeParse(row.reply_to_address, []),
     date: row.date,
-    html: row.body_html || '',
-    text: row.body_text || '',
+    html: repairEncodedText(row.body_html || ''),
+    text: repairEncodedText(row.body_text || ''),
     inReplyTo: row.in_reply_to,
     references: row.references_header ? row.references_header.split(/\s+/).filter(Boolean) : [],
     flags: safeParse(row.flags, []),
@@ -658,9 +672,9 @@ function normalizeReferences(references) {
 }
 
 function toSnippet(raw, isHtml) {
-  let text = raw;
+  let text = repairEncodedText(decodeMimeWords(raw || ''));
 
-  if (isHtml) {
+  if (isHtml || /<[a-z][\s\S]*>/i.test(text)) {
     text = text
       .replace(/<style[\s\S]*?<\/style>/gi, ' ')
       .replace(/<script[\s\S]*?<\/script>/gi, ' ')
@@ -687,13 +701,14 @@ function findMimePart(structure, preferred) {
 
   const walk = (node) => {
     if (!node) return null;
-    const type = (node.type || '').toLowerCase();
-    if (type === preferred && node.disposition !== 'attachment') {
+    const type = mimeType(node);
+    const disp = String(node.disposition || '').toLowerCase();
+    if (type === preferred && disp !== 'attachment') {
       return {
         part: node.part || '1',
         isHtml: preferred === 'text/html',
-        charset: node.parameters?.charset || 'utf-8',
-        encoding: (node.encoding || '').toLowerCase()
+        charset: mimeCharset(node),
+        encoding: mimeEncoding(node)
       };
     }
     for (const child of node.childNodes || []) {
@@ -709,7 +724,7 @@ function findMimePart(structure, preferred) {
 function listAttachments(structure, list = []) {
   if (!structure) return list;
 
-  const type = (structure.type || '').toLowerCase();
+  const type = mimeType(structure);
   const disp = (structure.disposition || '').toLowerCase();
   const filename = structure.dispositionParameters?.filename || structure.parameters?.name;
   const cid = String(structure.id || '').replace(/^<|>$/g, '');
@@ -729,64 +744,17 @@ function listAttachments(structure, list = []) {
   return list;
 }
 
-// Detects bodies that were cached before transfer-encoding was decoded (raw
-// base64 or quoted-printable), so they can be re-fetched and repaired.
-function looksEncoded(value) {
-  if (!value) return false;
-  const str = String(value);
-  const compact = str.replace(/\s+/g, '');
-  if (compact.length < 200) return false;
-
-  if (!str.includes('<') && /^[A-Za-z0-9+/=]+$/.test(compact)) return true;
-
-  const qp = str.match(/=[0-9A-Fa-f]{2}/g);
-  if (qp && qp.length > 20 && !str.includes('<')) return true;
-
-  return false;
-}
-
-function decodeQuotedPrintable(buffer) {
-  const text = buffer.toString('latin1').replace(/=\r?\n/g, '');
-  const bytes = [];
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (ch === '=' && i + 2 < text.length) {
-      const hex = text.substr(i + 1, 2);
-      if (/^[0-9A-Fa-f]{2}$/.test(hex)) {
-        bytes.push(parseInt(hex, 16));
-        i += 2;
-        continue;
-      }
-    }
-    bytes.push(text.charCodeAt(i) & 0xff);
-  }
-  return Buffer.from(bytes);
-}
-
-// imapflow returns body parts with their raw Content-Transfer-Encoding intact,
-// so base64 / quoted-printable have to be undone before applying the charset.
-function decodeTransfer(buffer, encoding) {
-  const enc = (encoding || '').toLowerCase();
-  if (enc === 'base64') return Buffer.from(buffer.toString('ascii'), 'base64');
-  if (enc === 'quoted-printable') return decodeQuotedPrintable(buffer);
-  return buffer;
-}
-
-function decodeCharset(buffer, charset) {
-  const cs = (charset || 'utf-8').toLowerCase().replace(/['"]/g, '').trim();
-  if (cs && cs !== 'utf-8' && cs !== 'utf8' && cs !== 'us-ascii' && iconv.encodingExists(cs)) {
-    try { return iconv.decode(buffer, cs); } catch {}
-  }
-  return buffer.toString('utf8');
-}
-
-function decodePart(buffer, charset, encoding) {
-  if (!buffer) return '';
+async function loadPart(client, uid, partInfo) {
+  if (!partInfo?.part) return '';
   try {
-    return decodeCharset(decodeTransfer(buffer, encoding), charset);
-  } catch {
-    return buffer.toString('utf8');
-  }
+    const downloaded = await downloadPart(client, uid, partInfo.part);
+    const decoded = decodeBody(downloaded, partInfo.charset, partInfo.encoding);
+    if (decoded && !looksEncoded(decoded)) return decoded;
+  } catch {}
+
+  const fetched = await client.fetchOne(uid, { uid: true, bodyParts: [partInfo.part] }, { uid: true });
+  const buffer = fetched?.bodyParts?.get(partInfo.part);
+  return decodeBody(buffer, partInfo.charset, partInfo.encoding);
 }
 
 async function loadMessageBody(client, uid) {
@@ -801,28 +769,28 @@ async function loadMessageBody(client, uid) {
 
   const htmlPart = findMimePart(info.bodyStructure, 'text/html');
   const textPart = findMimePart(info.bodyStructure, 'text/plain');
-  const parts = [...new Set([htmlPart?.part, textPart?.part].filter(Boolean))];
 
-  let html = '';
-  let text = '';
+  let html = htmlPart ? await loadPart(client, uid, htmlPart) : '';
+  let text = textPart ? await loadPart(client, uid, textPart) : '';
 
-  if (parts.length) {
-    const fetched = await client.fetchOne(uid, { uid: true, bodyParts: parts }, { uid: true });
-    const bodyParts = fetched?.bodyParts;
-    if (htmlPart && bodyParts?.get(htmlPart.part)) {
-      html = decodePart(bodyParts.get(htmlPart.part), htmlPart.charset, htmlPart.encoding);
-    }
-    if (textPart && bodyParts?.get(textPart.part)) {
-      text = decodePart(bodyParts.get(textPart.part), textPart.charset, textPart.encoding);
-    }
+  if (looksEncoded(html) || looksEncoded(text) || (!html && !text)) {
+    try {
+      const raw = await downloadPart(client, uid);
+      const parsed = await simpleParser(raw);
+      html = repairEncodedText(parsed.html || html);
+      text = repairEncodedText(parsed.text || text);
+    } catch {}
   }
+
+  html = repairEncodedText(html);
+  text = repairEncodedText(text);
 
   return {
     html,
     text,
     attachments: listAttachments(info.bodyStructure),
     messageId: info.envelope?.messageId || null,
-    subject: info.envelope?.subject || '',
+    subject: decodeMimeWords(info.envelope?.subject || ''),
     from: info.envelope?.from?.[0] || {},
     to: info.envelope?.to || [],
     cc: info.envelope?.cc || [],

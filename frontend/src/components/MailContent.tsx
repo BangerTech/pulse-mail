@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useStore, msgKey } from '../store';
 import { Icon } from './Icon';
-import { format } from 'date-fns';
+import { format, isToday, isYesterday } from 'date-fns';
 import { de } from 'date-fns/locale';
 import '../styles/mailcontent.css';
 
@@ -9,6 +9,25 @@ interface MailContentProps {
   onArchive: (keys?: string[]) => void;
   onDelete: (keys?: string[]) => void;
   onToggleFlag: (keys?: string[], flagged?: boolean) => void;
+  variant?: 'preview' | 'full';
+  onExpand?: () => void;
+  onClose?: () => void;
+}
+
+function looksLikeHtml(value: string) {
+  return /<(html|head|body|div|p|table|span|br|img|meta)\b/i.test(value);
+}
+
+function decodeMaybeBase64(value: string) {
+  if (!value) return '';
+  const compact = value.replace(/\s+/g, '');
+  if (compact.length >= 60 && /^[A-Za-z0-9+/]+=*$/.test(compact) && !value.includes('<')) {
+    try {
+      const decoded = new TextDecoder().decode(Uint8Array.from(atob(compact), c => c.charCodeAt(0)));
+      if (decoded.includes('<') || /[äöüÄÖÜß]/.test(decoded)) return decoded;
+    } catch {}
+  }
+  return value;
 }
 
 function formatSize(bytes: number) {
@@ -22,7 +41,39 @@ function addressList(list: { name?: string; address?: string }[] = []) {
   return list.map(a => a.name || a.address).filter(Boolean).join(', ');
 }
 
-export default function MailContent({ onArchive, onDelete, onToggleFlag }: MailContentProps) {
+function getInitials(name?: string, address?: string) {
+  const source = (name || address || '?').trim();
+  const parts = source.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return source.charAt(0).toUpperCase();
+}
+
+const AVATAR_COLORS = ['#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#007AFF', '#5856D6', '#AF52DE', '#FF2D55'];
+
+function getAvatarColor(address?: string) {
+  if (!address) return '#8E8E93';
+  let hash = 0;
+  for (let i = 0; i < address.length; i++) {
+    hash = address.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function formatHeaderDate(dateStr?: string, detailed = false) {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return '';
+  if (detailed) {
+    return format(date, "EEEE, d. MMMM yyyy · HH:mm", { locale: de });
+  }
+  if (isToday(date)) return format(date, "'Heute,' HH:mm", { locale: de });
+  if (isYesterday(date)) return format(date, "'Gestern,' HH:mm", { locale: de });
+  return format(date, 'd. MMM yyyy · HH:mm', { locale: de });
+}
+
+export default function MailContent({
+  onArchive, onDelete, onToggleFlag, variant = 'preview', onExpand, onClose
+}: MailContentProps) {
   const {
     selectedMessage, selectedAccount, selectedFolder, composeFont, theme, openCompose, accounts
   } = useStore();
@@ -30,15 +81,30 @@ export default function MailContent({ onArchive, onDelete, onToggleFlag }: MailC
   const isDark = theme === 'dark' ||
     (theme === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
+  const htmlSource = useMemo(() => {
+    if (!selectedMessage) return '';
+    const htmlCandidate = decodeMaybeBase64(selectedMessage.html || '');
+    const textCandidate = decodeMaybeBase64(selectedMessage.text || '');
+    if (looksLikeHtml(htmlCandidate)) return htmlCandidate;
+    if (looksLikeHtml(textCandidate)) return textCandidate;
+    return htmlCandidate;
+  }, [selectedMessage]);
+
+  const plainText = useMemo(() => {
+    if (!selectedMessage) return '';
+    const text = decodeMaybeBase64(selectedMessage.text || '');
+    return looksLikeHtml(text) ? '' : text;
+  }, [selectedMessage]);
+
   // Inline images arrive as cid: references which the iframe cannot resolve, so
   // they are swapped for the attachment endpoint before rendering.
   const html = useMemo(() => {
     const accountId = selectedMessage?.accountId ?? selectedAccount?.id;
     const folder = selectedMessage?.folder || selectedFolder;
-    if (!selectedMessage?.html || !accountId) return selectedMessage?.html || '';
+    if (!htmlSource || !accountId || !selectedMessage) return htmlSource;
 
     const normalize = (cid?: string) => (cid || '').replace(/^<|>$/g, '').trim().toLowerCase();
-    let output = selectedMessage.html;
+    let output = htmlSource;
     for (const att of selectedMessage.attachments || []) {
       if (!att.cid) continue;
       const cid = normalize(att.cid);
@@ -50,16 +116,17 @@ export default function MailContent({ onArchive, onDelete, onToggleFlag }: MailC
       );
     }
 
+    const pad = variant === 'preview' ? 18 : 28;
     const style = `<style>
       :root { color-scheme: ${isDark ? 'dark' : 'light'}; }
       body {
         margin: 0;
-        padding: 24px;
+        padding: ${pad}px;
         font-family: ${composeFont.family};
         font-size: ${composeFont.size}px;
-        line-height: 1.6;
+        line-height: 1.65;
         color: ${isDark ? '#f5f5f7' : '#1d1d1f'};
-        background: ${isDark ? '#141416' : '#ffffff'};
+        background: ${isDark ? '#1a1b1f' : '#ffffff'};
         word-wrap: break-word;
       }
       img { max-width: 100%; height: auto; }
@@ -75,7 +142,7 @@ export default function MailContent({ onArchive, onDelete, onToggleFlag }: MailC
     </style>`;
 
     return style + output;
-  }, [selectedMessage, selectedAccount, selectedFolder, composeFont, isDark]);
+  }, [htmlSource, selectedMessage, selectedAccount, selectedFolder, composeFont, isDark, variant]);
 
   if (!selectedMessage) {
     return (
@@ -84,7 +151,7 @@ export default function MailContent({ onArchive, onDelete, onToggleFlag }: MailC
           <Icon name="envelope" size={44} strokeWidth={1} />
           <p>Keine E-Mail ausgewählt</p>
           <span className="mailcontent-placeholder-hint">
-            Drücke <kbd>⌘K</kbd> für alle Befehle
+            Einfach klicken zum Vorschau, Doppelklick öffnet die Mail
           </span>
         </div>
       </div>
@@ -111,32 +178,46 @@ export default function MailContent({ onArchive, onDelete, onToggleFlag }: MailC
   const fileAttachments = realAttachments.filter(a => !isImage(a.contentType));
 
   return (
-    <div className="mailcontent">
+    <div className={`mailcontent ${variant}`}>
       <div className="mailcontent-header">
-        <div className="mailcontent-actions">
-          <button className="action-btn" onClick={() => openCompose('reply', selectedMessage)} title="Antworten (R)">
-            <Icon name="reply" />
-          </button>
-          <button className="action-btn" onClick={() => openCompose('replyAll', selectedMessage)} title="Allen antworten (A)">
-            <Icon name="replyAll" />
-          </button>
-          <button className="action-btn" onClick={() => openCompose('forward', selectedMessage)} title="Weiterleiten (F)">
-            <Icon name="forward" />
-          </button>
-          <span className="action-divider" />
-          <button className="action-btn" onClick={() => onArchive(keys)} title="Archivieren (E)">
-            <Icon name="archive" />
-          </button>
-          <button
-            className={`action-btn ${isFlagged ? 'flagged' : ''}`}
-            onClick={() => onToggleFlag(keys, !isFlagged)}
-            title="Markieren (L)"
-          >
-            <Icon name="flag" filled={isFlagged} />
-          </button>
-          <button className="action-btn delete-btn" onClick={() => onDelete(keys)} title="Löschen">
-            <Icon name="trash" />
-          </button>
+        <div className="mailcontent-toolbar">
+          {variant === 'full' && onClose && (
+            <button className="action-btn" onClick={onClose} title="Schließen">
+              <Icon name="close" />
+            </button>
+          )}
+          <div className="mailcontent-toolbar-group">
+            <button className="action-btn" onClick={() => openCompose('reply', selectedMessage)} title="Antworten (R)">
+              <Icon name="reply" />
+            </button>
+            <button className="action-btn" onClick={() => openCompose('replyAll', selectedMessage)} title="Allen antworten (A)">
+              <Icon name="replyAll" />
+            </button>
+            <button className="action-btn" onClick={() => openCompose('forward', selectedMessage)} title="Weiterleiten (F)">
+              <Icon name="forward" />
+            </button>
+          </div>
+          <span className="mailcontent-toolbar-spacer" />
+          <div className="mailcontent-toolbar-group">
+            <button className="action-btn" onClick={() => onArchive(keys)} title="Archivieren (E)">
+              <Icon name="archive" />
+            </button>
+            <button
+              className={`action-btn ${isFlagged ? 'flagged' : ''}`}
+              onClick={() => onToggleFlag(keys, !isFlagged)}
+              title="Markieren (L)"
+            >
+              <Icon name="flag" filled={isFlagged} />
+            </button>
+            <button className="action-btn delete-btn" onClick={() => onDelete(keys)} title="Löschen">
+              <Icon name="trash" />
+            </button>
+          </div>
+          {variant === 'preview' && onExpand && (
+            <button className="action-btn expand-btn" onClick={onExpand} title="Vollständig öffnen">
+              <Icon name="envelopeOpen" />
+            </button>
+          )}
         </div>
 
         <h1 className="mailcontent-subject">
@@ -144,33 +225,58 @@ export default function MailContent({ onArchive, onDelete, onToggleFlag }: MailC
           {isFlagged && <Icon name="flag" size={16} filled className="subject-flag" />}
         </h1>
 
-        <div className="mailcontent-meta">
-          <div className="mailcontent-from">
-            <strong>{selectedMessage.from.name || selectedMessage.from.address}</strong>
-            {selectedMessage.from.name && (
-              <span className="mailcontent-email"> &lt;{selectedMessage.from.address}&gt;</span>
-            )}
+        <div className="mailcontent-person">
+          <div
+            className="mailcontent-avatar"
+            style={{ background: getAvatarColor(selectedMessage.from.address) }}
+          >
+            {getInitials(selectedMessage.from.name, selectedMessage.from.address)}
           </div>
-          {selectedMessage.to?.length > 0 && (
-            <div>An: {addressList(selectedMessage.to)}</div>
-          )}
-          {selectedMessage.cc?.length > 0 && (
-            <div>CC: {addressList(selectedMessage.cc)}</div>
-          )}
-          <div className="mailcontent-date">
-            {selectedMessage.date
-              ? format(new Date(selectedMessage.date), "EEEE, d. MMMM yyyy 'um' HH:mm", { locale: de })
-              : ''}
-          </div>
-          {accounts.length > 1 && mailAccountId && (
-            <div className="mailcontent-mailbox">
-              <span
-                className="mailcontent-mailbox-dot"
-                style={{ background: accounts.find(a => a.id === mailAccountId)?.color || 'var(--accent-color)' }}
-              />
-              {accounts.find(a => a.id === mailAccountId)?.email}
+          <div className="mailcontent-person-body">
+            <div className="mailcontent-person-top">
+              <span className="mailcontent-person-name">
+                {selectedMessage.from.name || selectedMessage.from.address || 'Unbekannt'}
+              </span>
+              <span className="mailcontent-person-date">
+                {formatHeaderDate(selectedMessage.date, variant === 'full')}
+              </span>
             </div>
-          )}
+            {selectedMessage.from.name && selectedMessage.from.address && (
+              <div className="mailcontent-person-email">{selectedMessage.from.address}</div>
+            )}
+            <div className="mailcontent-person-route">
+              {selectedMessage.to?.length > 0 && (
+                <span>An {addressList(selectedMessage.to)}</span>
+              )}
+              {selectedMessage.cc?.length > 0 && (
+                <span>CC {addressList(selectedMessage.cc)}</span>
+              )}
+              {accounts.length > 1 && mailAccountId && (
+                <span className="mailcontent-mailbox">
+                  <span
+                    className="mailcontent-mailbox-dot"
+                    style={{ background: accounts.find(a => a.id === mailAccountId)?.color || 'var(--accent-color)' }}
+                  />
+                  {accounts.find(a => a.id === mailAccountId)?.email}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="mailcontent-pills">
+          <button className="mail-pill primary" onClick={() => openCompose('reply', selectedMessage)}>
+            <Icon name="reply" size={14} />
+            Antworten
+          </button>
+          <button className="mail-pill" onClick={() => openCompose('replyAll', selectedMessage)}>
+            <Icon name="replyAll" size={14} />
+            Allen
+          </button>
+          <button className="mail-pill" onClick={() => openCompose('forward', selectedMessage)}>
+            <Icon name="forward" size={14} />
+            Weiterleiten
+          </button>
         </div>
       </div>
 
@@ -191,19 +297,19 @@ export default function MailContent({ onArchive, onDelete, onToggleFlag }: MailC
       )}
 
       <div className="mailcontent-body">
-        {selectedMessage.bodyLoading && !selectedMessage.html ? (
+        {selectedMessage.bodyLoading && !htmlSource ? (
           <div className="mail-loading">
-            {selectedMessage.text ? (
+            {plainText ? (
               <pre
                 className="mail-text"
                 style={{ fontFamily: composeFont.family, fontSize: composeFont.size }}
               >
-                {selectedMessage.text}
+                {plainText}
               </pre>
             ) : null}
             <div className="mail-loading-bar" />
           </div>
-        ) : selectedMessage.html ? (
+        ) : htmlSource ? (
           <iframe
             srcDoc={html}
             className="mail-iframe"
@@ -215,10 +321,16 @@ export default function MailContent({ onArchive, onDelete, onToggleFlag }: MailC
             className="mail-text"
             style={{ fontFamily: composeFont.family, fontSize: composeFont.size }}
           >
-            {selectedMessage.text}
+            {plainText}
           </pre>
         )}
       </div>
+
+      {variant === 'preview' && onExpand && (
+        <button className="mailcontent-open-hint" onClick={onExpand}>
+          Doppelklick oder hier klicken, um die Mail vollständig zu öffnen
+        </button>
+      )}
 
       {imageAttachments.length > 0 && (
         <div className="mailcontent-images">

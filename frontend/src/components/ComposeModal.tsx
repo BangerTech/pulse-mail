@@ -14,7 +14,7 @@ import { FontSize } from '../extensions/FontSize';
 import '../styles/compose.css';
 
 const TITLES: Record<ComposeMode, string> = {
-  new: 'Neue E-Mail',
+  new: 'Neue Nachricht',
   reply: 'Antworten',
   replyAll: 'Allen antworten',
   forward: 'Weiterleiten'

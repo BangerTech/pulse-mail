@@ -79,7 +79,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           onNavigate?.();
         }}
       >
-        <Icon name={iconFor(folder)} size={15} className="sidebar-item-icon" />
+        <Icon name={iconFor(folder)} size={15} className={`sidebar-item-icon tile ${iconFor(folder)}`} />
         <span className="sidebar-item-label">{displayName(folder)}</span>
         {!!folder.unread && <span className="sidebar-badge">{folder.unread}</span>}
       </button>
@@ -133,7 +133,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                 onNavigate?.();
               }}
             >
-              <Icon name="inbox" size={16} className="sidebar-item-icon" />
+              <Icon name="inbox" size={16} className="sidebar-item-icon tile inbox" />
               <span className="sidebar-item-label">Alle Eingänge</span>
               {!!unifiedUnread && <span className="sidebar-badge">{unifiedUnread}</span>}
             </button>

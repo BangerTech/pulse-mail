@@ -41,6 +41,7 @@ interface MailListProps {
   onArchive: (keys: string[]) => void;
   onDelete: (keys: string[]) => void;
   onToggleFlag: (keys: string[], flagged?: boolean) => void;
+  onOpenFull?: (key: string) => void;
   swipeEnabled?: boolean;
 }
 
@@ -72,7 +73,8 @@ function MailRow({
   onClick,
   onArchive,
   onDelete,
-  onToggleFlag
+  onToggleFlag,
+  onOpenFull
 }: {
   row: Row;
   index: number;
@@ -82,6 +84,7 @@ function MailRow({
   onArchive: (keys: string[]) => void;
   onDelete: (keys: string[]) => void;
   onToggleFlag: (keys: string[], flagged?: boolean) => void;
+  onOpenFull?: (key: string) => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const startRef = useRef<{ x: number; y: number; lock?: 'h' | 'v' } | null>(null);
@@ -184,6 +187,11 @@ function MailRow({
         className={`maillist-item ${isActive ? 'active' : ''} ${row.unread ? 'unread' : ''} ${snapping ? 'swipe-snap' : ''}`}
         style={dx ? { transform: `translateX(${dx}px)` } : undefined}
         onClick={handleClick}
+        onDoubleClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onOpenFull?.(row.keys[row.keys.length - 1]);
+        }}
         role="button"
         tabIndex={0}
       >
@@ -251,7 +259,7 @@ function MailRow({
   );
 }
 
-export default function MailList({ onOpen, onLoadMore, onArchive, onDelete, onToggleFlag, swipeEnabled = false }: MailListProps) {
+export default function MailList({ onOpen, onLoadMore, onArchive, onDelete, onToggleFlag, onOpenFull, swipeEnabled = false }: MailListProps) {
   const {
     messages, threads, threadingEnabled, density, total,
     selectedMessage, selectedKeys, loading, loadingMore, unifiedView, accounts,
@@ -364,6 +372,7 @@ export default function MailList({ onOpen, onLoadMore, onArchive, onDelete, onTo
             onArchive={onArchive}
             onDelete={onDelete}
             onToggleFlag={onToggleFlag}
+            onOpenFull={onOpenFull}
           />
         );
       })}
