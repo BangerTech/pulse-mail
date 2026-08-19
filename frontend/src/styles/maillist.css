@@ -1,0 +1,248 @@
+.maillist {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  background: var(--bg-maillist);
+}
+
+.maillist-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-tertiary);
+  font-size: 14px;
+}
+
+.maillist-state.small {
+  height: auto;
+  padding: 16px;
+  font-size: 12px;
+}
+
+.maillist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px 11px 6px;
+  border-bottom: 0.5px solid var(--border-color);
+  text-align: left;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.maillist-item:hover {
+  background: var(--row-hover);
+}
+
+.maillist-item.active {
+  background: var(--selection-bg);
+}
+
+.maillist-item.active .maillist-from,
+.maillist-item.active .maillist-subject,
+.maillist-item.active .maillist-snippet,
+.maillist-item.active .maillist-date,
+.maillist-item.active .maillist-count,
+.maillist-item.active .maillist-flag,
+.maillist-item.active .maillist-attachment {
+  color: var(--selection-text);
+}
+
+.maillist-item.active .maillist-count {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.maillist-item.active .maillist-unread-dot {
+  background: var(--selection-text);
+}
+
+.maillist-indicator {
+  width: 10px;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  padding-top: 14px;
+}
+
+.maillist-unread-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--unread-dot);
+}
+
+.maillist-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-top: 2px;
+  position: relative;
+}
+
+.maillist-account-dot {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-maillist);
+  box-sizing: border-box;
+}
+
+.maillist-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.maillist-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.maillist-from {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.maillist-item.unread .maillist-from {
+  font-weight: 600;
+}
+
+.maillist-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--surface-tertiary);
+  padding: 0 6px;
+  border-radius: 9px;
+  flex-shrink: 0;
+}
+
+.maillist-date {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.maillist-item.unread .maillist-date {
+  color: var(--accent-color);
+  font-weight: 500;
+}
+
+.maillist-subject {
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.maillist-item.unread .maillist-subject {
+  font-weight: 500;
+}
+
+.maillist-flag {
+  color: var(--flagged);
+  flex-shrink: 0;
+}
+
+.maillist-attachment {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.maillist-snippet {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.maillist-actions {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-chip);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+.maillist-item:hover .maillist-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.maillist-action {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.maillist-action:hover {
+  background: var(--hover-bg);
+  color: var(--text-primary);
+}
+
+.maillist-action.destructive:hover {
+  color: var(--destructive);
+}
+
+.maillist.compact .maillist-item {
+  padding: 7px 14px 7px 6px;
+  gap: 8px;
+}
+
+.maillist.compact .maillist-avatar {
+  width: 26px;
+  height: 26px;
+  font-size: 11px;
+}
+
+.maillist.compact .maillist-snippet {
+  display: none;
+}
+
+.maillist.compact .maillist-indicator {
+  padding-top: 9px;
+}

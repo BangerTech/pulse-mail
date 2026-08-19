@@ -1,0 +1,15 @@
+node_modules/
+dist/
+data/
+*.db
+*.db-shm
+*.db-wal
+backend/uploads/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.idea/
+.vscode/
+*.swp

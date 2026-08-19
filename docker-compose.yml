@@ -1,0 +1,24 @@
+name: pulse-mail
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./data:/app/data
+      - ./backend/uploads:/app/uploads
+    environment:
+      - NODE_ENV=production
+      - DB_PATH=/app/data/mail.db
+      - PORT=3001
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-default-dev-key-change-in-prod!!}
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

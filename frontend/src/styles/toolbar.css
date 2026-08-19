@@ -1,0 +1,255 @@
+.toolbar {
+  height: var(--toolbar-height);
+  display: flex;
+  align-items: center;
+  padding: 0 12px 0 8px;
+  background: var(--bg-toolbar);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 0.5px solid var(--border-color);
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  transition: width 0.2s ease;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.toolbar-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+
+.toolbar-btn:hover:not(:disabled) {
+  background: var(--hover-bg);
+  color: var(--text-primary);
+}
+
+.toolbar-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.toolbar-btn:disabled {
+  opacity: 0.3;
+}
+
+.toolbar-btn.destructive:hover:not(:disabled) {
+  color: var(--destructive);
+}
+
+.toolbar-btn.flagged {
+  color: var(--flagged);
+}
+
+.toolbar-btn.spinning svg {
+  animation: toolbar-spin 0.8s linear infinite;
+}
+
+@keyframes toolbar-spin {
+  to { transform: rotate(360deg); }
+}
+
+.compose-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: var(--accent-color);
+  color: var(--text-inverse);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+
+.compose-button:hover {
+  opacity: 0.9;
+}
+
+.compose-button:active {
+  transform: scale(0.97);
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-color);
+  margin: 0 6px;
+}
+
+.search-bar {
+  position: relative;
+  width: 240px;
+}
+
+.search-bar input {
+  width: 100%;
+  height: 30px;
+  padding: 0 28px 0 32px;
+  background: var(--surface-tertiary);
+  border-radius: 8px;
+  font-size: 13px;
+  transition: box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.search-bar input:focus {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.search-bar input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.search-icon {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.search-clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--text-tertiary);
+}
+
+.search-clear:hover {
+  background: var(--hover-bg);
+  color: var(--text-primary);
+}
+
+.account-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: var(--text-inverse);
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.1s ease;
+}
+
+.account-avatar:hover {
+  transform: scale(1.06);
+}
+
+.toolbar-move {
+  position: relative;
+}
+
+.toolbar-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 180px;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--bg-elevated);
+  border: 0.5px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: var(--shadow-modal);
+  padding: 4px;
+  z-index: 50;
+}
+
+.toolbar-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 7px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.toolbar-menu-item:hover {
+  background: var(--accent-soft);
+  color: var(--accent-color);
+}
+
+@media (max-width: 1100px) {
+  .search-bar {
+    width: 160px;
+  }
+}
+
+.mobile-toolbar {
+  padding: 0 8px;
+  padding-top: 0;
+}
+
+.mobile-toolbar .toolbar-left,
+.mobile-toolbar .toolbar-right {
+  width: auto !important;
+  flex: 0 0 auto;
+}
+
+.mobile-toolbar .toolbar-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 8px;
+}
+
+.mobile-toolbar .search-bar {
+  width: min(46vw, 180px);
+}
+
+.mobile-toolbar .search-bar input {
+  height: 32px;
+  font-size: 16px;
+}
+
+@media (max-width: 859px) {
+  .toolbar {
+    height: 48px;
+  }
+
+  .maillist-actions {
+    display: none;
+  }
+}
