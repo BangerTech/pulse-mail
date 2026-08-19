@@ -24,6 +24,8 @@ export interface SearchFilters {
 export const api = {
   getAccounts: () => request('/accounts'),
   addAccount: (data: any) => request('/accounts', { method: 'POST', body: JSON.stringify(data) }),
+  updateAccount: (id: number, data: any) =>
+    request(`/accounts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteAccount: (id: number) => request(`/accounts/${id}`, { method: 'DELETE' }),
   getFolders: (accountId: number) => request(`/accounts/${accountId}/folders`),
 

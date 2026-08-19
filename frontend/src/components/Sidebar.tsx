@@ -122,10 +122,6 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="sidebar">
-      <div className="sidebar-brand">
-        <img src="/logo.png" alt="Pulse Mail" />
-      </div>
-
       <div className="sidebar-scroll">
         {accounts.length > 1 && (
           <div className="sidebar-section">

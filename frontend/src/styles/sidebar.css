@@ -13,15 +13,6 @@
   padding: 8px;
 }
 
-.sidebar-brand {
-  padding: 12px 14px 4px;
-  flex-shrink: 0;
-}
-
-[data-theme="dark"] .sidebar-brand img {
-  mix-blend-mode: screen;
-}
-
 .sidebar-account-group {
   margin-bottom: 4px;
 }

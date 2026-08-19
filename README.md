@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="frontend/public/logo.png" alt="Pulse Mail" width="380">
+</p>
+
 # Pulse Mail
 
 Self-hosted web mail client with an Apple Mail-style layout. IMAP/SMTP, unified inbox, signatures, and a local SQLite cache.
@@ -6,6 +10,7 @@ Self-hosted web mail client with an Apple Mail-style layout. IMAP/SMTP, unified 
 
 - Three-pane layout (sidebar, message list, reading pane)
 - Multiple accounts with a unified inbox and collapsible mailboxes
+- Account colors, names and server settings can be edited later
 - IMAP IDLE + WebSocket for new mail
 - Rich-text signatures with resizable images
 - Send and receive attachments, inline image preview

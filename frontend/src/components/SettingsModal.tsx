@@ -163,24 +163,115 @@ function AppearanceTab() {
   );
 }
 
-function AccountsTab() {
-  const { accounts, setAccounts, setSelectedAccount } = useStore();
-  const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', imap_host: '', imap_port: 993, smtp_host: '', smtp_port: 587, username: '', password: '', color: '#007AFF' });
-  const [error, setError] = useState('');
+const ACCOUNT_COLORS = [
+  '#007AFF', '#34C759', '#FF9500', '#FF3B30',
+  '#AF52DE', '#5856D6', '#FF2D55', '#00C7BE',
+  '#5AC8FA', '#FFCC00'
+];
 
-  async function handleAdd() {
+function nextFreeColor(used: string[]) {
+  const taken = new Set(used.map(c => (c || '').toLowerCase()));
+  return ACCOUNT_COLORS.find(c => !taken.has(c.toLowerCase())) || ACCOUNT_COLORS[0];
+}
+
+function ColorSwatches({
+  value,
+  onChange
+}: {
+  value: string;
+  onChange: (color: string) => void;
+}) {
+  return (
+    <div className="color-swatches">
+      {ACCOUNT_COLORS.map(color => (
+        <button
+          key={color}
+          type="button"
+          className={`color-swatch ${value?.toLowerCase() === color.toLowerCase() ? 'selected' : ''}`}
+          style={{ background: color }}
+          title={color}
+          onClick={() => onChange(color)}
+        />
+      ))}
+      <label className="color-swatch custom" title="Eigene Farbe">
+        <input
+          type="color"
+          value={value || '#007AFF'}
+          onChange={e => onChange(e.target.value)}
+        />
+      </label>
+    </div>
+  );
+}
+
+function emptyAccountForm(color: string) {
+  return {
+    name: '', email: '', imap_host: '', imap_port: 993, smtp_host: '', smtp_port: 587,
+    username: '', password: '', color
+  };
+}
+
+function AccountsTab() {
+  const { accounts, setAccounts, setSelectedAccount, selectedAccount } = useStore();
+  const [mode, setMode] = useState<'idle' | 'add' | 'edit'>('idle');
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [form, setForm] = useState(emptyAccountForm('#007AFF'));
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function refreshAccounts() {
+    const accs = await api.getAccounts();
+    setAccounts(accs);
+    if (selectedAccount) {
+      const next = accs.find(a => a.id === selectedAccount.id);
+      if (next) setSelectedAccount(next);
+    }
+    return accs;
+  }
+
+  function startAdd() {
     setError('');
+    setEditingId(null);
+    setForm(emptyAccountForm(nextFreeColor(accounts.map(a => a.color))));
+    setMode('add');
+  }
+
+  function startEdit(acc: typeof accounts[number]) {
+    setError('');
+    setEditingId(acc.id);
+    setForm({
+      name: acc.name || '',
+      email: acc.email || '',
+      imap_host: acc.imap_host || '',
+      imap_port: acc.imap_port || 993,
+      smtp_host: acc.smtp_host || '',
+      smtp_port: acc.smtp_port || 587,
+      username: acc.username || '',
+      password: '',
+      color: acc.color || '#007AFF'
+    });
+    setMode('edit');
+  }
+
+  async function handleSave() {
+    setError('');
+    setSaving(true);
     try {
-      await api.addAccount(form);
-      const accs = await api.getAccounts();
-      setAccounts(accs);
-      if (accs.length === 1) setSelectedAccount(accs[0]);
-      setAdding(false);
-      setForm({ name: '', email: '', imap_host: '', imap_port: 993, smtp_host: '', smtp_port: 587, username: '', password: '', color: '#007AFF' });
+      if (mode === 'edit' && editingId) {
+        const payload: any = { ...form };
+        if (!payload.password) delete payload.password;
+        await api.updateAccount(editingId, payload);
+      } else {
+        await api.addAccount(form);
+      }
+      const accs = await refreshAccounts();
+      if (mode === 'add' && accs.length === 1) setSelectedAccount(accs[0]);
+      setMode('idle');
+      setEditingId(null);
     } catch (err: any) {
       setError(err.message);
     }
+    setSaving(false);
   }
 
   async function handleDelete(id: number) {
@@ -189,27 +280,40 @@ function AccountsTab() {
     const accs = await api.getAccounts();
     setAccounts(accs);
     setSelectedAccount(accs[0] || null);
+    if (editingId === id) {
+      setMode('idle');
+      setEditingId(null);
+    }
+  }
+
+  async function handleColor(id: number, color: string) {
+    await api.updateAccount(id, { color });
+    await refreshAccounts();
   }
 
   return (
     <div className="settings-section">
       <div className="accounts-list">
         {accounts.map(acc => (
-          <div key={acc.id} className="account-item">
-            <span className="account-dot" style={{ background: acc.color }}></span>
+          <div key={acc.id} className={`account-item ${editingId === acc.id ? 'editing' : ''}`}>
             <div className="account-info">
               <span className="account-name">{acc.name}</span>
               <span className="account-email">{acc.email}</span>
+              <ColorSwatches value={acc.color} onChange={color => handleColor(acc.id, color)} />
             </div>
-            <button className="account-delete" onClick={() => handleDelete(acc.id)}>Entfernen</button>
+            <div className="account-actions">
+              <button className="account-edit" onClick={() => startEdit(acc)}>Bearbeiten</button>
+              <button className="account-delete" onClick={() => handleDelete(acc.id)}>Entfernen</button>
+            </div>
           </div>
         ))}
       </div>
 
-      {!adding ? (
-        <button className="add-btn" onClick={() => setAdding(true)}>+ Account hinzufügen</button>
+      {mode === 'idle' ? (
+        <button className="add-btn" onClick={startAdd}>+ Account hinzufügen</button>
       ) : (
         <div className="add-form">
+          <h3 className="form-title">{mode === 'edit' ? 'Account bearbeiten' : 'Account hinzufügen'}</h3>
           <input placeholder="Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
           <input placeholder="E-Mail" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
           <input placeholder="IMAP Host" value={form.imap_host} onChange={e => setForm({ ...form, imap_host: e.target.value })} />
@@ -217,11 +321,22 @@ function AccountsTab() {
           <input placeholder="SMTP Host" value={form.smtp_host} onChange={e => setForm({ ...form, smtp_host: e.target.value })} />
           <input placeholder="SMTP Port" type="number" value={form.smtp_port} onChange={e => setForm({ ...form, smtp_port: Number(e.target.value) })} />
           <input placeholder="Benutzername" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} />
-          <input placeholder="Passwort" type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
+          <input
+            placeholder={mode === 'edit' ? 'Passwort (leer lassen = unverändert)' : 'Passwort'}
+            type="password"
+            value={form.password}
+            onChange={e => setForm({ ...form, password: e.target.value })}
+          />
+          <div className="form-color">
+            <span>Farbe</span>
+            <ColorSwatches value={form.color} onChange={color => setForm({ ...form, color })} />
+          </div>
           {error && <div className="form-error">{error}</div>}
           <div className="form-actions">
-            <button className="cancel-btn" onClick={() => setAdding(false)}>Abbrechen</button>
-            <button className="save-btn" onClick={handleAdd}>Verbinden</button>
+            <button className="cancel-btn" onClick={() => { setMode('idle'); setEditingId(null); }}>Abbrechen</button>
+            <button className="save-btn" onClick={handleSave} disabled={saving}>
+              {saving ? 'Speichern...' : mode === 'edit' ? 'Speichern' : 'Verbinden'}
+            </button>
           </div>
         </div>
       )}

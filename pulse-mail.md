@@ -71,7 +71,7 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 ## API Endpoints
 
 - `GET /api/accounts` - Alle Accounts
-- `POST /api/accounts` - Account hinzufügen
+- `PUT /api/accounts/:id` - Account bearbeiten (Name, Server, Farbe; Passwort optional)
 - `DELETE /api/accounts/:id` - Account löschen
 - `GET /api/accounts/:id/folders` - IMAP-Ordner inkl. Ungelesen-Zähler
 - `GET /api/mail/unified/inbox` - Zusammengeführter Posteingang aller Accounts
@@ -111,8 +111,11 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 ### Navigation
 - Bei mehreren Accounts: **Alle Eingänge** oben in der Sidebar (wie Apple Mail)
 - Jedes Postfach ist in der Sidebar ausklappbar und zeigt die eigenen Ordner
+- Accounts nachträglich bearbeitbar: Name, Server, Passwort, Farbe
+- Account-Farbe in den Einstellungen wählbar (Punkte in der Sidebar und Liste)
 - Einstellungen und Theme am unteren Rand der Sidebar
 - Ungelesen-Zähler als Badge an Ordnern, Accounts und Alle Eingänge
+- Account-Farbe in den Einstellungen wählbar (Punkte in der Sidebar und Liste)
 - Command-Palette mit Cmd/Ctrl+K
 - Dark Mode (System / Hell / Dunkel)
 
