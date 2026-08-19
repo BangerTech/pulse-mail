@@ -191,7 +191,19 @@ export default function MailContent({ onArchive, onDelete, onToggleFlag }: MailC
       )}
 
       <div className="mailcontent-body">
-        {selectedMessage.html ? (
+        {selectedMessage.bodyLoading && !selectedMessage.html ? (
+          <div className="mail-loading">
+            {selectedMessage.text ? (
+              <pre
+                className="mail-text"
+                style={{ fontFamily: composeFont.family, fontSize: composeFont.size }}
+              >
+                {selectedMessage.text}
+              </pre>
+            ) : null}
+            <div className="mail-loading-bar" />
+          </div>
+        ) : selectedMessage.html ? (
           <iframe
             srcDoc={html}
             className="mail-iframe"

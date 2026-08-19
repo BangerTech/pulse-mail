@@ -322,22 +322,44 @@ export default function App() {
   const openMessage = useCallback(async (key: string) => {
     const { accountId, uid } = parseKey(key);
     const state = useStore.getState();
-    const msg = state.messages.find(m => msgKey(m.accountId, m.uid) === key);
+    const msg = state.messages.find(m => msgKey(m.accountId, m.uid) === key)
+      || state.threads.flatMap(t => t.messages || []).find(m => msgKey(m.accountId, m.uid) === key)
+      || state.threads.find(t => msgKey(t.accountId, t.uid) === key);
     const folder = msg?.folder || (state.unifiedView ? 'INBOX' : state.selectedFolder);
     const accId = msg?.accountId || accountId || state.selectedAccount?.id;
     if (!accId) return;
 
     setSelectedKeys([key]);
+    setSelectedMessage({
+      uid,
+      accountId: accId,
+      folder,
+      subject: msg?.subject || '',
+      from: msg?.from || {},
+      to: (msg as any)?.to || [],
+      cc: (msg as any)?.cc || [],
+      date: msg?.date || '',
+      html: '',
+      text: msg?.snippet || '',
+      flags: msg?.flags || [],
+      attachments: [],
+      bodyLoading: true
+    });
 
     try {
       const detail = await api.getMessage(accId, uid, folder);
-      setSelectedMessage({ ...detail, accountId: detail.accountId ?? accId, folder: detail.folder ?? folder });
+      const current = useStore.getState().selectedMessage;
+      if (current && current.uid === uid && (current.accountId ?? accId) === accId) {
+        setSelectedMessage({ ...detail, accountId: detail.accountId ?? accId, folder: detail.folder ?? folder, bodyLoading: false });
+      }
 
       if (!detail.flags?.includes('\\Seen')) {
-        await api.setFlags(accId, [uid], folder, ['\\Seen'], 'add');
-        loadFolders();
+        api.setFlags(accId, [uid], folder, ['\\Seen'], 'add').then(() => loadFolders()).catch(() => {});
       }
-    } catch {}
+    } catch {
+      const current = useStore.getState().selectedMessage;
+      if (current?.uid === uid) setSelectedMessage({ ...current, bodyLoading: false });
+    }
   }, [setSelectedMessage, setSelectedKeys]);
 
   const openSearchResult = useCallback(async (accountId: number, folder: string, uid: number) => {
@@ -720,6 +742,7 @@ export default function App() {
                 onArchive={handleArchive}
                 onDelete={handleDelete}
                 onToggleFlag={handleToggleFlag}
+                swipeEnabled={mobile}
               />
             )}
           </div>

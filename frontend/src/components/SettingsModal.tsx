@@ -127,6 +127,9 @@ function AppearanceTab() {
             <option value="off">Einzelne Mails</option>
           </select>
         </div>
+        <p className="appearance-hint">
+          Antworten zum selben Thema werden in einer Zeile gebündelt. Mails desselben Absenders mit anderem Betreff bleiben getrennt.
+        </p>
       </div>
 
       <div className="appearance-group">

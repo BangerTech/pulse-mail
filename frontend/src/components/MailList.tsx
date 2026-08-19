@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useState, useEffect } from 'react';
 import { useStore, msgKey, MailThread, MailMessage } from '../store';
 import { Icon } from './Icon';
 import { format, isToday, isYesterday, isThisYear } from 'date-fns';
@@ -41,6 +41,7 @@ interface MailListProps {
   onArchive: (keys: string[]) => void;
   onDelete: (keys: string[]) => void;
   onToggleFlag: (keys: string[], flagged?: boolean) => void;
+  swipeEnabled?: boolean;
 }
 
 interface Row {
@@ -60,7 +61,197 @@ interface Row {
   showAccount?: boolean;
 }
 
-export default function MailList({ onOpen, onLoadMore, onArchive, onDelete, onToggleFlag }: MailListProps) {
+const SWIPE_COMMIT = 112;
+const SWIPE_MAX = 168;
+
+function MailRow({
+  row,
+  index,
+  isActive,
+  swipeEnabled,
+  onClick,
+  onArchive,
+  onDelete,
+  onToggleFlag
+}: {
+  row: Row;
+  index: number;
+  isActive: boolean;
+  swipeEnabled: boolean;
+  onClick: (row: Row, index: number, e: React.MouseEvent) => void;
+  onArchive: (keys: string[]) => void;
+  onDelete: (keys: string[]) => void;
+  onToggleFlag: (keys: string[], flagged?: boolean) => void;
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const startRef = useRef<{ x: number; y: number; lock?: 'h' | 'v' } | null>(null);
+  const dxRef = useRef(0);
+  const swipedRef = useRef(false);
+  const [dx, setDx] = useState(0);
+  const [snapping, setSnapping] = useState(false);
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el || !swipeEnabled) return;
+    const blockScroll = (e: TouchEvent) => {
+      if (startRef.current?.lock === 'h') e.preventDefault();
+    };
+    el.addEventListener('touchmove', blockScroll, { passive: false });
+    return () => el.removeEventListener('touchmove', blockScroll);
+  }, [swipeEnabled]);
+
+  const setOffset = (value: number, snap = false) => {
+    dxRef.current = value;
+    setSnapping(snap);
+    setDx(value);
+  };
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (!swipeEnabled || e.pointerType === 'mouse') return;
+    startRef.current = { x: e.clientX, y: e.clientY };
+    swipedRef.current = false;
+    setSnapping(false);
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    const start = startRef.current;
+    if (!start) return;
+    const mx = e.clientX - start.x;
+    const my = e.clientY - start.y;
+    if (!start.lock) {
+      if (Math.abs(mx) < 10 && Math.abs(my) < 10) return;
+      start.lock = Math.abs(mx) > Math.abs(my) * 1.15 ? 'h' : 'v';
+      if (start.lock === 'v') return;
+      wrapRef.current?.setPointerCapture(e.pointerId);
+    }
+    if (start.lock !== 'h') return;
+    const next = Math.max(-SWIPE_MAX, Math.min(SWIPE_MAX, mx));
+    setOffset(next);
+    if (Math.abs(next) > 12) swipedRef.current = true;
+  };
+
+  const settle = () => {
+    const start = startRef.current;
+    startRef.current = null;
+    if (!start || start.lock !== 'h') return;
+    const dist = dxRef.current;
+    if (dist <= -SWIPE_COMMIT) {
+      setOffset(-Math.max(window.innerWidth, 400), true);
+      window.setTimeout(() => onDelete(row.keys), 180);
+      return;
+    }
+    if (dist >= SWIPE_COMMIT) {
+      setOffset(Math.max(window.innerWidth, 400), true);
+      window.setTimeout(() => onArchive(row.keys), 180);
+      return;
+    }
+    setOffset(0, true);
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (swipedRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      swipedRef.current = false;
+      return;
+    }
+    onClick(row, index, e);
+  };
+
+  return (
+    <div
+      ref={wrapRef}
+      className={`maillist-swipe ${dx < 0 ? 'reveal-delete' : ''} ${dx > 0 ? 'reveal-archive' : ''}`}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={settle}
+      onPointerCancel={settle}
+    >
+      {swipeEnabled && (
+        <div className="maillist-swipe-bg" aria-hidden>
+          <div className="maillist-swipe-action archive">
+            <Icon name="archive" size={18} />
+            <span>Archiv</span>
+          </div>
+          <div className="maillist-swipe-action delete">
+            <span>Löschen</span>
+            <Icon name="trash" size={18} />
+          </div>
+        </div>
+      )}
+
+      <div
+        className={`maillist-item ${isActive ? 'active' : ''} ${row.unread ? 'unread' : ''} ${snapping ? 'swipe-snap' : ''}`}
+        style={dx ? { transform: `translateX(${dx}px)` } : undefined}
+        onClick={handleClick}
+        role="button"
+        tabIndex={0}
+      >
+        <div className="maillist-indicator">
+          {row.unread && <span className="maillist-unread-dot" />}
+        </div>
+
+        <div
+          className="maillist-avatar"
+          style={{ background: getAvatarColor(row.from.address) }}
+          title={row.showAccount ? row.accountEmail : undefined}
+        >
+          {getInitials(row.from.name, row.from.address)}
+          {row.showAccount && (
+            <span
+              className="maillist-account-dot"
+              style={{ background: row.accountColor || 'var(--accent-color)' }}
+            />
+          )}
+        </div>
+
+        <div className="maillist-content">
+          <div className="maillist-row">
+            <span className="maillist-from">
+              {row.from.name || row.from.address || 'Unbekannt'}
+            </span>
+            {row.count > 1 && <span className="maillist-count">{row.count}</span>}
+            <span className="maillist-date">{formatDate(row.date)}</span>
+          </div>
+
+          <div className="maillist-row">
+            <span className="maillist-subject">{row.subject || '(Kein Betreff)'}</span>
+            {row.flagged && <Icon name="flag" size={12} className="maillist-flag" filled />}
+            {row.hasAttachments && <Icon name="attachment" size={12} className="maillist-attachment" />}
+          </div>
+
+          {row.snippet && <div className="maillist-snippet">{row.snippet}</div>}
+        </div>
+
+        <div className="maillist-actions" onClick={(e) => e.stopPropagation()}>
+          <button
+            className="maillist-action"
+            onClick={() => onArchive(row.keys)}
+            title="Archivieren"
+          >
+            <Icon name="archive" size={15} />
+          </button>
+          <button
+            className="maillist-action"
+            onClick={() => onToggleFlag(row.keys, !row.flagged)}
+            title={row.flagged ? 'Markierung entfernen' : 'Markieren'}
+          >
+            <Icon name="flag" size={15} filled={row.flagged} />
+          </button>
+          <button
+            className="maillist-action destructive"
+            onClick={() => onDelete(row.keys)}
+            title="Löschen"
+          >
+            <Icon name="trash" size={15} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function MailList({ onOpen, onLoadMore, onArchive, onDelete, onToggleFlag, swipeEnabled = false }: MailListProps) {
   const {
     messages, threads, threadingEnabled, density, total,
     selectedMessage, selectedKeys, loading, loadingMore, unifiedView, accounts,
@@ -135,7 +326,7 @@ export default function MailList({ onOpen, onLoadMore, onArchive, onDelete, onTo
       toggleSelectedKey(row.keys[0], true);
       return;
     }
-    onOpen(row.keys[0]);
+    onOpen(row.keys[row.keys.length - 1]);
   };
 
   if (loading && !rows.length) {
@@ -163,73 +354,17 @@ export default function MailList({ onOpen, onLoadMore, onArchive, onDelete, onTo
         const isActive = row.keys.includes(selectedKey) || row.keys.some(k => selectedKeys.includes(k));
 
         return (
-          <div
+          <MailRow
             key={row.key}
-            className={`maillist-item ${isActive ? 'active' : ''} ${row.unread ? 'unread' : ''}`}
-            onClick={(e) => handleClick(row, index, e)}
-            role="button"
-            tabIndex={0}
-          >
-            <div className="maillist-indicator">
-              {row.unread && <span className="maillist-unread-dot" />}
-            </div>
-
-            <div
-              className="maillist-avatar"
-              style={{ background: getAvatarColor(row.from.address) }}
-              title={row.showAccount ? row.accountEmail : undefined}
-            >
-              {getInitials(row.from.name, row.from.address)}
-              {row.showAccount && (
-                <span
-                  className="maillist-account-dot"
-                  style={{ background: row.accountColor || 'var(--accent-color)' }}
-                />
-              )}
-            </div>
-
-            <div className="maillist-content">
-              <div className="maillist-row">
-                <span className="maillist-from">
-                  {row.from.name || row.from.address || 'Unbekannt'}
-                </span>
-                {row.count > 1 && <span className="maillist-count">{row.count}</span>}
-                <span className="maillist-date">{formatDate(row.date)}</span>
-              </div>
-
-              <div className="maillist-row">
-                <span className="maillist-subject">{row.subject || '(Kein Betreff)'}</span>
-                {row.flagged && <Icon name="flag" size={12} className="maillist-flag" filled />}
-                {row.hasAttachments && <Icon name="attachment" size={12} className="maillist-attachment" />}
-              </div>
-
-              {row.snippet && <div className="maillist-snippet">{row.snippet}</div>}
-            </div>
-
-            <div className="maillist-actions" onClick={(e) => e.stopPropagation()}>
-              <button
-                className="maillist-action"
-                onClick={() => onArchive(row.keys)}
-                title="Archivieren"
-              >
-                <Icon name="archive" size={15} />
-              </button>
-              <button
-                className="maillist-action"
-                onClick={() => onToggleFlag(row.keys, !row.flagged)}
-                title={row.flagged ? 'Markierung entfernen' : 'Markieren'}
-              >
-                <Icon name="flag" size={15} filled={row.flagged} />
-              </button>
-              <button
-                className="maillist-action destructive"
-                onClick={() => onDelete(row.keys)}
-                title="Löschen"
-              >
-                <Icon name="trash" size={15} />
-              </button>
-            </div>
-          </div>
+            row={row}
+            index={index}
+            isActive={isActive}
+            swipeEnabled={swipeEnabled}
+            onClick={handleClick}
+            onArchive={onArchive}
+            onDelete={onDelete}
+            onToggleFlag={onToggleFlag}
+          />
         );
       })}
 

@@ -478,6 +478,13 @@
   outline: none;
 }
 
+.appearance-hint {
+  margin: -4px 0 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+}
+
 .appearance-preview {
   padding: 14px 16px;
   background: var(--surface-secondary);

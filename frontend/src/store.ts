@@ -81,7 +81,8 @@ export interface MailDetail {
   inReplyTo?: string | null;
   references?: string[];
   flags: string[];
-  attachments: { filename: string; contentType: string; size: number; cid?: string }[];
+  attachments: { filename: string; contentType: string; size: number; cid?: string; part?: string }[];
+  bodyLoading?: boolean;
 }
 
 export interface Signature {
@@ -344,10 +345,38 @@ export const useStore = create<MailStore>((set, get) => ({
       const key = msgKey(m.accountId, m.uid);
       return !seen.has(key) && !gone.has(key);
     })];
-    const threadSeen = new Set(state.threads.map(t => t.threadId));
+    const byThread = new Map(state.threads.map(t => [t.threadId, t]));
+    for (const thread of stripHiddenThreads(threads, state.hiddenKeys)) {
+      const existing = byThread.get(thread.threadId);
+      if (!existing) {
+        byThread.set(thread.threadId, thread);
+        continue;
+      }
+      const known = new Set((existing.messages || []).map(m => msgKey(m.accountId ?? existing.accountId, m.uid)));
+      const extra = (thread.messages || []).filter(m => !known.has(msgKey(m.accountId ?? thread.accountId, m.uid)));
+      if (!extra.length) continue;
+      const msgs = [...(existing.messages || []), ...extra]
+        .sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime());
+      const latest = msgs[msgs.length - 1];
+      byThread.set(thread.threadId, {
+        ...existing,
+        ...thread,
+        uid: latest.uid,
+        accountId: latest.accountId ?? thread.accountId,
+        uids: msgs.map(m => m.uid),
+        count: msgs.length,
+        messages: msgs,
+        from: latest.from || thread.from,
+        date: latest.date || thread.date,
+        snippet: latest.snippet || thread.snippet,
+        unread: msgs.some(m => !(m.flags || []).includes('\\Seen')),
+        flagged: msgs.some(m => (m.flags || []).includes('\\Flagged')),
+        hasAttachments: msgs.some(m => m.hasAttachments)
+      });
+    }
     return {
       messages: merged,
-      threads: [...state.threads, ...stripHiddenThreads(threads, state.hiddenKeys).filter(t => !threadSeen.has(t.threadId))]
+      threads: [...byThread.values()].sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime())
     };
   }),
   removeKeys: (keys) => set((state) => {

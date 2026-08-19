@@ -77,7 +77,7 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - `GET /api/mail/unified/inbox` - Zusammengeführter Posteingang aller Accounts
 - `GET /api/mail/unified/unread` - Ungelesen-Summe aller Posteingänge
 - `GET /api/mail/:accountId/messages` - Mails auflisten (`folder`, `limit`, `offset`), liefert `messages` und `threads`
-- `GET /api/mail/:accountId/message/:uid` - Mail-Detail (Cache zuerst, sonst IMAP)
+- `GET /api/mail/:accountId/message/:uid` - Mail-Detail (Cache zuerst, sonst IMAP nur Body-Parts)
 - `GET /api/mail/:accountId/attachment/:uid/:filename` - Anhang download
 - `GET /api/mail/:accountId/unread-counts` - Ungelesen-Zähler pro Ordner
 - `POST /api/mail/:accountId/send` - Mail senden (multipart/form-data)
@@ -100,6 +100,8 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 ### Geschwindigkeit
 - Zwei IMAP-Verbindungen pro Account (`backend/src/imap-pool.js`): eine für IDLE, eine für Abruf/Aktionen
 - SQLite-Cache liefert die Liste sofort, IMAP aktualisiert im Hintergrund
+- Mail öffnen: Kopfzeile und Snippet sofort, Body aus Cache oder nur die Text-/HTML-MIME-Teile (kein vollständiger RFC822-Download)
+- Gelesen-Flag (`\Seen`) wird im Hintergrund gesetzt, ohne das Öffnen zu blockieren
 - Löschen, Archivieren und Verschieben entfernen die Mail sofort in der UI; IMAP läuft danach
 - Solange die IMAP-Aktion läuft, schreibt der Cache die Mail nicht erneut in die Liste
 
@@ -120,7 +122,8 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Dark Mode (System / Hell / Dunkel)
 
 ### Mail-Aktionen
-- Konversations-Threading über Message-ID / In-Reply-To / References
+- Konversations-Threading über Message-ID / In-Reply-To / References, plus Betreff bei Antworten (Re:, AW:, Odp. …)
+- Ein/aus unter Einstellungen → Darstellung → Konversationen
 - Allen antworten, Weiterleiten, Archivieren, Favorit, als ungelesen markieren
 - Löschen sucht den Papierkorb über IMAP Special-Use (`\Trash`) inkl. Papierkorb / INBOX.Trash
 - Mehrfachauswahl: Cmd/Ctrl-Klick und Shift-Klick, Schnellaktionen beim Hover
@@ -147,6 +150,7 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Ordner als Schublade, Liste und Nachricht jeweils vollflächig
 - Zurück-Button beim Lesen, runder Button unten rechts zum Verfassen
 - Compose und Einstellungen als Vollbild
+- Wischgesten in der Liste: nach links löschen, nach rechts archivieren
 
 ### Automatischer Abruf
 - IMAP IDLE auf dem Posteingang, neue Mails kommen per WebSocket in die UI

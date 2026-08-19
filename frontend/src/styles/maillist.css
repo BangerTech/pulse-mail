@@ -20,6 +20,47 @@
   font-size: 12px;
 }
 
+.maillist-swipe {
+  position: relative;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+.maillist-swipe-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.maillist-swipe-action {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.maillist-swipe-action.archive {
+  background: #34C759;
+  justify-content: flex-start;
+  padding-left: 22px;
+}
+
+.maillist-swipe-action.delete {
+  background: #FF3B30;
+  justify-content: flex-end;
+  padding-right: 22px;
+}
+
+.maillist-swipe:not(.reveal-archive) .maillist-swipe-action.archive,
+.maillist-swipe:not(.reveal-delete) .maillist-swipe-action.delete {
+  opacity: 0;
+}
+
 .maillist-item {
   display: flex;
   align-items: flex-start;
@@ -30,7 +71,14 @@
   text-align: left;
   position: relative;
   cursor: pointer;
+  background: var(--bg-maillist);
   transition: background 0.1s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.maillist-item.swipe-snap {
+  transition: transform 0.2s ease, background 0.1s ease;
 }
 
 .maillist-item:hover {
@@ -203,9 +251,11 @@
   transition: opacity 0.12s ease;
 }
 
-.maillist-item:hover .maillist-actions {
-  opacity: 1;
-  pointer-events: auto;
+@media (hover: hover) and (pointer: fine) {
+  .maillist-item:hover .maillist-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .maillist-action {

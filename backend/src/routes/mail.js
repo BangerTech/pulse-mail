@@ -5,10 +5,11 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
+import iconv from 'iconv-lite';
 import { fileURLToPath } from 'url';
 import { decryptPassword } from '../db.js';
 import { withFolder, withClient } from '../imap-pool.js';
-import { assignThreadIds, groupIntoThreads } from '../threading.js';
+import { assignThreadIds, threadsForPage, extractMessageIds } from '../threading.js';
 import * as cache from '../mail-cache.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -18,6 +19,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 
 
 const SNIPPET_LENGTH = 200;
 const SNIPPET_BATCH = 40;
+const THREAD_LOOKBACK = 250;
 const pendingDeletes = new Set();
 
 function pendingKey(accountId, folder, uid) {
@@ -78,13 +80,14 @@ export default function mailRouter(db, broadcast = () => {}) {
     const skip = Number(req.query.offset) || 0;
 
     try {
-      const messages = cache.readUnifiedInbox(db, { limit: take, offset: skip })
+      const window = cache.readUnifiedInbox(db, { limit: skip + take + THREAD_LOOKBACK, offset: 0 })
         .filter(m => !isPending(m.accountId, m.folder || 'INBOX', m.uid));
+      const messages = window.slice(skip, skip + take);
 
       // Thread within each account only so identical Message-IDs across
       // mailboxes never merge into one conversation.
       const byAccount = new Map();
-      for (const m of messages) {
+      for (const m of window) {
         if (!byAccount.has(m.accountId)) byAccount.set(m.accountId, []);
         byAccount.get(m.accountId).push(m);
       }
@@ -95,7 +98,7 @@ export default function mailRouter(db, broadcast = () => {}) {
 
       res.json({
         messages,
-        threads: groupIntoThreads(messages),
+        threads: threadsForPage(window, messages),
         total: cache.countUnifiedInbox(db),
         offset: skip,
         limit: take,
@@ -141,17 +144,18 @@ export default function mailRouter(db, broadcast = () => {}) {
 
     // Answer from cache immediately, then refresh from IMAP in the background so
     // the list paints without waiting on the network.
-    const cached = withoutPending(
+    const cachedWindow = withoutPending(
       accountId,
       folder,
-      cache.readMessages(db, accountId, folder, { limit: take, offset: skip })
+      cache.readMessages(db, accountId, folder, { limit: skip + take + THREAD_LOOKBACK, offset: 0 })
     );
+    const cached = cachedWindow.slice(skip, skip + take);
 
     if (cached.length) {
-      assignThreadIds(cached);
+      assignThreadIds(cachedWindow);
       res.json({
         messages: cached,
-        threads: groupIntoThreads(cached),
+        threads: threadsForPage(cachedWindow, cached),
         total: cache.countMessages(db, accountId, folder),
         offset: skip,
         limit: take,
@@ -164,10 +168,16 @@ export default function mailRouter(db, broadcast = () => {}) {
 
     try {
       const messages = await refreshFolder(accountId, folder, take, skip);
-      assignThreadIds(messages);
+      const window = withoutPending(
+        accountId,
+        folder,
+        cache.readMessages(db, accountId, folder, { limit: skip + take + THREAD_LOOKBACK, offset: 0 })
+      );
+      const source = window.length ? window : messages;
+      assignThreadIds(source);
       res.json({
         messages,
-        threads: groupIntoThreads(messages),
+        threads: threadsForPage(source, messages),
         total: cache.countMessages(db, accountId, folder),
         offset: skip,
         limit: take,
@@ -205,7 +215,9 @@ export default function mailRouter(db, broadcast = () => {}) {
           date: msg.envelope?.date || null,
           flags: [...(msg.flags || [])],
           hasAttachments: hasAttachments(msg.bodyStructure),
-          inReplyTo: msg.envelope?.inReplyTo || null,
+          inReplyTo: Array.isArray(msg.envelope?.inReplyTo)
+            ? msg.envelope.inReplyTo.join(' ')
+            : (msg.envelope?.inReplyTo || null),
           references: parseReferences(msg.headers),
           textPart: findTextPart(msg.bodyStructure),
           snippet: ''
@@ -271,7 +283,7 @@ export default function mailRouter(db, broadcast = () => {}) {
             const buffer = msg.bodyParts?.get(group.part);
             if (!buffer) continue;
 
-            const snippet = toSnippet(buffer.toString('utf8'), group.isHtml);
+            const snippet = toSnippet(decodePart(buffer, group.charset, group.encoding), group.isHtml);
             if (!snippet) continue;
 
             const original = messages.find(m => m.uid === msg.uid);
@@ -299,45 +311,38 @@ export default function mailRouter(db, broadcast = () => {}) {
         'SELECT * FROM mail_cache WHERE account_id = ? AND folder = ? AND uid = ?'
       ).get(accountId, folder, uid);
 
-      if (cachedRow && (cachedRow.body_html || cachedRow.body_text)) {
+      const cachedBodyOk = cachedRow
+        && (cachedRow.body_html || cachedRow.body_text)
+        && !looksEncoded(cachedRow.body_html)
+        && !looksEncoded(cachedRow.body_text);
+
+      if (cachedBodyOk) {
         return res.json(buildDetail(cachedRow));
       }
 
       const parsed = await withFolder(accountId, folder, async (client) => {
-        const raw = await client.download(uid, undefined, { uid: true });
-        const chunks = [];
-        for await (const chunk of raw.content) chunks.push(chunk);
-        return simpleParser(Buffer.concat(chunks));
+        return loadMessageBody(client, uid);
       });
 
-      const html = parsed.html || '';
-      const text = parsed.text || '';
-      const attachments = (parsed.attachments || []).map(a => ({
-        filename: a.filename,
-        contentType: a.contentType,
-        size: a.size,
-        cid: a.cid
-      }));
-
-      cache.writeBody(db, accountId, folder, uid, html, text, attachments);
+      cache.writeBody(db, accountId, folder, uid, parsed.html, parsed.text, parsed.attachments);
 
       res.json({
         uid,
         accountId,
         folder,
         messageId: parsed.messageId || cachedRow?.message_id || null,
-        subject: parsed.subject || '',
-        from: parsed.from?.value?.[0] || {},
-        to: parsed.to?.value || [],
-        cc: parsed.cc?.value || [],
-        replyTo: parsed.replyTo?.value || [],
-        date: parsed.date,
-        html,
-        text,
-        inReplyTo: parsed.inReplyTo || null,
-        references: normalizeReferences(parsed.references),
-        flags: cachedRow ? safeParse(cachedRow.flags, []) : [],
-        attachments
+        subject: parsed.subject || cachedRow?.subject || '',
+        from: parsed.from || (cachedRow ? { name: cachedRow.from_name, address: cachedRow.from_address } : {}),
+        to: parsed.to || safeParse(cachedRow?.to_address, []),
+        cc: parsed.cc || safeParse(cachedRow?.cc_address, []),
+        replyTo: parsed.replyTo || safeParse(cachedRow?.reply_to_address, []),
+        date: parsed.date || cachedRow?.date,
+        html: parsed.html,
+        text: parsed.text,
+        inReplyTo: parsed.inReplyTo || cachedRow?.in_reply_to || null,
+        references: parsed.references || (cachedRow?.references_header ? cachedRow.references_header.split(/\s+/).filter(Boolean) : []),
+        flags: parsed.flags || (cachedRow ? safeParse(cachedRow.flags, []) : []),
+        attachments: parsed.attachments
       });
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -346,21 +351,40 @@ export default function mailRouter(db, broadcast = () => {}) {
 
   router.get('/:accountId/attachment/:uid/:filename', async (req, res) => {
     const { folder = 'INBOX', cid, inline } = req.query;
-    const wantCid = cid ? normalizeCid(cid) : null;
+    const wantCid = cid ? normalizeCid(cid) : '';
+    const accountId = Number(req.params.accountId);
+    const uid = Number(req.params.uid);
 
     try {
-      const att = await withFolder(req.params.accountId, folder, async (client) => {
-        const raw = await client.download(req.params.uid, undefined, { uid: true });
+      const cachedRow = db.prepare(
+        'SELECT attachments_meta FROM mail_cache WHERE account_id = ? AND folder = ? AND uid = ?'
+      ).get(accountId, folder, uid);
+      const meta = safeParse(cachedRow?.attachments_meta, []);
+      const listed = meta.find(a =>
+        (wantCid && normalizeCid(a.cid) === wantCid) || a.filename === req.params.filename
+      );
+
+      const att = await withFolder(accountId, folder, async (client) => {
+        if (listed?.part) {
+          const downloaded = await client.download(uid, listed.part, { uid: true });
+          const chunks = [];
+          for await (const chunk of downloaded.content) chunks.push(chunk);
+          return {
+            content: Buffer.concat(chunks),
+            contentType: listed.contentType || downloaded.meta?.contentType,
+            filename: listed.filename || req.params.filename
+          };
+        }
+
+        const raw = await client.download(uid, undefined, { uid: true });
         const chunks = [];
         for await (const chunk of raw.content) chunks.push(chunk);
         const parsed = await simpleParser(Buffer.concat(chunks));
         const list = parsed.attachments || [];
-
-        if (wantCid) {
-          const byCid = list.find(a => normalizeCid(a.cid) === wantCid);
-          if (byCid) return byCid;
-        }
-        return list.find(a => a.filename === req.params.filename) || null;
+        const found = wantCid
+          ? list.find(a => normalizeCid(a.cid) === wantCid)
+          : list.find(a => a.filename === req.params.filename);
+        return found || null;
       });
 
       if (!att) return res.status(404).json({ error: 'Attachment not found' });
@@ -496,21 +520,19 @@ export default function mailRouter(db, broadcast = () => {}) {
 
   router.post('/:accountId/flags', async (req, res) => {
     const { uids, folder, flags, action } = req.body;
-    try {
-      await withFolder(req.params.accountId, folder, async (client) => {
-        if (action === 'add') {
-          await client.messageFlagsAdd(uids, flags, { uid: true });
-        } else {
-          await client.messageFlagsRemove(uids, flags, { uid: true });
-        }
-      });
+    cache.updateFlags(db, req.params.accountId, folder, uids, flags, action);
+    res.json({ ok: true });
 
-      cache.updateFlags(db, req.params.accountId, folder, uids, flags, action);
-      broadcast({ type: 'messages_updated', accountId: Number(req.params.accountId), folder });
-      res.json({ ok: true });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
+    withFolder(req.params.accountId, folder, async (client) => {
+      if (action === 'add') {
+        await client.messageFlagsAdd(uids, flags, { uid: true });
+      } else {
+        await client.messageFlagsRemove(uids, flags, { uid: true });
+      }
+    }).then(
+      () => broadcast({ type: 'messages_updated', accountId: Number(req.params.accountId), folder }),
+      (err) => console.error('IMAP flags failed:', err.message)
+    );
   });
 
   return router;
@@ -625,10 +647,9 @@ function safeParse(value, fallback) {
 
 function parseReferences(headers) {
   if (!headers) return [];
-  const text = headers.toString('utf8');
-  const match = text.match(/^references:\s*(.*)$/im);
-  if (!match) return [];
-  return match[1].split(/\s+/).map(s => s.trim()).filter(Boolean);
+  const text = Buffer.isBuffer(headers) ? headers.toString('utf8') : String(headers);
+  const unfolded = text.replace(/\r?\n[ \t]+/g, ' ');
+  return extractMessageIds(unfolded);
 }
 
 function normalizeReferences(references) {
@@ -658,26 +679,161 @@ function toSnippet(raw, isHtml) {
 }
 
 function findTextPart(structure) {
+  return findMimePart(structure, 'text/plain') || findMimePart(structure, 'text/html');
+}
+
+function findMimePart(structure, preferred) {
   if (!structure) return null;
 
-  const walk = (node, preferred) => {
+  const walk = (node) => {
     if (!node) return null;
-
     const type = (node.type || '').toLowerCase();
-
     if (type === preferred && node.disposition !== 'attachment') {
-      return { part: node.part || '1', isHtml: preferred === 'text/html' };
+      return {
+        part: node.part || '1',
+        isHtml: preferred === 'text/html',
+        charset: node.parameters?.charset || 'utf-8',
+        encoding: (node.encoding || '').toLowerCase()
+      };
     }
-
     for (const child of node.childNodes || []) {
-      const found = walk(child, preferred);
+      const found = walk(child);
       if (found) return found;
     }
-
     return null;
   };
 
-  return walk(structure, 'text/plain') || walk(structure, 'text/html');
+  return walk(structure);
+}
+
+function listAttachments(structure, list = []) {
+  if (!structure) return list;
+
+  const type = (structure.type || '').toLowerCase();
+  const disp = (structure.disposition || '').toLowerCase();
+  const filename = structure.dispositionParameters?.filename || structure.parameters?.name;
+  const cid = String(structure.id || '').replace(/^<|>$/g, '');
+  const isBodyText = type.startsWith('text/') && disp !== 'attachment' && !cid;
+
+  if (!isBodyText && (disp === 'attachment' || disp === 'inline' || filename || cid || type.startsWith('image/'))) {
+    list.push({
+      filename: filename || (cid ? 'inline' : 'attachment'),
+      contentType: type,
+      size: structure.size || 0,
+      cid: cid || undefined,
+      part: structure.part
+    });
+  }
+
+  for (const child of structure.childNodes || []) listAttachments(child, list);
+  return list;
+}
+
+// Detects bodies that were cached before transfer-encoding was decoded (raw
+// base64 or quoted-printable), so they can be re-fetched and repaired.
+function looksEncoded(value) {
+  if (!value) return false;
+  const str = String(value);
+  const compact = str.replace(/\s+/g, '');
+  if (compact.length < 200) return false;
+
+  if (!str.includes('<') && /^[A-Za-z0-9+/=]+$/.test(compact)) return true;
+
+  const qp = str.match(/=[0-9A-Fa-f]{2}/g);
+  if (qp && qp.length > 20 && !str.includes('<')) return true;
+
+  return false;
+}
+
+function decodeQuotedPrintable(buffer) {
+  const text = buffer.toString('latin1').replace(/=\r?\n/g, '');
+  const bytes = [];
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '=' && i + 2 < text.length) {
+      const hex = text.substr(i + 1, 2);
+      if (/^[0-9A-Fa-f]{2}$/.test(hex)) {
+        bytes.push(parseInt(hex, 16));
+        i += 2;
+        continue;
+      }
+    }
+    bytes.push(text.charCodeAt(i) & 0xff);
+  }
+  return Buffer.from(bytes);
+}
+
+// imapflow returns body parts with their raw Content-Transfer-Encoding intact,
+// so base64 / quoted-printable have to be undone before applying the charset.
+function decodeTransfer(buffer, encoding) {
+  const enc = (encoding || '').toLowerCase();
+  if (enc === 'base64') return Buffer.from(buffer.toString('ascii'), 'base64');
+  if (enc === 'quoted-printable') return decodeQuotedPrintable(buffer);
+  return buffer;
+}
+
+function decodeCharset(buffer, charset) {
+  const cs = (charset || 'utf-8').toLowerCase().replace(/['"]/g, '').trim();
+  if (cs && cs !== 'utf-8' && cs !== 'utf8' && cs !== 'us-ascii' && iconv.encodingExists(cs)) {
+    try { return iconv.decode(buffer, cs); } catch {}
+  }
+  return buffer.toString('utf8');
+}
+
+function decodePart(buffer, charset, encoding) {
+  if (!buffer) return '';
+  try {
+    return decodeCharset(decodeTransfer(buffer, encoding), charset);
+  } catch {
+    return buffer.toString('utf8');
+  }
+}
+
+async function loadMessageBody(client, uid) {
+  const info = await client.fetchOne(uid, {
+    uid: true,
+    envelope: true,
+    flags: true,
+    bodyStructure: true
+  }, { uid: true });
+
+  if (!info) throw new Error('Message not found');
+
+  const htmlPart = findMimePart(info.bodyStructure, 'text/html');
+  const textPart = findMimePart(info.bodyStructure, 'text/plain');
+  const parts = [...new Set([htmlPart?.part, textPart?.part].filter(Boolean))];
+
+  let html = '';
+  let text = '';
+
+  if (parts.length) {
+    const fetched = await client.fetchOne(uid, { uid: true, bodyParts: parts }, { uid: true });
+    const bodyParts = fetched?.bodyParts;
+    if (htmlPart && bodyParts?.get(htmlPart.part)) {
+      html = decodePart(bodyParts.get(htmlPart.part), htmlPart.charset, htmlPart.encoding);
+    }
+    if (textPart && bodyParts?.get(textPart.part)) {
+      text = decodePart(bodyParts.get(textPart.part), textPart.charset, textPart.encoding);
+    }
+  }
+
+  return {
+    html,
+    text,
+    attachments: listAttachments(info.bodyStructure),
+    messageId: info.envelope?.messageId || null,
+    subject: info.envelope?.subject || '',
+    from: info.envelope?.from?.[0] || {},
+    to: info.envelope?.to || [],
+    cc: info.envelope?.cc || [],
+    replyTo: info.envelope?.replyTo || [],
+    date: info.envelope?.date || null,
+    inReplyTo: info.envelope?.inReplyTo || null,
+    references: Array.isArray(info.envelope?.references)
+      ? info.envelope.references
+      : (info.envelope?.references ? [info.envelope.references] : []),
+    flags: [...(info.flags || [])]
+  };
 }
 
 function hasAttachments(structure) {

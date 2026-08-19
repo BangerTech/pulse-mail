@@ -125,16 +125,26 @@ export function countUnifiedInbox(db) {
 }
 
 export function writeBody(db, accountId, folder, uid, html, text, attachments) {
-  db.prepare(`
+  const info = JSON.stringify(attachments || []);
+  const updated = db.prepare(`
     UPDATE mail_cache SET body_html = ?, body_text = ?, attachments_meta = ?
     WHERE account_id = ? AND folder = ? AND uid = ?
+  `).run(html || '', text || '', info, Number(accountId), folder, Number(uid));
+
+  if (updated.changes) return;
+
+  db.prepare(`
+    INSERT INTO mail_cache (
+      account_id, folder, uid, body_html, body_text, attachments_meta, snippet, flags, cached_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, '[]', CURRENT_TIMESTAMP)
   `).run(
-    html || '',
-    text || '',
-    JSON.stringify(attachments || []),
     Number(accountId),
     folder,
-    Number(uid)
+    Number(uid),
+    html || '',
+    text || '',
+    info,
+    (text || '').slice(0, 200)
   );
 }
 
