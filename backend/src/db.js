@@ -73,7 +73,9 @@ function migrate(db) {
     ['thread_id', 'TEXT'],
     ['cc_address', 'TEXT'],
     ['reply_to_address', 'TEXT'],
-    ['attachments_meta', 'TEXT']
+    ['attachments_meta', 'TEXT'],
+    ['raw_headers', 'TEXT'],
+    ['extracted_pdf_text', 'TEXT']
   ];
 
   for (const [name, type] of additions) {

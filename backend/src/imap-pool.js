@@ -8,10 +8,12 @@ const lastExists = new Map();
 
 let db = null;
 let broadcast = () => {};
+let onNewMail = async () => {};
 
-export function initPool(database, broadcastFn) {
+export function initPool(database, broadcastFn, onNewMailFn) {
   db = database;
   if (broadcastFn) broadcast = broadcastFn;
+  if (onNewMailFn) onNewMail = onNewMailFn;
 }
 
 function accountById(accountId) {
@@ -73,6 +75,7 @@ async function connectIdle(accountId) {
   client.on('exists', (data) => {
     lastExists.set(accountId, data?.count ?? client.mailbox?.exists);
     broadcast({ type: 'new_mail', accountId, data });
+    onNewMail(accountId).catch(() => {});
   });
 
   console.log(`IMAP IDLE connected: ${account.email}`);
@@ -158,6 +161,7 @@ async function pollInboxes() {
         lastExists.set(account.id, exists);
         if (previous !== undefined && exists !== previous) {
           broadcast({ type: 'new_mail', accountId: account.id });
+          onNewMail(account.id).catch(() => {});
         }
       });
     } catch {}

@@ -58,13 +58,28 @@ export function decodeTransfer(buffer, encoding) {
 
 export function looksLikeBase64(text) {
   if (!text) return false;
-  const compact = String(text).replace(/\s+/g, '');
-  if (compact.length < 60) return false;
+  const raw = String(text);
+  const compact = raw.replace(/\s+/g, '');
+  if (compact.length < 24) return false;
   if (!/^[A-Za-z0-9+/]+=*$/.test(compact)) return false;
-  if (String(text).includes('<') && String(text).includes('>')) return false;
-  if (/^PG(h0bWw|Rpd|hlYW|p|HJl)/i.test(compact)) return true;
-  if (/^PCFET0NU/i.test(compact)) return true;
-  return compact.length >= 120;
+  // Punctuation is a hard signal that this is natural text, not base64.
+  if (/[.,;:!?()\[\]{}"'<>@#$%&*_\\]/.test(raw)) return false;
+  // MIME base64 wraps at ~76 chars; natural text has spaces every ~5-8 chars.
+  // If the original had whitespace, use average token length as a robust
+  // discriminator: real base64 tokens are long, words are short.
+  const tokens = raw.split(/\s+/).filter(Boolean);
+  if (tokens.length > 1) {
+    const avg = tokens.reduce((a, t) => a + t.length, 0) / tokens.length;
+    if (avg < 24) return false;
+  }
+  // Additionally require some case/digit variety — pure lowercase runs are
+  // almost always natural text.
+  const hasUpper = /[A-Z]/.test(compact);
+  const hasLower = /[a-z]/.test(compact);
+  const hasDigit = /\d/.test(compact);
+  const variety = Number(hasUpper) + Number(hasLower) + Number(hasDigit);
+  if (variety < 2) return false;
+  return true;
 }
 
 export function looksLikeQuotedPrintable(text) {

@@ -60,6 +60,8 @@ Daten liegen lokal in `./data/mail.db` (nicht im Git-Repository).
 | references_header | TEXT | References Header |
 | thread_id | TEXT | Konversations-ID |
 | cached_at | DATETIME | Cache-Zeitpunkt |
+| raw_headers | TEXT | Rohheader-Block (List-Id, Auth-Results, …) |
+| extracted_pdf_text | TEXT | Klartext aus Rechnungs-PDFs |
 
 UNIQUE(account_id, folder, uid)
 
@@ -67,6 +69,8 @@ UNIQUE(account_id, folder, uid)
 Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE` ergänzt:
 - `in_reply_to`, `references_header`, `thread_id`, `cc_address`, `reply_to_address`, `attachments_meta`
 - Index `idx_mail_thread`, Index `idx_mail_message_id`
+- `raw_headers` — Rohheader für den Prototyp-Klassifikator
+- `extracted_pdf_text` — Klartext aus Rechnungs-PDFs (Prototyp-Anreicherung)
 
 ## API Endpoints
 
@@ -93,6 +97,8 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - `DELETE /api/signatures/:id` - Signatur löschen
 - `POST /api/signatures/upload-image` - Signatur-Bild hochladen
 - `GET /api/signatures/images/:filename` - Signatur-Bild abrufen
+- `GET /api/prototype/messages` — Unified Inbox aus `mail_cache` (INBOX). `?sync=1` zieht zuerst die letzten IMAP-Nachrichten nach, dann antwortet der Cache.
+- `POST /api/prototype/refresh` — IMAP-Pull, Header-Backfill und PDF-Anreicherung erzwingen
 - `WS /ws` - WebSocket (`new_mail`, `messages_updated`)
 
 ## Features
@@ -169,3 +175,67 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Speicherung unter `backend/uploads/signatures/` auf dem Host
 - Bind-Mount in Docker: `./backend/uploads:/app/uploads` — bleibt bei Container-Neustart und Image-Rebuild erhalten
 - Beim Versand als CID-Inline-Attachments eingebettet
+
+## Prototyp „Pulse Mail 2026"
+
+Klickbarer Design-Prototyp neben der bestehenden App. Die Logik (`classify.ts`, `extract.ts`) läuft im Frontend; Live-Daten kommen aus dem SQLite-Cache (`GET /api/prototype/messages`), nicht aus den Fixtures, sobald das Backend erreichbar ist.
+
+### Erreichbarkeit
+- Produktion: `http://<host>:8080/prototype.html`
+- Dev: `http://localhost:5173/prototype.html`
+- Bestehende App unter `/` bleibt unverändert. Vite ist auf Multi-Entry (`main`, `prototype`) konfiguriert, nginx bedient `prototype.html` über `try_files` ohne zusätzliche Regel.
+
+### Live-Sync
+- IMAP IDLE und die 60-Sekunden-Prüfung schreiben neue INBOX-Mails direkt in `mail_cache` (nicht nur WebSocket-Ping).
+- Die UI lädt mit `?sync=1`, pollt alle 20 Sekunden und reagiert auf `new_mail` / `messages_updated`.
+- Fixtures bleiben als Fallback, wenn der Cache leer oder das Backend down ist.
+
+### Konzept: drei Linsen statt Ordnerbaum
+- **Direkt** — persönlich adressierte Konversationen, Threads mit proportionaler Zeit-Timeline
+- **Feed** — Newsletter und Broadcasts, nach Absender gruppiert, mit Frequenz, benannten geblockten Trackern und One-Click-Abmeldung
+- **Sachen** — Entitäten aus Mails: Pakete (auch ohne Tracking-Nummer, aus „Sendung unterwegs“), Abos, Termine (ICS oder Datumsangaben im Text), Bestellungen, Rechnungen und Mahnungen (Betrag auch bei `€ 12,00`-Schreibweise), OTP-Codes zum Kopieren
+
+### Kern-Features
+- **Reader** zeigt die HTML-Mail wie Apple Mail (Tracker bleiben geblockt, Chip zum Einblenden). Nur ohne HTML fällt er auf den Klartext zurück. Kein Umschalter Lesbar/Original.
+- **Zwei-Spalten-Layout** beim Lesen: Liste links, Nachricht rechts. Kein Spine-Kollaps. In der Sachen-Linse bleibt der Reader ein Overlay.
+- **Trust-Chip** aus `Authentication-Results` (SPF/DKIM/DMARC/Alignment), Warnung bei Lookalike-Domains und Anzeigename-Spoofing
+- **Triage-Modus** — bildschirmfüllend, `←` Archiv / `→` Behalten / `↑` Später / `⌘Z` Undo
+- **Scrubber** — Sparkline der Mail-Dichte pro Woche am Listenrand
+- **Design-System** in `src/prototype/styles/tokens.css`: oklch-Farben (Akzent in einer Zeile umfärbbar), Spacing-/Radius-/Typo-Skalen, Absenderfarbe aus Domain-Hash bei fixer Helligkeit/Chroma
+
+### Tastatur
+- `1` `2` `3` Linsen · `T` Triage · `D` Theme · `Esc` Reader schliessen
+
+### Dateistruktur
+```
+frontend/prototype.html
+frontend/src/prototype/
+├── main.tsx                 Entry
+├── Prototype.tsx            Shell, Lens-Switch, Keyboard
+├── data/
+│   ├── types.ts             RawMessage-Typ
+│   └── fixtures.ts          ~40 Nachrichten mit echten Rohheadern
+├── logic/
+│   ├── classify.ts          Klassifikator (Lane/Category), Trust, Spoofing
+│   ├── extract.ts           JSON-LD/ICS/Regex-Extraktoren, Tracker-Detektion
+│   └── util.ts              Frequenz, Dichte, Datums-/Money-Formatierung
+├── views/
+│   ├── MessageRow.tsx
+│   ├── PeopleLens.tsx       Threads mit Zeit-Timeline
+│   ├── FeedLens.tsx         Absender-Gruppen mit Frequenz
+│   ├── ThingsLens.tsx       Entitäten-Karten
+│   ├── Reader.tsx           HTML-Mail, Trust, Tracker, Anhänge
+│   ├── TriageMode.tsx       Vollbild-Karten mit Undo
+│   └── Scrubber.tsx         Dichte-Sparkline
+└── styles/
+    ├── tokens.css
+    └── prototype.css
+```
+
+### Portierungspfad in die Produktions-App
+`classify.ts` und `extract.ts` sind reine Funktionen ohne DOM- oder Framework-Abhängigkeiten. Für einen späteren Backend-Umzug:
+
+- Dateien nach `backend/src/logic/` verschieben, `type RawMessage` gegen `mail_cache`-Row mappen
+- Klassifikations-Ergebnis pro Mail bei Upsert speichern (neue Spalten `lane`, `category`, `is_bulk`, `trust_overall`)
+- Neuer Index `idx_mail_lane` auf `(account_id, lane, date DESC)` für die Menschen/Feed-Trennung im Listen-Endpoint
+- Extrahierte Entitäten in separate Tabellen (`parcels`, `subscriptions`, `events`, `otp_codes`, `invoices`) mit Foreign Key auf `mail_cache.id`

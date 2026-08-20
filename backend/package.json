@@ -15,6 +15,7 @@
     "mailparser": "^3.7.1",
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^6.9.15",
+    "pdf-parse": "^1.1.1",
     "ws": "^8.18.0"
   }
 }

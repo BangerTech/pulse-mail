@@ -5,12 +5,12 @@ const UPSERT = `
     account_id, folder, uid, message_id, subject,
     from_address, from_name, to_address, cc_address, reply_to_address,
     date, snippet, flags, has_attachments,
-    in_reply_to, references_header, thread_id, cached_at
+    in_reply_to, references_header, thread_id, raw_headers, cached_at
   ) VALUES (
     @account_id, @folder, @uid, @message_id, @subject,
     @from_address, @from_name, @to_address, @cc_address, @reply_to_address,
     @date, @snippet, @flags, @has_attachments,
-    @in_reply_to, @references_header, @thread_id, CURRENT_TIMESTAMP
+    @in_reply_to, @references_header, @thread_id, @raw_headers, CURRENT_TIMESTAMP
   )
   ON CONFLICT(account_id, folder, uid) DO UPDATE SET
     message_id = excluded.message_id,
@@ -27,6 +27,7 @@ const UPSERT = `
     in_reply_to = excluded.in_reply_to,
     references_header = excluded.references_header,
     thread_id = excluded.thread_id,
+    raw_headers = COALESCE(NULLIF(excluded.raw_headers, ''), mail_cache.raw_headers),
     cached_at = CURRENT_TIMESTAMP
 `;
 
@@ -54,7 +55,8 @@ export function upsertMessages(db, accountId, folder, messages) {
     has_attachments: msg.hasAttachments ? 1 : 0,
     in_reply_to: msg.inReplyTo || null,
     references_header: msg.references ? msg.references.join(' ') : null,
-    thread_id: msg.threadId || null
+    thread_id: msg.threadId || null,
+    raw_headers: msg.rawHeaders ? JSON.stringify(msg.rawHeaders) : null
   })));
 }
 
@@ -82,7 +84,8 @@ function rowToMessage(row) {
     hasAttachments: !!row.has_attachments,
     inReplyTo: row.in_reply_to,
     references: row.references_header ? row.references_header.split(/\s+/).filter(Boolean) : [],
-    threadId: row.thread_id
+    threadId: row.thread_id,
+    rawHeaders: parse(row.raw_headers, null)
   };
 }
 
@@ -124,6 +127,13 @@ export function countUnifiedInbox(db) {
     "SELECT COUNT(*) AS total FROM mail_cache WHERE folder = 'INBOX'"
   ).get();
   return row?.total || 0;
+}
+
+export function writePdfText(db, accountId, folder, uid, text) {
+  db.prepare(`
+    UPDATE mail_cache SET extracted_pdf_text = ?
+    WHERE account_id = ? AND folder = ? AND uid = ?
+  `).run(text || '', Number(accountId), folder, Number(uid));
 }
 
 export function writeBody(db, accountId, folder, uid, html, text, attachments) {

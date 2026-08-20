@@ -1,0 +1,329 @@
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { messages as fixtures } from './data/fixtures';
+import { fetchLive, type LiveMeta } from './data/live';
+import { classify } from './logic/classify';
+import { extract, type Entity } from './logic/extract';
+import type { RawMessage } from './data/types';
+import { PeopleLens } from './views/PeopleLens';
+import { FeedLens } from './views/FeedLens';
+import { ThingsLens } from './views/ThingsLens';
+import { Reader } from './views/Reader';
+import { TriageMode } from './views/TriageMode';
+import { Scrubber } from './views/Scrubber';
+
+export type LensKey = 'people' | 'feed' | 'things';
+export type Source = 'live' | 'fixtures';
+
+export function Prototype() {
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    const saved = localStorage.getItem('proto-theme');
+    return saved === 'light' ? 'light' : 'dark';
+  });
+  const [lens, setLens] = useState<LensKey>('people');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [triage, setTriage] = useState(false);
+
+  const [source, setSource] = useState<Source>(() => {
+    return (localStorage.getItem('proto-source') as Source) || 'live';
+  });
+  const [liveMessages, setLiveMessages] = useState<RawMessage[] | null>(null);
+  const [liveMeta, setLiveMeta] = useState<LiveMeta | null>(null);
+  const [loadingLive, setLoadingLive] = useState(false);
+  const [liveError, setLiveError] = useState<string | null>(null);
+  const loadGen = useRef(0);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('proto-theme', theme);
+  }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem('proto-source', source);
+  }, [source]);
+
+  const loadLive = useCallback(async (sync = false) => {
+    const gen = ++loadGen.current;
+    setLoadingLive(true);
+    setLiveError(null);
+    const result = await fetchLive({ sync });
+    if (gen !== loadGen.current) return;
+    setLoadingLive(false);
+    if (!result) {
+      setLiveError('Keine Live-Daten (Backend nicht erreichbar oder Cache leer)');
+      setLiveMessages(null);
+      setLiveMeta(null);
+      return;
+    }
+    setLiveMessages(result.messages);
+    setLiveMeta(result.meta);
+  }, []);
+
+  useEffect(() => {
+    if (source === 'live') loadLive(true);
+  }, [source, loadLive]);
+
+  // WebSocket: neue Mails und Cache-Updates. Bei Abbruch neu verbinden.
+  useEffect(() => {
+    if (source !== 'live') return;
+    let closed = false;
+    let ws: WebSocket | null = null;
+    let retry: number | undefined;
+    const connect = () => {
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${proto}//${window.location.host}/ws`);
+      ws.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data);
+          if (msg.type === 'messages_updated' || msg.type === 'new_mail') loadLive(true);
+        } catch {}
+      };
+      ws.onclose = () => {
+        if (!closed) retry = window.setTimeout(connect, 2500);
+      };
+    };
+    connect();
+    const poll = window.setInterval(() => loadLive(true), 20000);
+    return () => {
+      closed = true;
+      window.clearTimeout(retry);
+      window.clearInterval(poll);
+      ws?.close();
+    };
+  }, [source, loadLive]);
+
+  // Datensatz je nach Quelle: Live wenn geladen und nicht leer, sonst Fixtures
+  const dataset: RawMessage[] = useMemo(() => {
+    if (source === 'live' && liveMessages && liveMessages.length > 0) return liveMessages;
+    return fixtures;
+  }, [source, liveMessages]);
+
+  // Klassifiziere alle Nachrichten einmal (deterministisch)
+  const classified = useMemo(() => {
+    return dataset.map(m => ({ msg: m, cls: classify(m), ents: extract(m) }));
+  }, [dataset]);
+
+  const messagesByLane = useMemo(() => {
+    const buckets = { people: [] as typeof classified, feed: [] as typeof classified, things: [] as typeof classified };
+    for (const item of classified) {
+      if (item.cls.lane === 'human') buckets.people.push(item);
+      else if (item.cls.lane === 'feed') buckets.feed.push(item);
+      if (item.ents.length) buckets.things.push(item);
+      // OTP / Kalender fliessen in "Sachen" ueber Entities
+    }
+    return buckets;
+  }, [classified]);
+
+  const allEntities: Entity[] = useMemo(
+    () => classified.flatMap(c => c.ents),
+    [classified]
+  );
+
+  const selectedMsg = useMemo(
+    () => classified.find(c => c.msg.id === selectedId),
+    [classified, selectedId]
+  );
+
+  const withMorph = useCallback((fn: () => void) => {
+    // View Transitions API — silently degrades where unsupported
+    const doc = document as Document & { startViewTransition?: (cb: () => void) => any };
+    if (doc.startViewTransition) doc.startViewTransition(fn);
+    else fn();
+  }, []);
+
+  const openMessage = useCallback((id: string) => {
+    withMorph(() => setSelectedId(id));
+  }, [withMorph]);
+
+  const closeReader = useCallback(() => {
+    withMorph(() => setSelectedId(null));
+  }, [withMorph]);
+
+  // Tastatur
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement).matches('input, textarea')) return;
+      if (triage) return;
+      if (e.key === '1') { withMorph(() => { setLens('people'); setSelectedId(null); }); }
+      else if (e.key === '2') { withMorph(() => { setLens('feed'); setSelectedId(null); }); }
+      else if (e.key === '3') { withMorph(() => { setLens('things'); setSelectedId(null); }); }
+      else if (e.key === 't') { setTriage(true); }
+      else if (e.key === 'Escape') { if (selectedId) closeReader(); }
+      else if (e.key === 'd') { setTheme(t => t === 'dark' ? 'light' : 'dark'); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [triage, selectedId, closeReader, withMorph]);
+
+  if (triage) {
+    return <TriageMode
+      items={classified}
+      onExit={() => setTriage(false)}
+    />;
+  }
+
+  return (
+    <div
+      className={`proto ${selectedMsg ? 'reader-open' : ''}`}
+      data-lens={lens}
+    >
+      <header className="proto-header">
+        <div className="proto-brand">
+          <span className="proto-pulse" aria-hidden />
+          <span>Pulse Mail</span>
+          <span className="proto-brand-tag">2026</span>
+        </div>
+
+        <nav className="proto-lenses" role="tablist" aria-label="Linsen">
+          <button
+            role="tab"
+            aria-selected={lens === 'people'}
+            className={`proto-lens ${lens === 'people' ? 'active' : ''}`}
+            onClick={() => withMorph(() => { setLens('people'); setSelectedId(null); })}
+          >
+            <span className="proto-lens-key">1</span>
+            <span className="proto-lens-label">Direkt</span>
+            <span className="proto-lens-count">{messagesByLane.people.length}</span>
+          </button>
+          <button
+            role="tab"
+            aria-selected={lens === 'feed'}
+            className={`proto-lens ${lens === 'feed' ? 'active' : ''}`}
+            onClick={() => withMorph(() => { setLens('feed'); setSelectedId(null); })}
+          >
+            <span className="proto-lens-key">2</span>
+            <span className="proto-lens-label">Feed</span>
+            <span className="proto-lens-count">{messagesByLane.feed.length}</span>
+          </button>
+          <button
+            role="tab"
+            aria-selected={lens === 'things'}
+            className={`proto-lens ${lens === 'things' ? 'active' : ''}`}
+            onClick={() => withMorph(() => { setLens('things'); setSelectedId(null); })}
+          >
+            <span className="proto-lens-key">3</span>
+            <span className="proto-lens-label">Sachen</span>
+            <span className="proto-lens-count">{allEntities.length}</span>
+          </button>
+        </nav>
+
+        <div className="proto-tools">
+          <SourceChip
+            source={source}
+            liveMeta={liveMeta}
+            loading={loadingLive}
+            error={liveError}
+            usingFallback={source === 'live' && (!liveMessages || liveMessages.length === 0)}
+            onToggle={() => setSource(s => s === 'live' ? 'fixtures' : 'live')}
+            onReload={() => loadLive(true)}
+          />
+          <button className="proto-chip" data-chip="triage" onClick={() => setTriage(true)} title="Triage-Modus (T)">
+            Triage
+          </button>
+          <button className="proto-chip" data-chip="theme" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} title="Theme (D)">
+            {theme === 'dark' ? 'Hell' : 'Dunkel'}
+          </button>
+          <a className="proto-chip proto-chip-ghost" data-chip="app" href="/" title="Zur klassischen App">↩ App</a>
+        </div>
+      </header>
+
+      <div className="proto-body">
+        <main className="proto-main">
+          {lens === 'people' && (
+            <PeopleLens
+              items={messagesByLane.people}
+              selectedId={selectedId}
+              onOpen={openMessage}
+              collapsed={false}
+            />
+          )}
+          {lens === 'feed' && (
+            <FeedLens
+              items={messagesByLane.feed}
+              allBulk={classified.filter(c => c.cls.isBulk)}
+              selectedId={selectedId}
+              onOpen={openMessage}
+              collapsed={false}
+            />
+          )}
+          {lens === 'things' && (
+            <ThingsLens entities={allEntities} items={classified} onOpen={openMessage} />
+          )}
+        </main>
+
+        {(lens === 'people' || lens === 'feed') && (
+          <Scrubber items={classified.map(c => c.msg)} />
+        )}
+      </div>
+
+      {selectedMsg && (
+        <>
+          <div
+            className="proto-reader-backdrop"
+            onClick={closeReader}
+            aria-hidden
+          />
+          <aside className="proto-reader" role="dialog" aria-modal="true">
+            <Reader
+              msg={selectedMsg.msg}
+              cls={selectedMsg.cls}
+              ents={selectedMsg.ents}
+              onClose={closeReader}
+            />
+          </aside>
+        </>
+      )}
+
+      <footer className="proto-footer">
+        <span><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> Linsen</span>
+        <span><kbd>T</kbd> Triage</span>
+        <span><kbd>D</kbd> Theme</span>
+        <span><kbd>Esc</kbd> Reader schliessen</span>
+        <span className="proto-footer-note">
+          {source === 'live' && liveMeta
+            ? `Live · ${liveMeta.count} Nachrichten · ${liveMeta.withHeaders}/${liveMeta.count} mit Rohheadern · ${liveMeta.withBody}/${liveMeta.count} mit Body`
+            : 'Fixtures (deterministisch, kein Backend)'}
+        </span>
+      </footer>
+    </div>
+  );
+}
+
+function SourceChip({
+  source, liveMeta, loading, error, usingFallback, onToggle, onReload
+}: {
+  source: Source;
+  liveMeta: LiveMeta | null;
+  loading: boolean;
+  error: string | null;
+  usingFallback: boolean;
+  onToggle: () => void;
+  onReload: () => void;
+}) {
+  const label = source === 'live'
+    ? (loading ? 'Laden…' : error ? 'Live · Fehler' : usingFallback ? 'Live leer · Fixtures' : `Live · ${liveMeta?.count ?? 0}`)
+    : 'Fixtures';
+
+  const tip = source === 'live'
+    ? (error
+        ? `${error}. Klicken zum Wechseln auf Fixtures.`
+        : liveMeta
+          ? `${liveMeta.accounts.map(a => `${a.email}: ${a.count}`).join(' · ')}`
+          : 'Live-Modus aktiv')
+    : 'Prototyp-Daten (fix). Klicken fuer Live.';
+
+  return (
+    <span className="source-chip-wrap">
+      <button
+        className={`proto-chip ${source === 'live' ? 'proto-chip-live' : ''} ${error ? 'proto-chip-warn' : ''}`}
+        onClick={onToggle}
+        title={tip}
+      >
+        <span className={`source-dot ${source === 'live' ? (error ? 'bad' : 'good') : 'muted'}`} />
+        {label}
+      </button>
+      {source === 'live' && (
+        <button className="proto-chip proto-chip-ghost" onClick={onReload} title="Neu laden">↻</button>
+      )}
+    </span>
+  );
+}

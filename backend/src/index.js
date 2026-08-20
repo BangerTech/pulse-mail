@@ -6,6 +6,7 @@ import { initDb } from './db.js';
 import accountsRouter from './routes/accounts.js';
 import mailRouter from './routes/mail.js';
 import signaturesRouter from './routes/signatures.js';
+import prototypeRouter, { ingestRecent } from './routes/prototype.js';
 import { initPool, startPool } from './imap-pool.js';
 
 const app = express();
@@ -24,11 +25,12 @@ const broadcast = (data) => {
   });
 };
 
-initPool(db, broadcast);
+initPool(db, broadcast, () => ingestRecent(db, broadcast));
 
 app.use('/api/accounts', accountsRouter(db));
 app.use('/api/mail', mailRouter(db, broadcast));
 app.use('/api/signatures', signaturesRouter(db));
+app.use('/api/prototype', prototypeRouter(db, broadcast));
 
 wss.on('connection', (ws) => {
   ws.isAlive = true;

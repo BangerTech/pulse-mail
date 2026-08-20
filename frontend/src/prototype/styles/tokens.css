@@ -1,0 +1,167 @@
+/* Pulse Mail 2026 — Design Tokens
+ * Alle Farben in oklch, Skalen fuer Spacing/Radius/Typo,
+ * unabhaengig vom bestehenden global.css.
+ */
+
+:root {
+  color-scheme: dark light;
+
+  /* Neutrals — kalte, leicht blau-verschobene Grays fuer 2026-Feel */
+  --n-0:  oklch(99% 0.003 260);
+  --n-5:  oklch(97% 0.005 260);
+  --n-10: oklch(94% 0.007 260);
+  --n-20: oklch(88% 0.010 260);
+  --n-30: oklch(76% 0.013 260);
+  --n-40: oklch(62% 0.015 260);
+  --n-50: oklch(50% 0.017 260);
+  --n-60: oklch(38% 0.020 260);
+  --n-70: oklch(28% 0.020 260);
+  --n-80: oklch(20% 0.020 260);
+  --n-85: oklch(15% 0.018 260);
+  --n-90: oklch(11% 0.016 260);
+  --n-95: oklch(7%  0.012 260);
+  --n-100: oklch(3% 0.006 260);
+
+  /* Akzent — in einer Zeile umfaerbbar (Hue), Chroma bleibt konstant */
+  --accent-h: 262;
+  --accent-c: 0.19;
+  --accent:        oklch(66% var(--accent-c) var(--accent-h));
+  --accent-soft:   oklch(66% var(--accent-c) var(--accent-h) / 0.14);
+  --accent-softer: oklch(66% var(--accent-c) var(--accent-h) / 0.06);
+  --accent-strong: oklch(56% var(--accent-c) var(--accent-h));
+
+  /* Semantische Farben */
+  --ok:    oklch(70% 0.16 155);
+  --warn:  oklch(78% 0.15 75);
+  --bad:   oklch(65% 0.22 25);
+  --info:  oklch(70% 0.14 220);
+
+  /* Spacing — 4px-Basis */
+  --s-0: 0;
+  --s-1: 2px;
+  --s-2: 4px;
+  --s-3: 8px;
+  --s-4: 12px;
+  --s-5: 16px;
+  --s-6: 20px;
+  --s-7: 24px;
+  --s-8: 32px;
+  --s-9: 40px;
+  --s-10: 56px;
+  --s-11: 72px;
+
+  /* Radien */
+  --r-1: 4px;
+  --r-2: 6px;
+  --r-3: 10px;
+  --r-4: 14px;
+  --r-5: 20px;
+  --r-6: 28px;
+  --r-full: 999px;
+
+  /* Typografie — fluide via clamp() */
+  --font-sans: 'Inter var', 'Inter', system-ui, -apple-system, 'SF Pro Text', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --font-features: "cv11", "ss01", "ss03", "cv02", "cv04";
+
+  --t-xs:   clamp(10.5px, 0.68rem + 0.02vw, 11.5px);
+  --t-sm:   clamp(12px,   0.78rem + 0.03vw, 13px);
+  --t-base: clamp(13.5px, 0.86rem + 0.05vw, 14.5px);
+  --t-md:   clamp(15px,   0.95rem + 0.06vw, 16px);
+  --t-lg:   clamp(18px,   1.10rem + 0.15vw, 22px);
+  --t-xl:   clamp(24px,   1.40rem + 0.4vw,  32px);
+  --t-2xl:  clamp(32px,   1.80rem + 0.8vw,  48px);
+
+  --lh-tight: 1.15;
+  --lh-body:  1.5;
+  --lh-loose: 1.7;
+
+  /* Motion */
+  --e-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --e-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 120ms;
+  --dur-med: 200ms;
+  --dur-slow: 320ms;
+
+  /* Elevation */
+  --shadow-1: 0 1px 2px oklch(0% 0 0 / 0.08), 0 0 0 0.5px oklch(0% 0 0 / 0.06);
+  --shadow-2: 0 4px 12px oklch(0% 0 0 / 0.10), 0 0 0 0.5px oklch(0% 0 0 / 0.06);
+  --shadow-3: 0 12px 32px oklch(0% 0 0 / 0.18), 0 0 0 0.5px oklch(0% 0 0 / 0.08);
+  --shadow-lift: 0 24px 64px oklch(0% 0 0 / 0.28), 0 0 0 0.5px oklch(0% 0 0 / 0.10);
+
+  /* Light-Rollen (Standard) */
+  --bg:            var(--n-0);
+  --bg-sunken:     var(--n-5);
+  --bg-elevated:   var(--n-0);
+  --bg-inset:      var(--n-10);
+  --bg-overlay:    oklch(0% 0 0 / 0.28);
+
+  --fg:            var(--n-100);
+  --fg-muted:      var(--n-50);
+  --fg-faint:      var(--n-40);
+  --fg-inverse:    var(--n-0);
+
+  --border:        oklch(0% 0 0 / 0.09);
+  --border-strong: oklch(0% 0 0 / 0.16);
+  --divider:       oklch(0% 0 0 / 0.06);
+
+  --hover:         oklch(0% 0 0 / 0.04);
+  --active:        oklch(0% 0 0 / 0.07);
+  --focus-ring:    var(--accent);
+}
+
+:root[data-theme='dark'] {
+  --bg:            var(--n-95);
+  --bg-sunken:     var(--n-100);
+  --bg-elevated:   var(--n-90);
+  --bg-inset:      var(--n-85);
+  --bg-overlay:    oklch(0% 0 0 / 0.55);
+
+  --fg:            var(--n-5);
+  --fg-muted:      var(--n-30);
+  --fg-faint:      var(--n-40);
+  --fg-inverse:    var(--n-100);
+
+  --border:        oklch(100% 0 0 / 0.10);
+  --border-strong: oklch(100% 0 0 / 0.18);
+  --divider:       oklch(100% 0 0 / 0.06);
+
+  --hover:         oklch(100% 0 0 / 0.05);
+  --active:        oklch(100% 0 0 / 0.09);
+
+  --shadow-1: 0 1px 2px oklch(0% 0 0 / 0.4), 0 0 0 0.5px oklch(100% 0 0 / 0.05);
+  --shadow-2: 0 6px 16px oklch(0% 0 0 / 0.5), 0 0 0 0.5px oklch(100% 0 0 / 0.06);
+  --shadow-3: 0 14px 36px oklch(0% 0 0 / 0.6), 0 0 0 0.5px oklch(100% 0 0 / 0.08);
+  --shadow-lift: 0 28px 72px oklch(0% 0 0 / 0.7), 0 0 0 0.5px oklch(100% 0 0 / 0.10);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg:            var(--n-95);
+    --bg-sunken:     var(--n-100);
+    --bg-elevated:   var(--n-90);
+    --bg-inset:      var(--n-85);
+    --bg-overlay:    oklch(0% 0 0 / 0.55);
+    --fg:            var(--n-5);
+    --fg-muted:      var(--n-30);
+    --fg-faint:      var(--n-40);
+    --fg-inverse:    var(--n-100);
+    --border:        oklch(100% 0 0 / 0.10);
+    --border-strong: oklch(100% 0 0 / 0.18);
+    --divider:       oklch(100% 0 0 / 0.06);
+    --hover:         oklch(100% 0 0 / 0.05);
+    --active:        oklch(100% 0 0 / 0.09);
+    --shadow-1: 0 1px 2px oklch(0% 0 0 / 0.4), 0 0 0 0.5px oklch(100% 0 0 / 0.05);
+    --shadow-2: 0 6px 16px oklch(0% 0 0 / 0.5), 0 0 0 0.5px oklch(100% 0 0 / 0.06);
+    --shadow-3: 0 14px 36px oklch(0% 0 0 / 0.6), 0 0 0 0.5px oklch(100% 0 0 / 0.08);
+    --shadow-lift: 0 28px 72px oklch(0% 0 0 / 0.7), 0 0 0 0.5px oklch(100% 0 0 / 0.10);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-med: 0ms;
+    --dur-slow: 0ms;
+  }
+}

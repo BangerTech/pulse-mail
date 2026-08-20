@@ -205,7 +205,18 @@ export default function mailRouter(db, broadcast = () => {}) {
         envelope: true,
         flags: true,
         bodyStructure: true,
-        headers: ['references']
+        headers: [
+          'references',
+          'list-unsubscribe',
+          'list-unsubscribe-post',
+          'list-id',
+          'precedence',
+          'auto-submitted',
+          'feedback-id',
+          'authentication-results',
+          'dkim-signature',
+          'return-path'
+        ]
       })) {
         collected.push({
           uid: msg.uid,
@@ -224,6 +235,7 @@ export default function mailRouter(db, broadcast = () => {}) {
             ? msg.envelope.inReplyTo.join(' ')
             : (msg.envelope?.inReplyTo || null),
           references: parseReferences(msg.headers),
+          rawHeaders: parseHeaders(msg.headers),
           textPart: findTextPart(msg.bodyStructure),
           snippet: ''
         });
@@ -664,6 +676,26 @@ function parseReferences(headers) {
   const text = Buffer.isBuffer(headers) ? headers.toString('utf8') : String(headers);
   const unfolded = text.replace(/\r?\n[ \t]+/g, ' ');
   return extractMessageIds(unfolded);
+}
+
+// Parses a raw RFC822 header block (as imapflow returns for the `headers`
+// fetch option) into a lower-cased name -> value map. Header folding is
+// unfolded so long headers become single-line values. Only the last value
+// of a repeated header is kept; that's fine for the fields we consume.
+function parseHeaders(headers) {
+  if (!headers) return null;
+  const text = Buffer.isBuffer(headers) ? headers.toString('utf8') : String(headers);
+  if (!text) return null;
+  const unfolded = text.replace(/\r?\n[ \t]+/g, ' ');
+  const out = {};
+  for (const line of unfolded.split(/\r?\n/)) {
+    const idx = line.indexOf(':');
+    if (idx < 1) continue;
+    const name = line.slice(0, idx).trim().toLowerCase();
+    const value = line.slice(idx + 1).trim();
+    if (name) out[name] = value;
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 function normalizeReferences(references) {
