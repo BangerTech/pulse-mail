@@ -1,3 +1,5 @@
+import { memo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore, Account, Folder } from '../store';
 import { Icon } from './Icon';
 import '../styles/sidebar.css';
@@ -51,12 +53,26 @@ function inboxUnread(folders: Folder[]) {
   return folders.find(isInbox)?.unread || 0;
 }
 
-export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
   const {
     accounts, selectedAccount, folders, foldersByAccount, selectedFolder,
     unifiedView, unifiedUnread, collapsedAccounts, theme,
-    setShowSettings, setUnifiedView, setTheme, selectMailbox, toggleAccountCollapsed
-  } = useStore();
+  } = useStore(useShallow(s => ({
+    accounts: s.accounts,
+    selectedAccount: s.selectedAccount,
+    folders: s.folders,
+    foldersByAccount: s.foldersByAccount,
+    selectedFolder: s.selectedFolder,
+    unifiedView: s.unifiedView,
+    unifiedUnread: s.unifiedUnread,
+    collapsedAccounts: s.collapsedAccounts,
+    theme: s.theme,
+  })));
+  const setShowSettings = useStore(s => s.setShowSettings);
+  const setUnifiedView = useStore(s => s.setUnifiedView);
+  const setTheme = useStore(s => s.setTheme);
+  const selectMailbox = useStore(s => s.selectMailbox);
+  const toggleAccountCollapsed = useStore(s => s.toggleAccountCollapsed);
 
   const cycleTheme = () => {
     const order: Array<typeof theme> = ['system', 'light', 'dark'];
@@ -150,7 +166,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
       <div className="sidebar-footer">
         <div className="sidebar-footer-actions">
-          <button className="sidebar-footer-btn" onClick={() => { setShowSettings(true); onNavigate?.(); }}>
+          <button className="sidebar-footer-btn" onClick={() => { setShowSettings(true); onNavigate?.(); }} aria-label="Einstellungen">
             <Icon name="settings" size={15} />
             <span>Einstellungen</span>
           </button>
@@ -158,6 +174,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             className="sidebar-footer-btn icon-only"
             onClick={cycleTheme}
             title={`Erscheinungsbild: ${themeLabel}`}
+            aria-label={`Erscheinungsbild wechseln (aktuell: ${themeLabel})`}
           >
             <Icon name="moon" size={15} />
           </button>
@@ -166,3 +183,6 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     </div>
   );
 }
+
+const Sidebar = memo(SidebarInner);
+export default Sidebar;

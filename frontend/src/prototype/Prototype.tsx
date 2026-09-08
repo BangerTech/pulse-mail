@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { messages as fixtures } from './data/fixtures';
 import { fetchLive, type LiveMeta } from './data/live';
 import { classify } from './logic/classify';
@@ -10,9 +10,12 @@ import { ThingsLens } from './views/ThingsLens';
 import { Reader } from './views/Reader';
 import { TriageMode } from './views/TriageMode';
 import { Scrubber } from './views/Scrubber';
+import { archiveMessage, setSeen } from './data/actions';
 
 export type LensKey = 'people' | 'feed' | 'things';
 export type Source = 'live' | 'fixtures';
+
+const LENSES: LensKey[] = ['people', 'feed', 'things'];
 
 export function Prototype() {
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
@@ -30,6 +33,8 @@ export function Prototype() {
   const [liveMeta, setLiveMeta] = useState<LiveMeta | null>(null);
   const [loadingLive, setLoadingLive] = useState(false);
   const [liveError, setLiveError] = useState<string | null>(null);
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+  const [seenIds, setSeenIds] = useState<Set<string>>(new Set());
   const loadGen = useRef(0);
 
   useEffect(() => {
@@ -93,9 +98,15 @@ export function Prototype() {
 
   // Datensatz je nach Quelle: Live wenn geladen und nicht leer, sonst Fixtures
   const dataset: RawMessage[] = useMemo(() => {
-    if (source === 'live' && liveMessages && liveMessages.length > 0) return liveMessages;
-    return fixtures;
-  }, [source, liveMessages]);
+    const raw = (source === 'live' && liveMessages && liveMessages.length > 0)
+      ? liveMessages
+      : fixtures;
+    return raw
+      .filter(m => !hiddenIds.has(m.id))
+      .map(m => seenIds.has(m.id) && !m.flags.includes('\\Seen')
+        ? { ...m, flags: [...m.flags, '\\Seen'] }
+        : m);
+  }, [source, liveMessages, hiddenIds, seenIds]);
 
   // Klassifiziere alle Nachrichten einmal (deterministisch)
   const classified = useMemo(() => {
@@ -130,13 +141,57 @@ export function Prototype() {
     else fn();
   }, []);
 
-  const openMessage = useCallback((id: string) => {
-    withMorph(() => setSelectedId(id));
-  }, [withMorph]);
-
   const closeReader = useCallback(() => {
     withMorph(() => setSelectedId(null));
   }, [withMorph]);
+
+  const markSeenLocal = useCallback((id: string) => {
+    setSeenIds(s => {
+      if (s.has(id)) return s;
+      const next = new Set(s);
+      next.add(id);
+      return next;
+    });
+  }, []);
+
+  const hideLocal = useCallback((id: string) => {
+    setHiddenIds(s => {
+      const next = new Set(s);
+      next.add(id);
+      return next;
+    });
+  }, []);
+
+  const openMessage = useCallback((id: string) => {
+    withMorph(() => setSelectedId(id));
+    markSeenLocal(id);
+  }, [withMorph, markSeenLocal]);
+
+  const jumpToWeek = useCallback((week: string) => {
+    const el = document.querySelector(`[data-week="${CSS.escape(week)}"]`);
+    el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, []);
+
+  const onDecision = useCallback((item: { msg: RawMessage }, decision: 'archive' | 'keep' | 'later') => {
+    if (decision === 'archive') {
+      archiveMessage(item.msg).catch(() => {});
+      hideLocal(item.msg.id);
+    } else if (decision === 'keep') {
+      setSeen(item.msg, true).catch(() => {});
+      markSeenLocal(item.msg.id);
+    }
+  }, [hideLocal, markSeenLocal]);
+
+  const onLensKeyDown = (e: ReactKeyboardEvent) => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    e.preventDefault();
+    const i = LENSES.indexOf(lens);
+    const next = LENSES[(i + (e.key === 'ArrowRight' ? 1 : LENSES.length - 1)) % LENSES.length];
+    withMorph(() => { setLens(next); setSelectedId(null); });
+    requestAnimationFrame(() => {
+      (document.querySelector(`[role="tab"][data-lens="${next}"]`) as HTMLElement | null)?.focus();
+    });
+  };
 
   // Tastatur
   useEffect(() => {
@@ -158,6 +213,7 @@ export function Prototype() {
     return <TriageMode
       items={classified}
       onExit={() => setTriage(false)}
+      onDecision={onDecision}
     />;
   }
 
@@ -173,10 +229,12 @@ export function Prototype() {
           <span className="proto-brand-tag">2026</span>
         </div>
 
-        <nav className="proto-lenses" role="tablist" aria-label="Linsen">
+        <nav className="proto-lenses" role="tablist" aria-label="Linsen" onKeyDown={onLensKeyDown}>
           <button
             role="tab"
+            data-lens="people"
             aria-selected={lens === 'people'}
+            tabIndex={lens === 'people' ? 0 : -1}
             className={`proto-lens ${lens === 'people' ? 'active' : ''}`}
             onClick={() => withMorph(() => { setLens('people'); setSelectedId(null); })}
           >
@@ -186,7 +244,9 @@ export function Prototype() {
           </button>
           <button
             role="tab"
+            data-lens="feed"
             aria-selected={lens === 'feed'}
+            tabIndex={lens === 'feed' ? 0 : -1}
             className={`proto-lens ${lens === 'feed' ? 'active' : ''}`}
             onClick={() => withMorph(() => { setLens('feed'); setSelectedId(null); })}
           >
@@ -196,7 +256,9 @@ export function Prototype() {
           </button>
           <button
             role="tab"
+            data-lens="things"
             aria-selected={lens === 'things'}
+            tabIndex={lens === 'things' ? 0 : -1}
             className={`proto-lens ${lens === 'things' ? 'active' : ''}`}
             onClick={() => withMorph(() => { setLens('things'); setSelectedId(null); })}
           >
@@ -251,7 +313,7 @@ export function Prototype() {
         </main>
 
         {(lens === 'people' || lens === 'feed') && (
-          <Scrubber items={classified.map(c => c.msg)} />
+          <Scrubber items={classified.map(c => c.msg)} onJump={jumpToWeek} />
         )}
       </div>
 
@@ -262,7 +324,7 @@ export function Prototype() {
             onClick={closeReader}
             aria-hidden
           />
-          <aside className="proto-reader" role="dialog" aria-modal="true">
+          <aside className="proto-reader" role="dialog" aria-modal="true" aria-labelledby="reader-subject">
             <Reader
               msg={selectedMsg.msg}
               cls={selectedMsg.cls}

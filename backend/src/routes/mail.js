@@ -14,6 +14,8 @@ import {
   mimeType, mimeEncoding, mimeCharset, decodeBody, looksEncoded,
   repairEncodedText, decodeMimeWords, downloadPart
 } from '../mime.js';
+import { markPendingDelete, clearPendingDelete, isPending } from '../pending.js';
+import { reconcileFolder } from '../sync.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UPLOADS_DIR = path.join(__dirname, '../../uploads/signatures');
@@ -23,23 +25,6 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 
 const SNIPPET_LENGTH = 200;
 const SNIPPET_BATCH = 40;
 const THREAD_LOOKBACK = 250;
-const pendingDeletes = new Set();
-
-function pendingKey(accountId, folder, uid) {
-  return `${Number(accountId)}:${folder}:${Number(uid)}`;
-}
-
-function markPendingDelete(accountId, folder, uids) {
-  for (const uid of uids || []) pendingDeletes.add(pendingKey(accountId, folder, uid));
-}
-
-function clearPendingDelete(accountId, folder, uids) {
-  for (const uid of uids || []) pendingDeletes.delete(pendingKey(accountId, folder, uid));
-}
-
-function isPending(accountId, folder, uid) {
-  return pendingDeletes.has(pendingKey(accountId, folder, uid));
-}
 
 function withoutPending(accountId, folder, messages) {
   return (messages || []).filter(m => !isPending(accountId, folder, m.uid));
@@ -257,6 +242,12 @@ export default function mailRouter(db, broadcast = () => {}) {
     );
     if (before !== snapshotOf(after)) {
       broadcast({ type: 'messages_updated', accountId, folder });
+    }
+
+    // At the top of the list, also reconcile deletions and flag drift with
+    // the server. Fire-and-forget: the response has already gone out.
+    if (offset === 0) {
+      reconcileFolder(db, broadcast, accountId, folder).catch(() => {});
     }
 
     return after;
@@ -779,11 +770,17 @@ function listAttachments(structure, list = []) {
 async function loadPart(client, uid, partInfo) {
   if (!partInfo?.part) return '';
   try {
+    // client.download() already applies the Content-Transfer-Encoding, so the
+    // buffer is plain bytes here. Decoding base64/quoted-printable a second
+    // time would shred the body (base64 stops at the first '=' in the text),
+    // therefore only the charset is applied.
     const downloaded = await downloadPart(client, uid, partInfo.part);
-    const decoded = decodeBody(downloaded, partInfo.charset, partInfo.encoding);
+    const decoded = decodeBody(downloaded, partInfo.charset, null);
     if (decoded && !looksEncoded(decoded)) return decoded;
   } catch {}
 
+  // fetchOne with bodyParts returns the part verbatim, still transfer-encoded,
+  // so here the encoding does have to be applied.
   const fetched = await client.fetchOne(uid, { uid: true, bodyParts: [partInfo.part] }, { uid: true });
   const buffer = fetched?.bodyParts?.get(partInfo.part);
   return decodeBody(buffer, partInfo.charset, partInfo.encoding);

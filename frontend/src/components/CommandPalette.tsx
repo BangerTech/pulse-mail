@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import { Icon } from './Icon';
+import { useFocusTrap } from '../shared/useFocusTrap';
 import '../styles/palette.css';
 
 export interface Command {
@@ -18,7 +19,7 @@ interface CommandPaletteProps {
 }
 
 export default function CommandPalette({ commands }: CommandPaletteProps) {
-  const { setShowPalette } = useStore();
+  const setShowPalette = useStore(s => s.setShowPalette);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -83,9 +84,23 @@ export default function CommandPalette({ commands }: CommandPaletteProps) {
     }
   };
 
+  const trapRef = useFocusTrap<HTMLDivElement>({
+    active: true,
+    initialFocusSelector: 'input.palette-input',
+    onEscape: close,
+  });
+
   return (
-    <div className="palette-overlay" onMouseDown={close}>
-      <div className="palette" onMouseDown={(e) => e.stopPropagation()} onKeyDown={onKeyDown}>
+    <div className="palette-overlay" onMouseDown={close} role="presentation">
+      <div
+        className="palette"
+        onMouseDown={(e) => e.stopPropagation()}
+        onKeyDown={onKeyDown}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Befehlspalette"
+        ref={trapRef}
+      >
         <div className="palette-input-wrap">
           <Icon name="command" size={16} className="palette-input-icon" />
           <input

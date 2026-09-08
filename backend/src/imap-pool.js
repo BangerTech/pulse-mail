@@ -1,7 +1,9 @@
 import { ImapFlow } from 'imapflow';
 import { decryptPassword } from './db.js';
+import { reconcileFolder, scheduleReconcile } from './sync.js';
 
 const RECONNECT_DELAY = 5000;
+const RECONCILE_INTERVAL = 5 * 60 * 1000; // safety net if IDLE misses events
 const idleConnections = new Map();
 const workConnections = new Map();
 const lastExists = new Map();
@@ -73,9 +75,28 @@ async function connectIdle(accountId) {
   await client.mailboxOpen('INBOX');
 
   client.on('exists', (data) => {
-    lastExists.set(accountId, data?.count ?? client.mailbox?.exists);
+    const next = data?.count ?? client.mailbox?.exists;
+    const prev = lastExists.get(accountId);
+    lastExists.set(accountId, next);
     broadcast({ type: 'new_mail', accountId, data });
     onNewMail(accountId).catch(() => {});
+    // The `exists` event fires for both additions and (surprisingly) some
+    // expunges. If the count went down, kick off a reconcile too.
+    if (typeof prev === 'number' && typeof next === 'number' && next < prev) {
+      scheduleReconcile(db, broadcast, accountId, 'INBOX');
+    }
+  });
+
+  // Expunge fires when a message is removed from the mailbox on the server
+  // (e.g. Apple Mail deletes or moves a mail). ImapFlow only gives us the
+  // sequence number here, not the UID, so we reconcile the whole folder.
+  client.on('expunge', () => {
+    scheduleReconcile(db, broadcast, accountId, 'INBOX');
+  });
+
+  // Flag changes on already-seen messages arrive as `flags` events.
+  client.on('flags', () => {
+    scheduleReconcile(db, broadcast, accountId, 'INBOX');
   });
 
   console.log(`IMAP IDLE connected: ${account.email}`);
@@ -147,6 +168,7 @@ export function startPool() {
   }
 
   setInterval(pollInboxes, 60000);
+  setInterval(safetyReconcile, RECONCILE_INTERVAL);
 }
 
 async function pollInboxes() {
@@ -162,8 +184,23 @@ async function pollInboxes() {
         if (previous !== undefined && exists !== previous) {
           broadcast({ type: 'new_mail', accountId: account.id });
           onNewMail(account.id).catch(() => {});
+          // A drop in count means something was expunged elsewhere; the
+          // additive `onNewMail` sync can't detect that on its own.
+          if (exists < previous) {
+            scheduleReconcile(db, broadcast, account.id, 'INBOX', 200);
+          }
         }
       });
     } catch {}
+  }
+}
+
+// Safety net: even if IDLE keeps working, run a full reconcile every few
+// minutes so external flag changes on older mail eventually catch up.
+async function safetyReconcile() {
+  if (!db) return;
+  const accounts = db.prepare('SELECT id FROM accounts').all();
+  for (const account of accounts) {
+    reconcileFolder(db, broadcast, account.id, 'INBOX').catch(() => {});
   }
 }

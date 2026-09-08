@@ -2,6 +2,7 @@ import { type ReactNode } from 'react';
 import type { RawMessage } from '../data/types';
 import type { Classification } from '../logic/classify';
 import { domainHue } from '../logic/classify';
+import { onActivateKey } from '../../shared/keyboard';
 import { formatRelative, initials } from '../logic/util';
 
 interface Props {
@@ -21,8 +22,11 @@ export function MessageRow({ msg, cls, active, onClick, right, hideSnippet }: Pr
     <article
       className={`row ${active ? 'active' : ''} ${unread ? 'unread' : ''} ${cls.category === 'suspicious' ? 'danger' : ''}`}
       onClick={onClick}
+      onKeyDown={(e) => onActivateKey(e, onClick)}
       role="button"
       tabIndex={0}
+      aria-selected={active}
+      aria-label={`${unread ? 'Ungelesen: ' : ''}${msg.from.name || msg.from.address} — ${msg.subject}`}
       style={{ ['--row-hue' as any]: hue }}
     >
       <div className="row-avatar" aria-hidden style={{ background: `oklch(58% 0.14 ${hue})` }}>

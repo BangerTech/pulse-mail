@@ -1,8 +1,14 @@
-import { useMemo } from 'react';
+import { useMemo, memo, useState, useEffect } from 'react';
 import { useStore, msgKey } from '../store';
 import { Icon } from './Icon';
 import { format, isToday, isYesterday } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { buildMailDocument } from '../shared/mail-html';
+import { useMailFrame } from '../shared/useMailFrame';
+import { renderPlainText } from '../shared/plain-text';
+import { RemoteImagesBar } from '../shared/RemoteImagesBar';
+import { isSenderAllowed, allowSender } from '../shared/imageAllowlist';
+import '../shared/shared.css';
 import '../styles/mailcontent.css';
 
 interface MailContentProps {
@@ -71,78 +77,94 @@ function formatHeaderDate(dateStr?: string, detailed = false) {
   return format(date, 'd. MMM yyyy · HH:mm', { locale: de });
 }
 
-export default function MailContent({
+function MailContentInner({
   onArchive, onDelete, onToggleFlag, variant = 'preview', onExpand, onClose
 }: MailContentProps) {
-  const {
-    selectedMessage, selectedAccount, selectedFolder, composeFont, theme, openCompose, accounts
-  } = useStore();
+  const selectedMessage = useStore(s => s.selectedMessage);
+  const messageBody = useStore(s => s.messageBody);
+  const selectedAccount = useStore(s => s.selectedAccount);
+  const selectedFolder = useStore(s => s.selectedFolder);
+  const composeFont = useStore(s => s.composeFont);
+  const theme = useStore(s => s.theme);
+  const openCompose = useStore(s => s.openCompose);
+  const accounts = useStore(s => s.accounts);
 
   const isDark = theme === 'dark' ||
     (theme === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
   const htmlSource = useMemo(() => {
     if (!selectedMessage) return '';
-    const htmlCandidate = decodeMaybeBase64(selectedMessage.html || '');
-    const textCandidate = decodeMaybeBase64(selectedMessage.text || '');
+    const htmlCandidate = decodeMaybeBase64(messageBody?.html || selectedMessage.html || '');
+    const textCandidate = decodeMaybeBase64(messageBody?.text || selectedMessage.text || '');
     if (looksLikeHtml(htmlCandidate)) return htmlCandidate;
     if (looksLikeHtml(textCandidate)) return textCandidate;
     return htmlCandidate;
-  }, [selectedMessage]);
+  }, [selectedMessage, messageBody]);
 
   const plainText = useMemo(() => {
     if (!selectedMessage) return '';
-    const text = decodeMaybeBase64(selectedMessage.text || '');
+    const text = decodeMaybeBase64(messageBody?.text || selectedMessage.text || '');
     return looksLikeHtml(text) ? '' : text;
-  }, [selectedMessage]);
+  }, [selectedMessage, messageBody]);
 
-  // Inline images arrive as cid: references which the iframe cannot resolve, so
-  // they are swapped for the attachment endpoint before rendering.
-  const html = useMemo(() => {
+  // Per-mail override: user clicked "Laden" once. Reset when the selected
+  // message changes so opening a new mail always starts in the blocked state
+  // unless the sender is on the allowlist.
+  const [loadRemoteOnce, setLoadRemoteOnce] = useState(false);
+  const messageKey = selectedMessage
+    ? `${selectedMessage.accountId ?? ''}:${selectedMessage.uid}`
+    : '';
+  useEffect(() => { setLoadRemoteOnce(false); }, [messageKey]);
+
+  // Re-render when the allowlist changes (e.g. after adding the sender).
+  const [allowlistTick, setAllowlistTick] = useState(0);
+  useEffect(() => {
+    const bump = () => setAllowlistTick((t) => t + 1);
+    window.addEventListener('pulse:allowlist-changed', bump);
+    return () => window.removeEventListener('pulse:allowlist-changed', bump);
+  }, []);
+
+  const senderAllowed = useMemo(
+    () => isSenderAllowed(selectedMessage?.from?.address),
+    [selectedMessage?.from?.address, allowlistTick]
+  );
+  const blockRemote = !loadRemoteOnce && !senderAllowed;
+
+  // Inline images arrive as cid: references which the iframe cannot resolve
+  // on its own – the shared renderer swaps them for the attachment endpoint
+  // and only applies our theme background/text colors when the mail itself
+  // didn't bring any (otherwise we'd repaint newsletters in dark mode).
+  const doc = useMemo(() => {
     const accountId = selectedMessage?.accountId ?? selectedAccount?.id;
     const folder = selectedMessage?.folder || selectedFolder;
-    if (!htmlSource || !accountId || !selectedMessage) return htmlSource;
-
-    const normalize = (cid?: string) => (cid || '').replace(/^<|>$/g, '').trim().toLowerCase();
-    let output = htmlSource;
-    for (const att of selectedMessage.attachments || []) {
-      if (!att.cid) continue;
-      const cid = normalize(att.cid);
-      const name = encodeURIComponent(att.filename || 'inline');
-      const url = `/api/mail/${accountId}/attachment/${selectedMessage.uid}/${name}?folder=${encodeURIComponent(folder)}&cid=${encodeURIComponent(cid)}&inline=1`;
-      output = output.replace(
-        new RegExp(`cid:${cid.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}>?`, 'gi'),
-        url
-      );
+    if (!htmlSource || !accountId || !selectedMessage) {
+      return { srcDoc: '', hasOwnBackground: false, blockedCount: 0, blockedHosts: [] as string[] };
     }
 
     const pad = variant === 'preview' ? 18 : 28;
-    const style = `<style>
-      :root { color-scheme: ${isDark ? 'dark' : 'light'}; }
-      body {
-        margin: 0;
-        padding: ${pad}px;
-        font-family: ${composeFont.family};
-        font-size: ${composeFont.size}px;
-        line-height: 1.65;
-        color: ${isDark ? '#f5f5f7' : '#1d1d1f'};
-        background: ${isDark ? '#1a1b1f' : '#ffffff'};
-        word-wrap: break-word;
-      }
-      img { max-width: 100%; height: auto; }
-      a { color: #0A84FF; }
-      blockquote {
-        margin: 8px 0;
-        padding-left: 14px;
-        border-left: 3px solid ${isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.15)'};
-        color: ${isDark ? '#98989d' : '#6e6e73'};
-      }
-      pre { white-space: pre-wrap; word-wrap: break-word; }
-      table { max-width: 100%; }
-    </style>`;
+    return buildMailDocument({
+      html: htmlSource,
+      isDark,
+      fontFamily: composeFont.family,
+      fontSize: composeFont.size,
+      padding: pad,
+      blockRemote,
+      attachments: selectedMessage.attachments || [],
+      attachmentUrl: (att) => {
+        const name = encodeURIComponent(att.filename || 'inline');
+        const cid = (att.cid || '').replace(/^<|>$/g, '').trim().toLowerCase();
+        return `/api/mail/${accountId}/attachment/${selectedMessage.uid}/${name}?folder=${encodeURIComponent(folder)}&cid=${encodeURIComponent(cid)}&inline=1`;
+      },
+    });
+  }, [htmlSource, selectedMessage, selectedAccount, selectedFolder, composeFont, isDark, variant, blockRemote]);
 
-    return style + output;
-  }, [htmlSource, selectedMessage, selectedAccount, selectedFolder, composeFont, isDark, variant]);
+  const srcDoc = doc.srcDoc;
+  const { iframeRef, onLoad } = useMailFrame(srcDoc, { minHeight: variant === 'preview' ? 240 : 400 });
+
+  const plainTextHtml = useMemo(
+    () => renderPlainText(plainText || ''),
+    [plainText]
+  );
 
   if (!selectedMessage) {
     return (
@@ -182,39 +204,41 @@ export default function MailContent({
       <div className="mailcontent-header">
         <div className="mailcontent-toolbar">
           {variant === 'full' && onClose && (
-            <button className="action-btn" onClick={onClose} title="Schließen">
+            <button className="action-btn" onClick={onClose} title="Schließen" aria-label="Schließen">
               <Icon name="close" />
             </button>
           )}
           <div className="mailcontent-toolbar-group">
-            <button className="action-btn" onClick={() => openCompose('reply', selectedMessage)} title="Antworten (R)">
+            <button className="action-btn" onClick={() => openCompose('reply', selectedMessage)} title="Antworten (R)" aria-label="Antworten">
               <Icon name="reply" />
             </button>
-            <button className="action-btn" onClick={() => openCompose('replyAll', selectedMessage)} title="Allen antworten (A)">
+            <button className="action-btn" onClick={() => openCompose('replyAll', selectedMessage)} title="Allen antworten (A)" aria-label="Allen antworten">
               <Icon name="replyAll" />
             </button>
-            <button className="action-btn" onClick={() => openCompose('forward', selectedMessage)} title="Weiterleiten (F)">
+            <button className="action-btn" onClick={() => openCompose('forward', selectedMessage)} title="Weiterleiten (F)" aria-label="Weiterleiten">
               <Icon name="forward" />
             </button>
           </div>
           <span className="mailcontent-toolbar-spacer" />
           <div className="mailcontent-toolbar-group">
-            <button className="action-btn" onClick={() => onArchive(keys)} title="Archivieren (E)">
+            <button className="action-btn" onClick={() => onArchive(keys)} title="Archivieren (E)" aria-label="Archivieren">
               <Icon name="archive" />
             </button>
             <button
               className={`action-btn ${isFlagged ? 'flagged' : ''}`}
               onClick={() => onToggleFlag(keys, !isFlagged)}
               title="Markieren (L)"
+              aria-label={isFlagged ? 'Markierung entfernen' : 'Markieren'}
+              aria-pressed={isFlagged}
             >
               <Icon name="flag" filled={isFlagged} />
             </button>
-            <button className="action-btn delete-btn" onClick={() => onDelete(keys)} title="Löschen">
+            <button className="action-btn delete-btn" onClick={() => onDelete(keys)} title="Löschen" aria-label="Löschen">
               <Icon name="trash" />
             </button>
           </div>
           {variant === 'preview' && onExpand && (
-            <button className="action-btn expand-btn" onClick={onExpand} title="Vollständig öffnen">
+            <button className="action-btn expand-btn" onClick={onExpand} title="Vollständig öffnen" aria-label="Vollständig öffnen">
               <Icon name="envelopeOpen" />
             </button>
           )}
@@ -297,32 +321,47 @@ export default function MailContent({
       )}
 
       <div className="mailcontent-body">
+        {doc.blockedCount > 0 && (
+          <RemoteImagesBar
+            blockedCount={doc.blockedCount}
+            hosts={doc.blockedHosts}
+            senderAddress={selectedMessage.from?.address}
+            onLoadOnce={() => setLoadRemoteOnce(true)}
+            onAllowSender={() => {
+              if (selectedMessage.from?.address) allowSender(selectedMessage.from.address);
+              setLoadRemoteOnce(true);
+            }}
+          />
+        )}
         {selectedMessage.bodyLoading && !htmlSource ? (
           <div className="mail-loading">
             {plainText ? (
-              <pre
+              <div
                 className="mail-text"
                 style={{ fontFamily: composeFont.family, fontSize: composeFont.size }}
-              >
-                {plainText}
-              </pre>
+                dangerouslySetInnerHTML={{ __html: plainTextHtml }}
+              />
             ) : null}
             <div className="mail-loading-bar" />
           </div>
         ) : htmlSource ? (
           <iframe
-            srcDoc={html}
+            ref={iframeRef}
+            srcDoc={srcDoc}
+            onLoad={onLoad}
             className="mail-iframe"
-            sandbox="allow-popups allow-popups-to-escape-sandbox"
+            // Same-origin is needed so we can measure the rendered document
+            // for auto-height and downscale wide newsletters. We deliberately
+            // do NOT allow-scripts, so mail JS is still blocked.
+            sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"
             title="E-Mail Inhalt"
           />
         ) : (
-          <pre
+          <div
             className="mail-text"
             style={{ fontFamily: composeFont.family, fontSize: composeFont.size }}
-          >
-            {plainText}
-          </pre>
+            dangerouslySetInnerHTML={{ __html: plainTextHtml }}
+          />
         )}
       </div>
 
@@ -353,3 +392,6 @@ export default function MailContent({
     </div>
   );
 }
+
+const MailContent = memo(MailContentInner);
+export default MailContent;

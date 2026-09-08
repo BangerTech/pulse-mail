@@ -108,7 +108,7 @@ async function pullRecent(db, broadcast = () => {}, { force = false } = {}) {
   if (!force && Date.now() - lastPullAt < 8000) return { skipped: true, cool: true };
   pullInFlight = true;
   lastPullAt = Date.now();
-  const summary = { added: 0 };
+  const summary = { added: 0, perAccount: [] };
   try {
     const accounts = db.prepare('SELECT id, email FROM accounts').all();
     let added = 0;
@@ -116,6 +116,7 @@ async function pullRecent(db, broadcast = () => {}, { force = false } = {}) {
       const before = db.prepare(
         'SELECT COUNT(*) AS c FROM mail_cache WHERE account_id = ? AND folder = ?'
       ).get(account.id, 'INBOX')?.c || 0;
+      const perAccountBefore = added;
 
       await withFolder(account.id, 'INBOX', async (client) => {
         const total = client.mailbox?.exists || 0;
@@ -156,10 +157,15 @@ async function pullRecent(db, broadcast = () => {}, { force = false } = {}) {
       const after = db.prepare(
         'SELECT COUNT(*) AS c FROM mail_cache WHERE account_id = ? AND folder = ?'
       ).get(account.id, 'INBOX')?.c || 0;
-      added += Math.max(0, after - before);
+      const delta = Math.max(0, after - before);
+      added += delta;
+      if (delta > 0) {
+        // Emit per-account so the single-account view in App.tsx picks it up.
+        broadcast({ type: 'messages_updated', accountId: account.id, folder: 'INBOX' });
+        summary.perAccount.push({ accountId: account.id, added: delta });
+      }
     }
     summary.added = added;
-    if (added > 0) broadcast({ type: 'messages_updated' });
   } catch (err) {
     summary.error = err.message;
   } finally {
@@ -426,7 +432,10 @@ function mapRow(row) {
   const bodyText = repairEncodedText(
     [row.body_text || row.snippet || '', row.extracted_pdf_text || ''].filter(Boolean).join('\n')
   );
-  const bodyHtml = row.body_html || '';
+  // The production path repairs body_html on the detail endpoint; the
+  // prototype list-shaped payload used to skip it, so cached Base64/QP HTML
+  // arrived as garbage. Do the same repair here for consistency.
+  const bodyHtml = repairEncodedText(row.body_html || '');
 
   return {
     id: `${row.account_id}:${row.uid}`,

@@ -5,15 +5,18 @@ import type { Entity } from '../logic/extract';
 import { domainHue } from '../logic/classify';
 import { formatRelative, initials } from '../logic/util';
 
+import { useFocusTrap } from '../../shared/useFocusTrap';
+
 type Item = { msg: RawMessage; cls: Classification; ents: Entity[] };
 type Decision = 'archive' | 'keep' | 'later';
 
 interface Props {
   items: Item[];
   onExit: () => void;
+  onDecision?: (item: Item, decision: Decision) => void;
 }
 
-export function TriageMode({ items, onExit }: Props) {
+export function TriageMode({ items, onExit, onDecision }: Props) {
   // Nur Ungelesenes triagieren
   const queue = useMemo(
     () => items.filter(i => !i.msg.flags.includes('\\Seen')),
@@ -28,12 +31,13 @@ export function TriageMode({ items, onExit }: Props) {
   const commit = useCallback((decision: Decision) => {
     if (!current) return;
     setSwipe(decision);
+    onDecision?.(current, decision);
     window.setTimeout(() => {
       setDecisions(d => [...d, { id: current.msg.id, decision }]);
       setIndex(i => i + 1);
       setSwipe(null);
     }, 220);
-  }, [current]);
+  }, [current, onDecision]);
 
   const undo = useCallback(() => {
     setDecisions(d => {
@@ -61,8 +65,13 @@ export function TriageMode({ items, onExit }: Props) {
     later: decisions.filter(d => d.decision === 'later').length
   }), [decisions]);
 
+  const trapRef = useFocusTrap<HTMLDivElement>({
+    active: true,
+    onEscape: onExit,
+  });
+
   return (
-    <div className="triage">
+    <div className="triage" ref={trapRef} role="dialog" aria-modal="true" aria-label="Triage">
       <header className="triage-head">
         <button className="chip chip-ghost" onClick={onExit}>Verlassen (Esc)</button>
         <div className="triage-progress">

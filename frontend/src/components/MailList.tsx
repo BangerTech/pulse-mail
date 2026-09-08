@@ -1,4 +1,6 @@
-import { useRef, useCallback, useState, useEffect } from 'react';
+import { useRef, useCallback, useState, useEffect, memo, useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useStore, msgKey, MailThread, MailMessage } from '../store';
 import { Icon } from './Icon';
 import { format, isToday, isYesterday, isThisYear } from 'date-fns';
@@ -65,27 +67,31 @@ interface Row {
 const SWIPE_COMMIT = 112;
 const SWIPE_MAX = 168;
 
-function MailRow({
-  row,
-  index,
-  isActive,
-  swipeEnabled,
-  onClick,
-  onArchive,
-  onDelete,
-  onToggleFlag,
-  onOpenFull
-}: {
+interface MailRowProps {
   row: Row;
   index: number;
   isActive: boolean;
   swipeEnabled: boolean;
   onClick: (row: Row, index: number, e: React.MouseEvent) => void;
+  onActivate: (row: Row, index: number) => void;
   onArchive: (keys: string[]) => void;
   onDelete: (keys: string[]) => void;
   onToggleFlag: (keys: string[], flagged?: boolean) => void;
   onOpenFull?: (key: string) => void;
-}) {
+}
+
+const MailRow = memo(function MailRow({
+  row,
+  index,
+  isActive,
+  swipeEnabled,
+  onClick,
+  onActivate,
+  onArchive,
+  onDelete,
+  onToggleFlag,
+  onOpenFull
+}: MailRowProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const startRef = useRef<{ x: number; y: number; lock?: 'h' | 'v' } | null>(null);
   const dxRef = useRef(0);
@@ -192,8 +198,16 @@ function MailRow({
           e.stopPropagation();
           onOpenFull?.(row.keys[row.keys.length - 1]);
         }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onActivate(row, index);
+          }
+        }}
         role="button"
         tabIndex={0}
+        aria-selected={isActive}
+        aria-label={`${row.unread ? 'Ungelesen: ' : ''}${row.from.name || row.from.address || 'Unbekannt'} — ${row.subject || 'Kein Betreff'}`}
       >
         <div className="maillist-indicator">
           {row.unread && <span className="maillist-unread-dot" />}
@@ -236,6 +250,7 @@ function MailRow({
             className="maillist-action"
             onClick={() => onArchive(row.keys)}
             title="Archivieren"
+            aria-label="Archivieren"
           >
             <Icon name="archive" size={15} />
           </button>
@@ -243,6 +258,8 @@ function MailRow({
             className="maillist-action"
             onClick={() => onToggleFlag(row.keys, !row.flagged)}
             title={row.flagged ? 'Markierung entfernen' : 'Markieren'}
+            aria-label={row.flagged ? 'Markierung entfernen' : 'Markieren'}
+            aria-pressed={row.flagged}
           >
             <Icon name="flag" size={15} filled={row.flagged} />
           </button>
@@ -250,6 +267,7 @@ function MailRow({
             className="maillist-action destructive"
             onClick={() => onDelete(row.keys)}
             title="Löschen"
+            aria-label="Löschen"
           >
             <Icon name="trash" size={15} />
           </button>
@@ -257,85 +275,121 @@ function MailRow({
       </div>
     </div>
   );
-}
+});
+
+// Rough starting height per row; the virtualizer replaces this per item
+// via measureElement once each row lays out. Larger than the actual row
+// height means overscan renders comfortably and the initial scroll bar
+// doesn't undershoot on very long lists.
+const ROW_ESTIMATE_COMFORTABLE = 88;
+const ROW_ESTIMATE_COMPACT = 56;
 
 export default function MailList({ onOpen, onLoadMore, onArchive, onDelete, onToggleFlag, onOpenFull, swipeEnabled = false }: MailListProps) {
-  const {
-    messages, threads, threadingEnabled, density, total,
-    selectedMessage, selectedKeys, loading, loadingMore, unifiedView, accounts,
-    toggleSelectedKey, setSelectedKeys
-  } = useStore();
+  // Granular selectors so unrelated store changes (compose modal, search,
+  // sidebar width, ...) don't re-render the whole list.
+  const messages = useStore(s => s.messages);
+  const threads = useStore(s => s.threads);
+  const threadingEnabled = useStore(s => s.threadingEnabled);
+  const density = useStore(s => s.density);
+  const total = useStore(s => s.total);
+  // Only the identity of the selected message matters for row highlighting;
+  // subscribing to the full detail object (including the HTML body) would
+  // rerender the list every time a mail is opened.
+  const selectedKey = useStore(s => s.selectedMessage
+    ? msgKey(s.selectedMessage.accountId, s.selectedMessage.uid)
+    : '');
+  const selectedKeys = useStore(s => s.selectedKeys);
+  const loading = useStore(s => s.loading);
+  const loadingMore = useStore(s => s.loadingMore);
+  const showAccount = useStore(useShallow(s => s.unifiedView && s.accounts.length > 1));
+  const toggleSelectedKey = useStore(s => s.toggleSelectedKey);
+  const setSelectedKeys = useStore(s => s.setSelectedKeys);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastIndexRef = useRef<number | null>(null);
 
-  const showAccount = unifiedView && accounts.length > 1;
-
-  const rows: Row[] = threadingEnabled
-    ? threads.map((t: MailThread) => {
-        const accountId = t.accountId;
-        const keys = (t.messages?.length
-          ? t.messages.map(m => msgKey(m.accountId ?? accountId, m.uid))
-          : t.uids.map(u => msgKey(accountId, u)));
-        return {
-          key: t.threadId,
-          uid: t.uid,
-          keys,
-          subject: t.subject,
-          from: t.from || {},
-          date: t.date,
-          snippet: t.snippet,
-          unread: t.unread,
-          flagged: t.flagged,
-          hasAttachments: t.hasAttachments,
-          count: t.count,
-          accountColor: t.accountColor,
-          accountEmail: t.accountEmail,
+  const rows: Row[] = useMemo(() => (
+    threadingEnabled
+      ? threads.map((t: MailThread) => {
+          const accountId = t.accountId;
+          const keys = (t.messages?.length
+            ? t.messages.map(m => msgKey(m.accountId ?? accountId, m.uid))
+            : t.uids.map(u => msgKey(accountId, u)));
+          return {
+            key: t.threadId,
+            uid: t.uid,
+            keys,
+            subject: t.subject,
+            from: t.from || {},
+            date: t.date,
+            snippet: t.snippet,
+            unread: t.unread,
+            flagged: t.flagged,
+            hasAttachments: t.hasAttachments,
+            count: t.count,
+            accountColor: t.accountColor,
+            accountEmail: t.accountEmail,
+            showAccount
+          };
+        })
+      : messages.map((m: MailMessage) => ({
+          key: msgKey(m.accountId, m.uid),
+          uid: m.uid,
+          keys: [msgKey(m.accountId, m.uid)],
+          subject: m.subject,
+          from: m.from || {},
+          date: m.date,
+          snippet: m.snippet || '',
+          unread: !m.flags.includes('\\Seen'),
+          flagged: m.flags.includes('\\Flagged'),
+          hasAttachments: m.hasAttachments,
+          count: 1,
+          accountColor: m.accountColor,
+          accountEmail: m.accountEmail,
           showAccount
-        };
-      })
-    : messages.map((m: MailMessage) => ({
-        key: msgKey(m.accountId, m.uid),
-        uid: m.uid,
-        keys: [msgKey(m.accountId, m.uid)],
-        subject: m.subject,
-        from: m.from || {},
-        date: m.date,
-        snippet: m.snippet || '',
-        unread: !m.flags.includes('\\Seen'),
-        flagged: m.flags.includes('\\Flagged'),
-        hasAttachments: m.hasAttachments,
-        count: 1,
-        accountColor: m.accountColor,
-        accountEmail: m.accountEmail,
-        showAccount
-      }));
+        }))
+  ), [threadingEnabled, threads, messages, showAccount]);
 
-  const handleScroll = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el || loadingMore) return;
+  const selectedKeySet = useMemo(() => new Set(selectedKeys), [selectedKeys]);
+
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => density === 'compact' ? ROW_ESTIMATE_COMPACT : ROW_ESTIMATE_COMFORTABLE,
+    overscan: 8,
+    getItemKey: (index) => rows[index]?.key ?? index
+  });
+
+  // Nachladen an den virtualisierten Range koppeln, nicht an scrollHeight:
+  // sobald das letzte Item die Sichtbarkeit erreicht, holen wir mehr.
+  const virtualItems = virtualizer.getVirtualItems();
+  useEffect(() => {
+    if (loadingMore || !virtualItems.length) return;
     if (messages.length >= total) return;
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 240) {
-      onLoadMore();
-    }
-  }, [loadingMore, messages.length, total, onLoadMore]);
+    const lastVisibleIndex = virtualItems[virtualItems.length - 1].index;
+    if (lastVisibleIndex >= rows.length - 5) onLoadMore();
+  }, [virtualItems, loadingMore, messages.length, total, rows.length, onLoadMore]);
 
-  const handleClick = (row: Row, index: number, e: React.MouseEvent) => {
+  const handleClick = useCallback((row: Row, index: number, e: React.MouseEvent) => {
     if (e.shiftKey && lastIndexRef.current !== null) {
       const start = Math.min(lastIndexRef.current, index);
       const end = Math.max(lastIndexRef.current, index);
       setSelectedKeys(rows.slice(start, end + 1).flatMap(r => r.keys));
       return;
     }
-
     lastIndexRef.current = index;
-    const additive = e.metaKey || e.ctrlKey;
-    if (additive) {
+    if (e.metaKey || e.ctrlKey) {
       toggleSelectedKey(row.keys[0], true);
       return;
     }
     onOpen(row.keys[row.keys.length - 1]);
-  };
+  }, [rows, setSelectedKeys, toggleSelectedKey, onOpen]);
+
+  // Keyboard activation (Enter/Space) has no mouse event to inspect; treat
+  // it like a plain click.
+  const handleActivate = useCallback((row: Row) => {
+    onOpen(row.keys[row.keys.length - 1]);
+  }, [onOpen]);
 
   if (loading && !rows.length) {
     return (
@@ -354,28 +408,50 @@ export default function MailList({ onOpen, onLoadMore, onArchive, onDelete, onTo
   }
 
   return (
-    <div className={`maillist ${density}`} ref={scrollRef} onScroll={handleScroll}>
-      {rows.map((row, index) => {
-        const selectedKey = selectedMessage
-          ? msgKey(selectedMessage.accountId, selectedMessage.uid)
-          : '';
-        const isActive = row.keys.includes(selectedKey) || row.keys.some(k => selectedKeys.includes(k));
-
-        return (
-          <MailRow
-            key={row.key}
-            row={row}
-            index={index}
-            isActive={isActive}
-            swipeEnabled={swipeEnabled}
-            onClick={handleClick}
-            onArchive={onArchive}
-            onDelete={onDelete}
-            onToggleFlag={onToggleFlag}
-            onOpenFull={onOpenFull}
-          />
-        );
-      })}
+    <div
+      className={`maillist ${density}`}
+      ref={scrollRef}
+      role="listbox"
+      aria-label="Nachrichten"
+    >
+      <div
+        className="maillist-virtual-inner"
+        style={{ height: virtualizer.getTotalSize(), position: 'relative', width: '100%' }}
+      >
+        {virtualItems.map(item => {
+          const row = rows[item.index];
+          if (!row) return null;
+          const isActive = row.keys.includes(selectedKey) || row.keys.some(k => selectedKeySet.has(k));
+          return (
+            <div
+              key={item.key}
+              data-index={item.index}
+              ref={virtualizer.measureElement}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                transform: `translateY(${item.start}px)`,
+                contain: 'layout style paint'
+              }}
+            >
+              <MailRow
+                row={row}
+                index={item.index}
+                isActive={isActive}
+                swipeEnabled={swipeEnabled}
+                onClick={handleClick}
+                onActivate={handleActivate}
+                onArchive={onArchive}
+                onDelete={onDelete}
+                onToggleFlag={onToggleFlag}
+                onOpenFull={onOpenFull}
+              />
+            </div>
+          );
+        })}
+      </div>
 
       {loadingMore && <div className="maillist-state small">Weitere werden geladen...</div>}
     </div>

@@ -1,0 +1,85 @@
+/* Shared UI primitives used by both the production reader and the prototype:
+   the "external images blocked" banner and the focus-ring token. */
+
+.remote-images-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  margin: 0 0 12px 0;
+  background: color-mix(in oklch, var(--accent-color, #0A84FF) 10%, transparent);
+  border: 1px solid color-mix(in oklch, var(--accent-color, #0A84FF) 30%, transparent);
+  border-radius: 8px;
+  font-size: 13px;
+  color: inherit;
+}
+
+.remote-images-bar-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remote-images-bar-hosts {
+  color: color-mix(in oklch, currentColor 65%, transparent);
+  margin-left: 4px;
+}
+
+.remote-images-bar-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.remote-images-bar-btn {
+  border: 0;
+  background: var(--accent-color, #0A84FF);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.remote-images-bar-btn.subtle {
+  background: transparent;
+  color: var(--accent-color, #0A84FF);
+  border: 1px solid color-mix(in oklch, var(--accent-color, #0A84FF) 40%, transparent);
+}
+
+.remote-images-bar-btn:hover { filter: brightness(1.05); }
+
+/* Global focus-visible ring. Uses --focus-ring if the app defines one,
+   otherwise falls back to the accent color. Individual components can
+   still override on more specific selectors. */
+:root {
+  --focus-ring: color-mix(in oklch, var(--accent-color, #0A84FF) 55%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Inputs already have their own border; use box-shadow so the ring hugs
+   the field instead of drawing outside rounded corners. */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

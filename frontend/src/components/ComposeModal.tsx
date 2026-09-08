@@ -1,5 +1,7 @@
 import { useState, useRef, useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore, MailDetail, ComposeMode, Address } from '../store';
+import { useFocusTrap } from '../shared/useFocusTrap';
 import { api } from '../api';
 import { Icon } from './Icon';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -56,9 +58,16 @@ function buildForwardBody(mail: MailDetail) {
 
 export default function ComposeModal() {
   const {
-    selectedAccount, signatures, replyTo, composeMode, composeFont, accounts,
-    closeCompose
-  } = useStore();
+    selectedAccount, signatures, replyTo, composeMode, composeFont, accounts
+  } = useStore(useShallow(s => ({
+    selectedAccount: s.selectedAccount,
+    signatures: s.signatures,
+    replyTo: s.replyTo,
+    composeMode: s.composeMode,
+    composeFont: s.composeFont,
+    accounts: s.accounts,
+  })));
+  const closeCompose = useStore(s => s.closeCompose);
 
   const fromAccount = accounts.find(a => a.id === replyTo?.accountId) || selectedAccount;
 
@@ -240,12 +249,25 @@ export default function ComposeModal() {
     );
   }
 
+  const trapRef = useFocusTrap<HTMLDivElement>({
+    active: true,
+    initialFocusSelector: 'input[type="text"], input:not([type]), textarea',
+    onEscape: handleClose,
+  });
+
   return (
-    <div className="compose-overlay" onMouseDown={handleClose}>
-      <div className="compose-modal" onMouseDown={(e) => e.stopPropagation()}>
+    <div className="compose-overlay" onMouseDown={handleClose} role="presentation">
+      <div
+        className="compose-modal"
+        onMouseDown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={TITLES[composeMode]}
+        ref={trapRef}
+      >
         <div className="compose-titlebar">
           <span>{TITLES[composeMode]}</span>
-          <button className="compose-close" onClick={handleClose} title="Schließen">
+          <button className="compose-close" onClick={handleClose} title="Schließen" aria-label="Schließen">
             <Icon name="close" size={13} />
           </button>
         </div>

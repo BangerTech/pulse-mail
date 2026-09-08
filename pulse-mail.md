@@ -2,7 +2,7 @@
 
 ## Architektur
 
-- **Frontend:** React 18 + TypeScript + Vite, TipTap Editor, Zustand State Management
+- **Frontend:** React 19 + TypeScript + Vite, TipTap Editor, Zustand, `@tanstack/react-virtual`
 - **Backend:** Node.js + Express, imapflow (IMAP), nodemailer (SMTP), better-sqlite3
 - **Deployment:** Docker Compose (Frontend via Nginx, Backend als Node.js Container)
 
@@ -65,12 +65,23 @@ Daten liegen lokal in `./data/mail.db` (nicht im Git-Repository).
 
 UNIQUE(account_id, folder, uid)
 
+### folder_sync
+| Spalte | Typ | Beschreibung |
+|--------|-----|-------------|
+| account_id | INTEGER | Account |
+| folder | TEXT | IMAP-Ordner |
+| uid_validity | INTEGER | Zuletzt gesehene UIDVALIDITY des Ordners |
+| last_sync_at | DATETIME | Zeitpunkt des letzten Reconcile |
+
+PRIMARY KEY (account_id, folder)
+
 ### Migrationen
 Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE` ergänzt:
 - `in_reply_to`, `references_header`, `thread_id`, `cc_address`, `reply_to_address`, `attachments_meta`
 - Index `idx_mail_thread`, Index `idx_mail_message_id`
 - `raw_headers` — Rohheader für den Prototyp-Klassifikator
 - `extracted_pdf_text` — Klartext aus Rechnungs-PDFs (Prototyp-Anreicherung)
+- Tabelle `folder_sync` — merkt sich `uid_validity` pro Ordner für den Reconcile
 
 ## API Endpoints
 
@@ -110,6 +121,10 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Gelesen-Flag (`\Seen`) wird im Hintergrund gesetzt, ohne das Öffnen zu blockieren
 - Löschen, Archivieren und Verschieben entfernen die Mail sofort in der UI; IMAP läuft danach
 - Solange die IMAP-Aktion läuft, schreibt der Cache die Mail nicht erneut in die Liste
+- **Virtualisierte Listen** mit `@tanstack/react-virtual` und dynamischer Höhenmessung in `MailList.tsx` sowie in den Prototyp-Linsen Direkt/Feed. Nachladen koppelt an den sichtbaren Range, nicht an `scrollHeight`.
+- **Granulare Zustandswahl:** Komponenten abonnieren einzelne Felder über `useStore(s => s.x)` bzw. `useShallow`. Der HTML-Body liegt in `messageBody`, nicht in `selectedMessage`, damit das Öffnen einer Mail nicht die Liste neu rendert.
+- `React.memo` auf `MailRow`, `Sidebar`, `Toolbar`, `MailContent`.
+- Optimistisches Ausblenden nach Löschen/Archivieren bleibt in Zustand `hiddenKeys` (geteilt zwischen App, Liste und WebSocket-Reload). `useOptimistic` ist komponentenlokal und würde hier desynchronisieren.
 
 ### Toolbar
 - Links: Seitenleiste ein/aus, **Neue E-Mail**
@@ -156,6 +171,20 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 ### MIME / Anzeige
 - HTML- und Textteile werden inkl. Base64 und Quoted-Printable dekodiert
 - Alte Cache-Einträge mit Roh-Encoding werden beim Öffnen und in der Liste repariert
+- **Kein doppeltes Transfer-Dekodieren:** ImapFlows `client.download()` löst Base64/Quoted-Printable bereits selbst auf. `loadPart` wendet auf diesen Puffer deshalb nur noch den Zeichensatz an. Nur der Fallback über `fetchOne({ bodyParts })` liefert den Teil roh und braucht die Kodierung.
+- Dekodierung versucht bei kaputtem UTF-8 automatisch `windows-1252` / `iso-8859-1` (die Variante mit dem geringsten Anteil an Steuer-/Replacement-Zeichen gewinnt)
+- `repairEncodedText` übernimmt eine „Reparatur" nur, wenn das Ergebnis sauberer ist als die Eingabe — verhindert, dass ein Fehlalarm von `looksLikeBase64` einen intakten Body in Binärmüll verwandelt
+- `db.js` leert beim Start Bodies, die als Binärmüll im Cache liegen (`dropCorruptBodies`); sie werden beim nächsten Öffnen sauber nachgeladen
+- Gemeinsamer Mail-Renderer unter `frontend/src/shared/mail-html.ts` und `useMailFrame.ts`: baut ein sauberes HTML5-Dokument, löst `cid:`-Inline-Bilder auf, überschreibt Farben im Dark Mode nur bei Mails ohne eigenen Hintergrund, misst per Same-Origin-Sandbox die Höhe und skaliert breite Newsletter proportional herunter. Genutzt von `MailContent.tsx` und dem Prototyp `Reader.tsx`.
+- **Höhenmessung immer über `body.scrollHeight`, nie über `documentElement.scrollHeight`.** Letzteres ist mindestens so hoch wie das iframe-Viewport; damit fließt die gesetzte Höhe in die nächste Messung zurück und die Mail wächst endlos. Dazu gehören: `html, body { height: auto !important }` im injizierten CSS, ein Epsilon von 2px vor dem Schreiben, ein Flag gegen selbst ausgelöste ResizeObserver-Callbacks und ein Pass-Limit.
+- Plain-Text-Mails werden über `frontend/src/shared/plain-text.ts` gerendert: `format=flowed` wird nach RFC 3676 entpackt, URLs/E-Mails verlinkt, `>`-Zitatebenen als geschachtelte `<blockquote>` gestylt
+- **Externe Bilder standardmäßig blockiert.** `buildMailDocument({ blockRemote: true })` nimmt `src`/`srcset`/`url()` für http(s) heraus (Original in `data-blocked-src`), `cid:` und `data:` bleiben. Beide Reader zeigen `RemoteImagesBar` („Laden“ einmal, oder Absenderdomain dauerhaft erlauben). Allowlist in `localStorage` unter `pulse:imageAllowlist:v1`, geteilt zwischen App und Prototyp.
+
+### Barrierefreiheit
+- `useFocusTrap` (`frontend/src/shared/useFocusTrap.ts`) auf Compose, Einstellungen, Befehlspalette, Vollbild-Reader, Prototyp-Reader und Triage. Tab zyklisch, Escape schließt, Fokus kehrt zurück.
+- `:focus-visible`-Ring über `--focus-ring` in `global.css` und den Prototyp-Tokens. Globales `outline: none` auf Eingabefeldern ist weg.
+- Listenzeilen, Suchtreffer, Feed-Gruppenköpfe und Sachen-Karten reagieren auf Enter/Leertaste. Icon-Buttons haben `aria-label`.
+- `prefers-reduced-motion` in Produktions-App und Prototyp.
 
 ### Mobile
 - Ab 860px Breite: eigene Smartphone-Ansicht
@@ -168,6 +197,12 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - IMAP IDLE auf dem Posteingang, neue Mails kommen per WebSocket in die UI
 - Zusätzliche Prüfung alle 60 Sekunden, falls IDLE eine Änderung verpasst
 - Verbindung wird nach Verbindungsabbruch automatisch neu aufgebaut
+
+### Zwei-Wege-Abgleich (`backend/src/sync.js`)
+- `reconcileFolder` fetcht `1:*` mit `{ uid, flags }` und gleicht damit sowohl Löschungen als auch Flag-Änderungen ab, die in anderen Clients (z. B. Apple Mail) passiert sind
+- Ausgelöst durch IDLE-Events `expunge` / `flags`, durch `pollInboxes` bei sinkendem Zähler, bei jedem List-Fetch mit `offset === 0`, und zusätzlich alle 5 Minuten als Sicherheitsnetz
+- Lokale Löschungen bleiben über `pendingDeletes` (`backend/src/pending.js`) aus dem Reconcile ausgeklammert, damit die Mail nicht doppelt gelöscht wird, während die IMAP-Aktion noch läuft
+- Bei geänderter `UIDVALIDITY` wird der Cache des Ordners geleert und neu aufgebaut
 
 ### Signatur-Bilder
 - Upload über den Signatur-Editor
@@ -199,12 +234,13 @@ Klickbarer Design-Prototyp neben der bestehenden App. Die Logik (`classify.ts`, 
 - **Reader** zeigt die HTML-Mail wie Apple Mail (Tracker bleiben geblockt, Chip zum Einblenden). Nur ohne HTML fällt er auf den Klartext zurück. Kein Umschalter Lesbar/Original.
 - **Zwei-Spalten-Layout** beim Lesen: Liste links, Nachricht rechts. Kein Spine-Kollaps. In der Sachen-Linse bleibt der Reader ein Overlay.
 - **Trust-Chip** aus `Authentication-Results` (SPF/DKIM/DMARC/Alignment), Warnung bei Lookalike-Domains und Anzeigename-Spoofing
-- **Triage-Modus** — bildschirmfüllend, `←` Archiv / `→` Behalten / `↑` Später / `⌘Z` Undo
-- **Scrubber** — Sparkline der Mail-Dichte pro Woche am Listenrand
+- **Triage-Modus** — bildschirmfüllend, `←` Archiv / `→` Behalten / `↑` Später / `⌘Z` Undo. Archiv und Behalten schreiben über `POST /api/mail/:accountId/archive` bzw. `flags` (`\Seen`) ins Backend (`frontend/src/prototype/data/actions.ts`).
+- **Scrubber** — Sparkline der Mail-Dichte pro Woche am Listenrand; Klick springt zur ersten Zeile dieser Woche (`data-week`).
+- **Reader** setzt `\Seen` beim Öffnen und blockiert externe Bilder analog zur Produktions-App.
 - **Design-System** in `src/prototype/styles/tokens.css`: oklch-Farben (Akzent in einer Zeile umfärbbar), Spacing-/Radius-/Typo-Skalen, Absenderfarbe aus Domain-Hash bei fixer Helligkeit/Chroma
 
 ### Tastatur
-- `1` `2` `3` Linsen · `T` Triage · `D` Theme · `Esc` Reader schliessen
+- `1` `2` `3` Linsen (Pfeiltasten im Tablist) · `T` Triage · `D` Theme · `Esc` Reader schliessen
 
 ### Dateistruktur
 ```
@@ -214,7 +250,8 @@ frontend/src/prototype/
 ├── Prototype.tsx            Shell, Lens-Switch, Keyboard
 ├── data/
 │   ├── types.ts             RawMessage-Typ
-│   └── fixtures.ts          ~40 Nachrichten mit echten Rohheadern
+│   ├── fixtures.ts          ~40 Nachrichten mit echten Rohheadern
+│   └── actions.ts           Archivieren, Löschen, `\Seen` über die Produktions-API
 ├── logic/
 │   ├── classify.ts          Klassifikator (Lane/Category), Trust, Spoofing
 │   ├── extract.ts           JSON-LD/ICS/Regex-Extraktoren, Tracker-Detektion
@@ -230,6 +267,16 @@ frontend/src/prototype/
 └── styles/
     ├── tokens.css
     └── prototype.css
+
+frontend/src/shared/               Von App und Prototyp gemeinsam genutzt
+├── mail-html.ts                   HTML5-Dokument, cid:, blockRemote
+├── useMailFrame.ts                iframe-Höhe (body.scrollHeight)
+├── plain-text.ts                  format=flowed, Zitate, Links
+├── imageAllowlist.ts              Absenderdomain in localStorage
+├── RemoteImagesBar.tsx            „N externe Bilder blockiert"
+├── useFocusTrap.ts                Tab-Zyklus, Restore-Fokus
+├── keyboard.ts                    Enter/Leertaste
+└── shared.css                     Focus-Ring, Remote-Bar, reduced-motion
 ```
 
 ### Portierungspfad in die Produktions-App

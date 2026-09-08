@@ -58,15 +58,18 @@ export function groupByThread<T extends { threadId: string; date: string }>(item
   return [...map.values()].map(arr => arr.sort((a, b) => a.date.localeCompare(b.date)));
 }
 
+export function weekKey(iso: string): string {
+  const d = new Date(iso);
+  const year = d.getUTCFullYear();
+  const jan = new Date(Date.UTC(year, 0, 1));
+  const week = Math.floor((d.getTime() - jan.getTime()) / (7 * 24 * 3600_000));
+  return `${year}-W${String(week).padStart(2, '0')}`;
+}
+
 export function densityByWeek(messages: RawMessage[]): { week: string; count: number }[] {
   const map = new Map<string, number>();
   for (const m of messages) {
-    const d = new Date(m.date);
-    // ISO week key (rough)
-    const year = d.getUTCFullYear();
-    const jan = new Date(Date.UTC(year, 0, 1));
-    const week = Math.floor((d.getTime() - jan.getTime()) / (7 * 24 * 3600_000));
-    const key = `${year}-W${String(week).padStart(2, '0')}`;
+    const key = weekKey(m.date);
     map.set(key, (map.get(key) || 0) + 1);
   }
   return [...map.entries()]

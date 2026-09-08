@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore, msgKey, parseKey } from './store';
 import { api } from './api';
 import Sidebar from './components/Sidebar';
@@ -11,7 +12,9 @@ import CommandPalette, { Command } from './components/CommandPalette';
 import SearchResults, { SearchOptions } from './components/SearchResults';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { Icon } from './components/Icon';
+import { useFocusTrap } from './shared/useFocusTrap';
 import './styles/app.css';
+import './shared/shared.css';
 
 const PAGE_SIZE = 50;
 
@@ -84,24 +87,81 @@ function VerticalResizeHandle({ percentRef, setPercent, min, max }: {
 }
 
 export default function App() {
-  const store = useStore();
+  // Fine-grained subscription: only re-render when one of these fields
+  // actually changes. `useStore()` without a selector subscribes to every
+  // field in the store, so any unrelated mutation would rerender the whole
+  // app (list, reader, sidebar, ...).
   const {
     selectedAccount, selectedFolder, composing, showSettings, showPalette,
     sidebarVisible, sidebarWidth, maillistWidth, listPaneHeight, theme, previewPosition,
-    messages, threads, threadingEnabled, selectedMessage, selectedKeys,
+    selectedMessage, selectedKeys,
     searchQuery, folders, unifiedView, accounts,
-    setAccounts, setSelectedAccount, setFoldersForAccount, setSelectedFolder,
-    setMessages, setThreads, appendMessages, removeKeys, unhideKeys, setTotal, setSelectedMessage,
-    setSignatures, setLoading, setLoadingMore, setSidebarWidth, setMaillistWidth, setListPaneHeight,
-    setShowSettings, setShowPalette, setSearchQuery, setSearchResults, setSearching,
-    setSelectedKeys, clearSelection, openCompose, toggleSidebar, setTheme,
-    setPreviewPosition, setThreadingEnabled, setUnifiedView, setUnifiedUnread, selectMailbox
-  } = store;
+  } = useStore(useShallow(s => ({
+    selectedAccount: s.selectedAccount,
+    selectedFolder: s.selectedFolder,
+    composing: s.composing,
+    showSettings: s.showSettings,
+    showPalette: s.showPalette,
+    sidebarVisible: s.sidebarVisible,
+    sidebarWidth: s.sidebarWidth,
+    maillistWidth: s.maillistWidth,
+    listPaneHeight: s.listPaneHeight,
+    theme: s.theme,
+    previewPosition: s.previewPosition,
+    selectedMessage: s.selectedMessage,
+    selectedKeys: s.selectedKeys,
+    searchQuery: s.searchQuery,
+    folders: s.folders,
+    unifiedView: s.unifiedView,
+    accounts: s.accounts,
+  })));
+
+  // Actions are stable references from Zustand — subscribing to them
+  // separately keeps the App from re-rendering when identical closures
+  // are read.
+  const setAccounts = useStore(s => s.setAccounts);
+  const setSelectedAccount = useStore(s => s.setSelectedAccount);
+  const setFoldersForAccount = useStore(s => s.setFoldersForAccount);
+  const setSelectedFolder = useStore(s => s.setSelectedFolder);
+  const setMessages = useStore(s => s.setMessages);
+  const setThreads = useStore(s => s.setThreads);
+  const appendMessages = useStore(s => s.appendMessages);
+  const removeKeys = useStore(s => s.removeKeys);
+  const unhideKeys = useStore(s => s.unhideKeys);
+  const setTotal = useStore(s => s.setTotal);
+  const setSelectedMessage = useStore(s => s.setSelectedMessage);
+  const setSignatures = useStore(s => s.setSignatures);
+  const setLoading = useStore(s => s.setLoading);
+  const setLoadingMore = useStore(s => s.setLoadingMore);
+  const setSidebarWidth = useStore(s => s.setSidebarWidth);
+  const setMaillistWidth = useStore(s => s.setMaillistWidth);
+  const setListPaneHeight = useStore(s => s.setListPaneHeight);
+  const setShowSettings = useStore(s => s.setShowSettings);
+  const setShowPalette = useStore(s => s.setShowPalette);
+  const setSearchQuery = useStore(s => s.setSearchQuery);
+  const setSearchResults = useStore(s => s.setSearchResults);
+  const setSearching = useStore(s => s.setSearching);
+  const setSelectedKeys = useStore(s => s.setSelectedKeys);
+  const clearSelection = useStore(s => s.clearSelection);
+  const openCompose = useStore(s => s.openCompose);
+  const closeCompose = useStore(s => s.closeCompose);
+  const toggleSidebar = useStore(s => s.toggleSidebar);
+  const setTheme = useStore(s => s.setTheme);
+  const setPreviewPosition = useStore(s => s.setPreviewPosition);
+  const setThreadingEnabled = useStore(s => s.setThreadingEnabled);
+  const setUnifiedView = useStore(s => s.setUnifiedView);
+  const setUnifiedUnread = useStore(s => s.setUnifiedUnread);
+  const selectMailbox = useStore(s => s.selectMailbox);
+  const threadingEnabled = useStore(s => s.threadingEnabled);
 
   const [refreshing, setRefreshing] = useState(false);
   const [mobile, setMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 860);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [readingFull, setReadingFull] = useState(false);
+  const overlayTrapRef = useFocusTrap<HTMLDivElement>({
+    active: !mobile && readingFull && !!selectedMessage,
+    onEscape: () => setReadingFull(false),
+  });
   const [searchOptions, setSearchOptions] = useState<SearchOptions>({
     scopeAllAccounts: false,
     from: '',
@@ -298,7 +358,12 @@ export default function App() {
           const data = JSON.parse(e.data);
           if (data.type === 'new_mail' || data.type === 'messages_updated') {
             const state = useStore.getState();
-            if (state.unifiedView || state.selectedAccount?.id === data.accountId) {
+            // A missing accountId means "affects everything" – e.g. the
+            // prototype's pullRecent broadcast – so treat it as a match.
+            const affectsCurrent = data.accountId == null
+              || state.unifiedView
+              || state.selectedAccount?.id === data.accountId;
+            if (affectsCurrent) {
               window.clearTimeout(reloadTimer);
               reloadTimer = window.setTimeout(() => {
                 loadMessages(true);
@@ -548,7 +613,7 @@ export default function App() {
   const handleEscape = useCallback(() => {
     const state = useStore.getState();
     if (state.showPalette) return setShowPalette(false);
-    if (state.composing) return store.closeCompose();
+    if (state.composing) return closeCompose();
     if (state.showSettings) return setShowSettings(false);
     if (readingFull) return setReadingFull(false);
     if (state.searchQuery) return setSearchQuery('');
@@ -556,7 +621,7 @@ export default function App() {
       setSelectedMessage(null);
       clearSelection();
     }
-  }, [readingFull, setShowPalette, setShowSettings, setSearchQuery, setSelectedMessage, clearSelection, store]);
+  }, [readingFull, setShowPalette, setShowSettings, setSearchQuery, setSelectedMessage, clearSelection, closeCompose]);
 
   const shortcutsEnabled = !composing && !showSettings && !showPalette;
 
@@ -640,7 +705,7 @@ export default function App() {
       }
     ];
 
-    const unifiedCommand: Command[] = store.accounts.length > 1 ? [{
+    const unifiedCommand: Command[] = accounts.length > 1 ? [{
       id: 'unified',
       label: 'Alle Eingänge',
       hint: 'Alle Postfächer',
@@ -656,7 +721,7 @@ export default function App() {
       run: () => setSelectedFolder(folder.path)
     }));
 
-    const accountCommands: Command[] = store.accounts.map(account => ({
+    const accountCommands: Command[] = accounts.map(account => ({
       id: `account-${account.id}`,
       label: account.email,
       hint: 'Account wechseln',
@@ -666,7 +731,7 @@ export default function App() {
 
     return [...base, ...unifiedCommand, ...folderCommands, ...accountCommands];
   }, [
-    selectedMessage, selectedKeys, folders, store.accounts, theme, threadingEnabled,
+    selectedMessage, selectedKeys, folders, accounts, theme, threadingEnabled,
     previewPosition, openCompose, handleArchive, handleDelete, handleMove, handleToggleFlag,
     handleToggleUnread, handleRefresh, focusSearch, setShowSettings, toggleSidebar,
     setThreadingEnabled, setPreviewPosition, setTheme, setSelectedFolder, setSelectedAccount,
@@ -777,7 +842,14 @@ export default function App() {
 
       {!mobile && readingFull && selectedMessage && (
         <div className="reader-overlay" onMouseDown={() => setReadingFull(false)}>
-          <div className="reader-window" onMouseDown={e => e.stopPropagation()}>
+          <div
+            className="reader-window"
+            onMouseDown={e => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label={selectedMessage.subject || 'Nachricht'}
+            ref={overlayTrapRef}
+          >
             <MailContent
               variant="full"
               onClose={() => setReadingFull(false)}
@@ -790,7 +862,7 @@ export default function App() {
       )}
 
       {mobile && !reading && !composing && (
-        <button className="mobile-fab" onClick={() => openCompose('new')} title="Neue E-Mail">
+        <button className="mobile-fab" onClick={() => openCompose('new')} title="Neue E-Mail" aria-label="Neue E-Mail">
           <Icon name="compose" />
         </button>
       )}

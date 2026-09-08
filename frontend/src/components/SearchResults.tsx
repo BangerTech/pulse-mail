@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { Icon } from './Icon';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { onActivateKey } from '../shared/keyboard';
 import '../styles/search.css';
 
 export interface SearchOptions {
@@ -21,7 +22,10 @@ interface SearchResultsProps {
 }
 
 export default function SearchResults({ options, onOptionsChange, onOpen }: SearchResultsProps) {
-  const { searchResults, searching, selectedMessage, folders } = useStore();
+  const searchResults = useStore(s => s.searchResults);
+  const searching = useStore(s => s.searching);
+  const selectedUid = useStore(s => s.selectedMessage?.uid);
+  const folders = useStore(s => s.folders);
   const [showFilters, setShowFilters] = useState(false);
 
   const folderLabel = (path: string) => {
@@ -127,8 +131,9 @@ export default function SearchResults({ options, onOptionsChange, onOpen }: Sear
         {searchResults.map(result => (
           <div
             key={`${result.accountId}-${result.folder}-${result.uid}`}
-            className={`search-item ${selectedMessage?.uid === result.uid ? 'active' : ''}`}
+            className={`search-item ${selectedUid === result.uid ? 'active' : ''}`}
             onClick={() => onOpen(result.accountId, result.folder, result.uid)}
+            onKeyDown={(e) => onActivateKey(e, () => onOpen(result.accountId, result.folder, result.uid))}
             role="button"
             tabIndex={0}
           >

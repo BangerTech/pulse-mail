@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { Prototype } from './Prototype';
 import './styles/tokens.css';
 import './styles/prototype.css';
+import '../shared/shared.css';
 
 const el = document.getElementById('proto-root')!;
 createRoot(el).render(<React.StrictMode><Prototype /></React.StrictMode>);

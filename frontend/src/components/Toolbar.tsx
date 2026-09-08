@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, memo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store';
 import { Icon } from './Icon';
 import '../styles/toolbar.css';
@@ -19,7 +20,7 @@ interface ToolbarProps {
   folderTitle?: string;
 }
 
-export default function Toolbar({
+function ToolbarInner({
   sidebarWidth,
   onArchive,
   onDelete,
@@ -37,8 +38,20 @@ export default function Toolbar({
   const {
     selectedMessage, selectedKeys, selectedAccount, selectedFolder,
     sidebarVisible, searchQuery, folders,
-    openCompose, toggleSidebar, setSearchQuery, setShowPalette, setShowSettings
-  } = useStore();
+  } = useStore(useShallow(s => ({
+    selectedMessage: s.selectedMessage,
+    selectedKeys: s.selectedKeys,
+    selectedAccount: s.selectedAccount,
+    selectedFolder: s.selectedFolder,
+    sidebarVisible: s.sidebarVisible,
+    searchQuery: s.searchQuery,
+    folders: s.folders,
+  })));
+  const openCompose = useStore(s => s.openCompose);
+  const toggleSidebar = useStore(s => s.toggleSidebar);
+  const setSearchQuery = useStore(s => s.setSearchQuery);
+  const setShowPalette = useStore(s => s.setShowPalette);
+  const setShowSettings = useStore(s => s.setShowSettings);
 
   const [showMove, setShowMove] = useState(false);
   const moveRef = useRef<HTMLDivElement>(null);
@@ -63,11 +76,11 @@ export default function Toolbar({
       <div className="toolbar mobile-toolbar">
         <div className="toolbar-left">
           {reading ? (
-            <button className="toolbar-btn" onClick={onBack} title="Zurück">
+            <button className="toolbar-btn" onClick={onBack} title="Zurück" aria-label="Zurück">
               <Icon name="chevronLeft" />
             </button>
           ) : (
-            <button className="toolbar-btn" onClick={onMenu} title="Ordner">
+            <button className="toolbar-btn" onClick={onMenu} title="Ordner" aria-label="Ordner">
               <Icon name="sidebar" />
             </button>
           )}
@@ -80,13 +93,13 @@ export default function Toolbar({
         <div className="toolbar-right">
           {reading ? (
             <>
-              <button className="toolbar-btn" onClick={() => selectedMessage && openCompose('reply', selectedMessage)} title="Antworten">
+              <button className="toolbar-btn" onClick={() => selectedMessage && openCompose('reply', selectedMessage)} title="Antworten" aria-label="Antworten">
                 <Icon name="reply" />
               </button>
-              <button className="toolbar-btn" onClick={onArchive} title="Archivieren">
+              <button className="toolbar-btn" onClick={onArchive} title="Archivieren" aria-label="Archivieren">
                 <Icon name="archive" />
               </button>
-              <button className="toolbar-btn destructive" onClick={onDelete} title="Löschen">
+              <button className="toolbar-btn destructive" onClick={onDelete} title="Löschen" aria-label="Löschen">
                 <Icon name="trash" />
               </button>
             </>
@@ -105,6 +118,7 @@ export default function Toolbar({
                 className={`toolbar-btn ${refreshing ? 'spinning' : ''}`}
                 onClick={onRefresh}
                 title="Aktualisieren"
+                aria-label="Aktualisieren"
               >
                 <Icon name="refresh" />
               </button>
@@ -122,20 +136,21 @@ export default function Toolbar({
           className="toolbar-btn"
           onClick={toggleSidebar}
           title={sidebarVisible ? 'Seitenleiste ausblenden' : 'Seitenleiste einblenden'}
+          aria-label={sidebarVisible ? 'Seitenleiste ausblenden' : 'Seitenleiste einblenden'}
         >
           <Icon name="sidebar" />
         </button>
-        <button className="compose-button" onClick={() => openCompose('new')} title="Neue E-Mail (N)">
+        <button className="compose-button" onClick={() => openCompose('new')} title="Neue E-Mail (N)" aria-label="Neue E-Mail">
           <Icon name="compose" />
           {sidebarVisible && <span>Neue E-Mail</span>}
         </button>
       </div>
 
       <div className="toolbar-actions">
-        <button className="toolbar-btn" onClick={onArchive} disabled={!hasSelection} title="Archivieren (E)">
+        <button className="toolbar-btn" onClick={onArchive} disabled={!hasSelection} title="Archivieren (E)" aria-label="Archivieren">
           <Icon name="archive" />
         </button>
-        <button className="toolbar-btn destructive" onClick={onDelete} disabled={!hasSelection} title="Löschen (⌫)">
+        <button className="toolbar-btn destructive" onClick={onDelete} disabled={!hasSelection} title="Löschen (⌫)" aria-label="Löschen">
           <Icon name="trash" />
         </button>
         <div className="toolbar-move" ref={moveRef}>
@@ -144,6 +159,7 @@ export default function Toolbar({
             onClick={() => setShowMove(v => !v)}
             disabled={!hasSelection}
             title="Verschieben"
+            aria-label="Verschieben"
           >
             <Icon name="folder" />
           </button>
@@ -172,6 +188,7 @@ export default function Toolbar({
           onClick={() => selectedMessage && openCompose('reply', selectedMessage)}
           disabled={!selectedMessage || multiple}
           title="Antworten (R)"
+          aria-label="Antworten"
         >
           <Icon name="reply" />
         </button>
@@ -180,6 +197,7 @@ export default function Toolbar({
           onClick={() => selectedMessage && openCompose('replyAll', selectedMessage)}
           disabled={!selectedMessage || multiple}
           title="Allen antworten (A)"
+          aria-label="Allen antworten"
         >
           <Icon name="replyAll" />
         </button>
@@ -188,6 +206,7 @@ export default function Toolbar({
           onClick={() => selectedMessage && openCompose('forward', selectedMessage)}
           disabled={!selectedMessage || multiple}
           title="Weiterleiten (F)"
+          aria-label="Weiterleiten"
         >
           <Icon name="forward" />
         </button>
@@ -199,6 +218,8 @@ export default function Toolbar({
           onClick={onToggleFlag}
           disabled={!hasSelection}
           title="Markieren (L)"
+          aria-label="Markieren"
+          aria-pressed={!!isFlagged}
         >
           <Icon name="flag" />
         </button>
@@ -207,6 +228,7 @@ export default function Toolbar({
           onClick={onToggleUnread}
           disabled={!hasSelection}
           title={isUnread ? 'Als gelesen markieren (U)' : 'Als ungelesen markieren (U)'}
+          aria-label={isUnread ? 'Als gelesen markieren' : 'Als ungelesen markieren'}
         >
           <Icon name={isUnread ? 'envelopeOpen' : 'envelope'} />
         </button>
@@ -222,19 +244,20 @@ export default function Toolbar({
             onChange={(e) => setSearchQuery(e.target.value)}
           />
           {searchQuery && (
-            <button className="search-clear" onClick={() => setSearchQuery('')} title="Suche zurücksetzen">
+            <button className="search-clear" onClick={() => setSearchQuery('')} title="Suche zurücksetzen" aria-label="Suche zurücksetzen">
               <Icon name="close" size={12} />
             </button>
           )}
         </div>
 
-        <button className="toolbar-btn" onClick={() => setShowPalette(true)} title="Befehle (⌘K)">
+        <button className="toolbar-btn" onClick={() => setShowPalette(true)} title="Befehle (⌘K)" aria-label="Befehlspalette">
           <Icon name="command" />
         </button>
         <button
           className={`toolbar-btn ${refreshing ? 'spinning' : ''}`}
           onClick={onRefresh}
           title="Aktualisieren"
+          aria-label="Aktualisieren"
         >
           <Icon name="refresh" />
         </button>
@@ -242,6 +265,7 @@ export default function Toolbar({
           className="account-avatar"
           onClick={() => setShowSettings(true)}
           title={selectedAccount?.email || 'Einstellungen'}
+          aria-label="Einstellungen"
           style={{ background: selectedAccount?.color || 'var(--accent-color)' }}
         >
           {initial}
@@ -250,3 +274,6 @@ export default function Toolbar({
     </div>
   );
 }
+
+const Toolbar = memo(ToolbarInner);
+export default Toolbar;

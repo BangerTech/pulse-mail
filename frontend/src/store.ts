@@ -114,6 +114,10 @@ interface MailStore {
   threads: MailThread[];
   total: number;
   selectedMessage: MailDetail | null;
+  // Body is stored separately so subscribers that only care about identity
+  // (the list, toolbar flags, ...) don't re-render when a 300 KB HTML body
+  // lands.
+  messageBody: { html: string; text: string } | null;
   selectedKeys: string[];
   signatures: Signature[];
   loading: boolean;
@@ -135,6 +139,9 @@ interface MailStore {
   previewPosition: PreviewPosition;
   density: Density;
   threadingEnabled: boolean;
+  // Optimistic hide for delete/archive. Lives in Zustand (not React
+  // useOptimistic) because MailList, App and the WebSocket reload all need
+  // the same set, and a component-local optimistic state would desync.
   hiddenKeys: string[];
   unifiedView: boolean;
   unifiedUnread: number;
@@ -156,6 +163,7 @@ interface MailStore {
   unhideKeys: (keys: string[]) => void;
   setTotal: (total: number) => void;
   setSelectedMessage: (message: MailDetail | null) => void;
+  setMessageBody: (body: { html: string; text: string } | null) => void;
   setSelectedKeys: (keys: string[]) => void;
   toggleSelectedKey: (key: string, additive: boolean) => void;
   clearSelection: () => void;
@@ -246,6 +254,7 @@ export const useStore = create<MailStore>((set, get) => ({
   threads: [],
   total: 0,
   selectedMessage: null,
+  messageBody: null,
   selectedKeys: [],
   signatures: [],
   loading: false,
@@ -280,6 +289,7 @@ export const useStore = create<MailStore>((set, get) => ({
       unifiedView,
       selectedFolder: unifiedView ? 'INBOX' : get().selectedFolder,
       selectedMessage: null,
+      messageBody: null,
       selectedKeys: [],
       messages: [],
       threads: [],
@@ -303,6 +313,7 @@ export const useStore = create<MailStore>((set, get) => ({
       selectedFolder,
       unifiedView: false,
       selectedMessage: null,
+      messageBody: null,
       selectedKeys: [],
       messages: [],
       threads: [],
@@ -318,6 +329,7 @@ export const useStore = create<MailStore>((set, get) => ({
       folders,
       unifiedView: false,
       selectedMessage: null,
+      messageBody: null,
       selectedKeys: [],
       messages: [],
       threads: [],
@@ -391,6 +403,7 @@ export const useStore = create<MailStore>((set, get) => ({
       hiddenKeys,
       total: Math.max(0, state.total - keys.length),
       selectedMessage: selectedGone ? null : state.selectedMessage,
+      messageBody: selectedGone ? null : state.messageBody,
       selectedKeys: state.selectedKeys.filter(k => !gone.has(k))
     };
   }),
@@ -398,7 +411,24 @@ export const useStore = create<MailStore>((set, get) => ({
     hiddenKeys: state.hiddenKeys.filter(k => !keys.includes(k))
   })),
   setTotal: (total) => set({ total }),
-  setSelectedMessage: (selectedMessage) => set({ selectedMessage }),
+  setSelectedMessage: (next) => set((state) => {
+    if (!next) return { selectedMessage: null, messageBody: null };
+    const html = next.html || '';
+    const text = next.text || '';
+    const meta: MailDetail = { ...next, html: '', text: '' };
+    const prev = state.selectedMessage;
+    const sameMeta = prev
+      && prev.uid === meta.uid
+      && prev.accountId === meta.accountId
+      && prev.bodyLoading === meta.bodyLoading
+      && (prev.flags || []).join() === (meta.flags || []).join()
+      && prev.subject === meta.subject;
+    return {
+      selectedMessage: sameMeta ? prev : meta,
+      messageBody: { html, text }
+    };
+  }),
+  setMessageBody: (messageBody) => set({ messageBody }),
   setSelectedKeys: (selectedKeys) => set({ selectedKeys }),
   toggleSelectedKey: (key, additive) => set((state) => {
     if (!additive) return { selectedKeys: [key] };
@@ -410,7 +440,13 @@ export const useStore = create<MailStore>((set, get) => ({
   setSignatures: (signatures) => set({ signatures }),
   setLoading: (loading) => set({ loading }),
   setLoadingMore: (loadingMore) => set({ loadingMore }),
-  openCompose: (composeMode, replyTo = null) => set({ composing: true, composeMode, replyTo }),
+  openCompose: (composeMode, replyTo = null) => {
+    const body = get().messageBody;
+    const withBody = replyTo && body
+      ? { ...replyTo, html: replyTo.html || body.html, text: replyTo.text || body.text }
+      : replyTo;
+    set({ composing: true, composeMode, replyTo: withBody });
+  },
   closeCompose: () => set({ composing: false, replyTo: null, composeMode: 'new' }),
   setSearchQuery: (searchQuery) => set({ searchQuery }),
   setSearchResults: (searchResults) => set({ searchResults }),

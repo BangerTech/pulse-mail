@@ -34,6 +34,7 @@
   --shadow-chip: 0 0.5px 2px rgba(0, 0, 0, 0.08);
   --scrollbar-thumb: rgba(0, 0, 0, 0.12);
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.2);
+  --focus-ring: color-mix(in srgb, var(--accent-color) 55%, transparent);
 }
 
 :root[data-theme='dark'] {
@@ -69,6 +70,7 @@
   --shadow-chip: 0 0.5px 2px rgba(0, 0, 0, 0.4);
   --scrollbar-thumb: rgba(255, 255, 255, 0.16);
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.26);
+  --focus-ring: color-mix(in srgb, var(--accent-color) 70%, transparent);
 }
 
 * {
@@ -107,8 +109,28 @@ input, textarea, select {
   font-family: inherit;
   font-size: inherit;
   border: none;
-  outline: none;
   color: var(--text-primary);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 ::-webkit-scrollbar {

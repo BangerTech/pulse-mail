@@ -96,28 +96,66 @@ export function looksEncoded(value) {
   return looksLikeBase64(value) || looksLikeQuotedPrintable(value);
 }
 
-function unwrapOnce(text) {
+// Share of characters that have no business in a mail body: C0/C1 control
+// codes (tab, CR and LF excluded) and the Unicode replacement character.
+// Binary noise from a wrong decode scores high, real text scores ~0.
+function junkRatio(text) {
+  if (!text) return 1;
+  const junk = text.match(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\uFFFD]/g);
+  return junk ? junk.length / text.length : 0;
+}
+
+const MAX_JUNK = 0.02;
+
+// Try several charsets and keep the most plausible result. Real-world mails
+// from older systems arrive as ISO-8859-1 or windows-1252 even when the header
+// claims UTF-8. Note that single-byte charsets never produce replacement
+// characters, so scoring purely on those would always pick them; junkRatio
+// counts control characters as well and avoids that trap.
+function bestDecode(buffer, preferred) {
+  const candidates = [];
+  if (preferred) candidates.push(preferred);
+  for (const cs of ['utf-8', 'windows-1252', 'iso-8859-1']) {
+    if (!candidates.includes(cs)) candidates.push(cs);
+  }
+  let best = null;
+  for (const cs of candidates) {
+    try {
+      const decoded = decodeCharset(buffer, cs);
+      const score = junkRatio(decoded);
+      if (score === 0) return decoded;
+      if (!best || score < best.score) best = { text: decoded, score };
+    } catch {}
+  }
+  return best ? best.text : buffer.toString('utf8');
+}
+
+function unwrapOnce(text, charset) {
   if (!text) return '';
   if (looksLikeBase64(text)) {
     try {
-      const decoded = Buffer.from(String(text).replace(/\s+/g, ''), 'base64').toString('utf8');
-      if (decoded && decoded !== text && (decoded.includes('<') || /[\s\wäöüÄÖÜß]/.test(decoded))) {
+      const buf = Buffer.from(String(text).replace(/\s+/g, ''), 'base64');
+      const decoded = bestDecode(buf, charset);
+      // Only accept the "repair" when the result is actually cleaner than
+      // what we started with. Without this, a false positive from
+      // looksLikeBase64 turns a perfectly good body into binary noise.
+      if (decoded && decoded !== text && junkRatio(decoded) <= MAX_JUNK && junkRatio(decoded) <= junkRatio(text)) {
         return decoded;
       }
     } catch {}
   }
   if (looksLikeQuotedPrintable(text)) {
-    const decoded = decodeCharset(decodeQuotedPrintable(Buffer.from(text, 'latin1')), 'utf-8');
-    if (decoded && decoded !== text) return decoded;
+    const decoded = bestDecode(decodeQuotedPrintable(Buffer.from(text, 'latin1')), charset);
+    if (decoded && decoded !== text && junkRatio(decoded) <= junkRatio(text)) return decoded;
   }
   return text;
 }
 
-export function repairEncodedText(text) {
+export function repairEncodedText(text, charset) {
   if (!text) return '';
   let out = String(text);
   for (let i = 0; i < 3; i++) {
-    const next = unwrapOnce(out);
+    const next = unwrapOnce(out, charset);
     if (next === out) break;
     out = next;
   }
@@ -143,9 +181,20 @@ export function decodeBody(buffer, charset, encoding) {
   try {
     const transferred = decodeTransfer(buffer, encoding);
     const text = decodeCharset(transferred, charset);
-    return repairEncodedText(decodeMimeWords(text));
+
+    // Safety net against double transfer-decoding: if applying the encoding
+    // produced junk while the untouched buffer reads as clean text, the
+    // payload had already been decoded upstream. Keep the clean version.
+    if (encoding && junkRatio(text) > MAX_JUNK) {
+      const asIs = decodeCharset(buffer, charset);
+      if (junkRatio(asIs) < junkRatio(text)) {
+        return repairEncodedText(decodeMimeWords(asIs), charset);
+      }
+    }
+
+    return repairEncodedText(decodeMimeWords(text), charset);
   } catch {
-    return repairEncodedText(Buffer.isBuffer(buffer) ? buffer.toString('utf8') : String(buffer));
+    return repairEncodedText(Buffer.isBuffer(buffer) ? buffer.toString('utf8') : String(buffer), charset);
   }
 }
 

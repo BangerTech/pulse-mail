@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import type { RawMessage } from '../data/types';
 import type { Classification } from '../logic/classify';
 import { domainHue, domainOf, rootDomain } from '../logic/classify';
 import { trackersIn } from '../logic/extract';
-import { formatRelative, initials, frequencyByListOrSender } from '../logic/util';
+import { formatRelative, initials, frequencyByListOrSender, weekKey } from '../logic/util';
+import { onActivateKey } from '../../shared/keyboard';
 
 interface Item { msg: RawMessage; cls: Classification }
 
@@ -30,6 +32,7 @@ interface Group {
 
 export function FeedLens({ items, allBulk, selectedId, onOpen, collapsed }: Props) {
   const [muted, setMuted] = useState<Set<string>>(new Set());
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const groups: Group[] = useMemo(() => {
     const map = new Map<string, Item[]>();
@@ -62,6 +65,14 @@ export function FeedLens({ items, allBulk, selectedId, onOpen, collapsed }: Prop
     return out.sort((a, b) => b.items.length - a.items.length);
   }, [items, allBulk]);
 
+  const virtualizer = useVirtualizer({
+    count: groups.length,
+    getScrollElement: () => scrollRef.current?.closest('.proto-main') as HTMLElement | null,
+    estimateSize: () => 140,
+    overscan: 6,
+    getItemKey: (i) => groups[i]?.key ?? i
+  });
+
   return (
     <section className={`lens feed ${collapsed ? 'collapsed' : ''}`}>
       <header className="lens-head">
@@ -69,22 +80,45 @@ export function FeedLens({ items, allBulk, selectedId, onOpen, collapsed }: Prop
         <p className="lens-sub">Newsletter und Broadcasts, gruppiert nach Absender. Getrennt von deinen direkten Konversationen.</p>
       </header>
 
-      <div className="feed-groups">
-        {groups.map(g => (
-          <FeedGroup
-            key={g.key}
-            group={g}
-            muted={muted.has(g.key)}
-            onMute={() => setMuted(s => {
-              const next = new Set(s);
-              if (next.has(g.key)) next.delete(g.key); else next.add(g.key);
-              return next;
-            })}
-            onOpen={onOpen}
-            selectedId={selectedId}
-            collapsed={collapsed}
-          />
-        ))}
+      <div className="feed-groups" ref={scrollRef}>
+        {groups.length === 0 && (
+          <div className="empty">Keine Newsletter im Zeitraum.</div>
+        )}
+        <div style={{ height: virtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
+          {virtualizer.getVirtualItems().map(item => {
+            const g = groups[item.index];
+            if (!g) return null;
+            return (
+              <div
+                key={item.key}
+                data-index={item.index}
+                data-week={weekKey(g.latest.msg.date)}
+                ref={virtualizer.measureElement}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  transform: `translateY(${item.start}px)`,
+                  contain: 'layout style paint'
+                }}
+              >
+                <FeedGroup
+                  group={g}
+                  muted={muted.has(g.key)}
+                  onMute={() => setMuted(s => {
+                    const next = new Set(s);
+                    if (next.has(g.key)) next.delete(g.key); else next.add(g.key);
+                    return next;
+                  })}
+                  onOpen={onOpen}
+                  selectedId={selectedId}
+                  collapsed={collapsed}
+                />
+              </div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
@@ -103,7 +137,15 @@ function FeedGroup({ group, muted, onMute, onOpen, selectedId, collapsed }: {
 
   return (
     <section className={`feed-group ${muted ? 'muted' : ''}`} style={{ ['--row-hue' as any]: group.hue }}>
-      <header className="feed-group-head" onClick={() => setOpen(o => !o)}>
+      <header
+        className="feed-group-head"
+        onClick={() => setOpen(o => !o)}
+        onKeyDown={(e) => onActivateKey(e, () => setOpen(o => !o))}
+        role="button"
+        tabIndex={0}
+        aria-expanded={open && !muted}
+        aria-label={`${group.senderName}, ${group.items.length} Nachrichten`}
+      >
         <div className="feed-avatar" style={{ background: `oklch(58% 0.14 ${group.hue})` }} aria-hidden>
           {initials(group.senderName, group.senderAddress)}
         </div>
@@ -144,7 +186,7 @@ function FeedGroup({ group, muted, onMute, onOpen, selectedId, collapsed }: {
         </div>
       </header>
 
-      {open && !muted && (
+      {open && !muted && !collapsed && (
         <div className="feed-items">
           {group.items.map(it => (
             <button

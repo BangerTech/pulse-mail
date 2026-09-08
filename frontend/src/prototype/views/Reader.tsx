@@ -5,6 +5,12 @@ import { domainHue, domainOf, rootDomain } from '../logic/classify';
 import { trackersIn, decodeHtmlEntities, extract, type Entity, type ParcelEntity, type OtpEntity, type EventEntity, type InvoiceEntity, type OrderEntity, type SubscriptionEntity } from '../logic/extract';
 import { formatMoney, formatRelative, initials } from '../logic/util';
 import { fetchMessageBody, attachmentUrl } from '../data/live';
+import { buildMailDocument } from '../../shared/mail-html';
+import { useMailFrame } from '../../shared/useMailFrame';
+import { RemoteImagesBar } from '../../shared/RemoteImagesBar';
+import { isSenderAllowed, allowSender } from '../../shared/imageAllowlist';
+import { useFocusTrap } from '../../shared/useFocusTrap';
+import { setSeen } from '../data/actions';
 
 interface Props {
   msg: RawMessage;
@@ -56,12 +62,47 @@ export function Reader({ msg, cls, ents, onClose }: Props) {
     [effectiveMsg, loadedHtml, loadedText, ents]
   );
 
+  const isDark = useMemo(() => (
+    typeof document !== 'undefined' && document.documentElement.dataset.theme === 'dark'
+  ), [effectiveMsg]);
+
+  const [loadRemoteOnce, setLoadRemoteOnce] = useState(false);
+  useEffect(() => { setLoadRemoteOnce(false); }, [msg.id]);
+  const [allowlistTick, setAllowlistTick] = useState(0);
+  useEffect(() => {
+    const bump = () => setAllowlistTick((t) => t + 1);
+    window.addEventListener('pulse:allowlist-changed', bump);
+    return () => window.removeEventListener('pulse:allowlist-changed', bump);
+  }, []);
+  const senderAllowed = useMemo(
+    () => isSenderAllowed(msg.from.address),
+    [msg.from.address, allowlistTick]
+  );
+  const blockRemote = !loadRemoteOnce && !senderAllowed;
+
   const readableHtml = useMemo(() => renderReadable(effectiveMsg), [effectiveMsg]);
-  const originalHtml = useMemo(() => renderOriginal(effectiveMsg, showTrackers), [effectiveMsg, showTrackers]);
+  const doc = useMemo(
+    () => renderOriginal(effectiveMsg, showTrackers, isDark, blockRemote),
+    [effectiveMsg, showTrackers, isDark, blockRemote]
+  );
+  const originalHtml = doc.srcDoc;
   const attachments = effectiveMsg.attachments || [];
+  const { iframeRef, onLoad } = useMailFrame(originalHtml, { minHeight: 400 });
+  const trapRef = useFocusTrap<HTMLDivElement>({
+    active: true,
+    initialFocusSelector: 'button.reader-back',
+    onEscape: onClose,
+  });
+
+  // Mark the mail as read on the server the first time the reader opens it.
+  useEffect(() => {
+    if (msg.accountId == null || msg.uid == null) return;
+    if (msg.flags.includes('\\Seen')) return;
+    setSeen(msg, true).catch(() => {});
+  }, [msg.id, msg.accountId, msg.uid]);
 
   return (
-    <div className="reader" style={{ ['--row-hue' as any]: hue }}>
+    <div className="reader" style={{ ['--row-hue' as any]: hue }} ref={trapRef}>
       <header className="reader-head">
         <button className="reader-back" onClick={onClose} aria-label="Schliessen">✕</button>
         <div className="reader-sender">
@@ -79,7 +120,7 @@ export function Reader({ msg, cls, ents, onClose }: Props) {
         <div className="reader-date">{formatRelative(msg.date)}</div>
       </header>
 
-      <h1 className="reader-subject">{msg.subject}</h1>
+      <h1 className="reader-subject" id="reader-subject">{msg.subject}</h1>
 
       {cls.spoofing.reasons.length > 0 && (
         <div className="alert alert-danger">
@@ -109,13 +150,29 @@ export function Reader({ msg, cls, ents, onClose }: Props) {
       )}
 
       <div className="reader-content">
+        {doc.blockedCount > 0 && (
+          <RemoteImagesBar
+            blockedCount={doc.blockedCount}
+            hosts={doc.blockedHosts}
+            senderAddress={msg.from.address}
+            onLoadOnce={() => setLoadRemoteOnce(true)}
+            onAllowSender={() => {
+              if (msg.from.address) allowSender(msg.from.address);
+              setLoadRemoteOnce(true);
+            }}
+          />
+        )}
         {loading && !loadedHtml && !effectiveMsg.bodyHtml ? (
           <div className="reader-loading">Nachricht wird geladen…</div>
         ) : effectiveMsg.bodyHtml ? (
           <iframe
+            ref={iframeRef}
+            onLoad={onLoad}
             className="reader-iframe"
             srcDoc={originalHtml}
-            sandbox="allow-popups allow-popups-to-escape-sandbox"
+            // Same-origin lets the parent measure and downscale the mail; we
+            // still block scripts by not adding allow-scripts.
+            sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"
             title="Nachricht"
           />
         ) : (
@@ -315,22 +372,32 @@ function linkify(escaped: string): string {
     .replace(/(\d{20}|H\d{13,14})/g, m => `<code>${m}</code>`);
 }
 
-function renderOriginal(msg: RawMessage, allowTrackers: boolean): string {
+function renderOriginal(msg: RawMessage, allowTrackers: boolean, isDark: boolean, blockRemote: boolean) {
   let html = msg.bodyHtml || `<pre>${escapeHtml(msg.bodyText || '')}</pre>`;
   if (!allowTrackers) {
     html = html.replace(/<img\b([^>]*)>/gi, (_full, attrs) => {
-      // block 1x1 pixel trackers
+      // block 1x1 pixel trackers on top of the general remote-image block
       const isTracker = /width\s*=\s*['"]?1['"]?/i.test(attrs) && /height\s*=\s*['"]?1['"]?/i.test(attrs);
       if (isTracker) return '';
       return `<img${attrs} loading="lazy">`;
     });
   }
-  return `<!doctype html><html><head><meta charset="utf-8"><style>
-    body{margin:0;padding:24px;font-family:Inter,system-ui,sans-serif;line-height:1.6;color:#222;background:#fafafa}
-    img{max-width:100%;height:auto}
-    a{color:#4b6ef7}
-    blockquote{border-left:3px solid #ddd;color:#666;padding-left:12px;margin:8px 0}
-  </style></head><body>${html}</body></html>`;
+
+  // Route through the shared renderer so cid: inline images resolve, the
+  // document is a valid HTML5 shell, dark-mode CSS only paints over mails
+  // that don't ship their own colors, and remote images can be neutralized
+  // before the browser fetches them.
+  const canLoad = msg.accountId != null && msg.uid != null && msg.folder;
+  return buildMailDocument({
+    html,
+    isDark,
+    padding: 24,
+    blockRemote,
+    attachments: msg.attachments,
+    attachmentUrl: canLoad
+      ? (att) => attachmentUrl(msg.accountId!, msg.uid!, att.filename || 'inline', msg.folder!, att.cid)
+      : undefined,
+  });
 }
 
 function formatBytes(n: number): string {

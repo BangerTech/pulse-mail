@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import type { Entity, ParcelEntity, OrderEntity, SubscriptionEntity, EventEntity, OtpEntity, InvoiceEntity } from '../logic/extract';
 import type { RawMessage } from '../data/types';
 import type { Classification } from '../logic/classify';
+import { onActivateKey } from '../../shared/keyboard';
 import { formatMoney, formatRelative } from '../logic/util';
 
 interface Props {
@@ -126,7 +127,14 @@ export function ThingsLens({ entities, onOpen }: Props) {
           </div>
           <ul className="sub-list">
             {subsPerYear.list.map(s => (
-              <li key={s.msgId} className="sub-row" onClick={() => onOpen(s.msgId)}>
+              <li
+                key={s.msgId}
+                className="sub-row"
+                onClick={() => onOpen(s.msgId)}
+                onKeyDown={(e) => onActivateKey(e, () => onOpen(s.msgId))}
+                role="button"
+                tabIndex={0}
+              >
                 <span className="sub-service">{s.service}</span>
                 <span className="sub-cycle">/{s.cycle === 'year' ? 'Jahr' : 'Monat'}</span>
                 <span className="sub-amount">{formatMoney(s.amount.value, s.amount.currency)}</span>
@@ -143,7 +151,14 @@ export function ThingsLens({ entities, onOpen }: Props) {
           </div>
           <ul className="event-list">
             {events.map(e => (
-              <li key={e.msgId} className="event-row" onClick={() => onOpen(e.msgId)}>
+              <li
+                key={e.msgId}
+                className="event-row"
+                onClick={() => onOpen(e.msgId)}
+                onKeyDown={(ev) => onActivateKey(ev, () => onOpen(e.msgId))}
+                role="button"
+                tabIndex={0}
+              >
                 <div className="event-date">
                   <span className="event-day">{new Date(e.start).toLocaleDateString('de-DE', { day: '2-digit' })}</span>
                   <span className="event-month">{new Date(e.start).toLocaleDateString('de-DE', { month: 'short' })}</span>
@@ -168,7 +183,14 @@ export function ThingsLens({ entities, onOpen }: Props) {
           </div>
           <ul className="order-list">
             {orders.map(o => (
-              <li key={o.msgId} className="order-row" onClick={() => onOpen(o.msgId)}>
+              <li
+                key={o.msgId}
+                className="order-row"
+                onClick={() => onOpen(o.msgId)}
+                onKeyDown={(e) => onActivateKey(e, () => onOpen(o.msgId))}
+                role="button"
+                tabIndex={0}
+              >
                 <div className="order-merchant">{o.merchant}</div>
                 <div className="order-number">Nr. {o.orderNumber}</div>
                 {o.total && <div className="order-total">{formatMoney(o.total.value, o.total.currency)}</div>}
@@ -189,6 +211,9 @@ export function ThingsLens({ entities, onOpen }: Props) {
                 key={inv.msgId}
                 className={`invoice-row ${inv.status === 'reminder' ? 'is-reminder' : ''}`}
                 onClick={() => onOpen(inv.msgId)}
+                onKeyDown={(e) => onActivateKey(e, () => onOpen(inv.msgId))}
+                role="button"
+                tabIndex={0}
               >
                 <div className="invoice-merchant">
                   {inv.status === 'reminder' && <span className="invoice-flag">Mahnung</span>}
@@ -294,7 +319,14 @@ function ParcelTimeline({ parcels, onOpen }: { parcels: ParcelEntity[]; onOpen: 
   return (
     <ul className="parcel-list">
       {parcels.map(p => (
-        <li key={p.msgId} className={`parcel-row status-${p.status}`} onClick={() => onOpen(p.msgId)}>
+        <li
+          key={p.msgId}
+          className={`parcel-row status-${p.status}`}
+          onClick={() => onOpen(p.msgId)}
+          onKeyDown={(e) => onActivateKey(e, () => onOpen(p.msgId))}
+          role="button"
+          tabIndex={0}
+        >
           <div className="parcel-item">{p.itemName || p.carrier || 'Sendung'}</div>
           <div className="parcel-track">
             <span className="parcel-carrier">{p.carrier}</span>

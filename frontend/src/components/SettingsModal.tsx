@@ -1,5 +1,7 @@
 import { useState, useRef } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store';
+import { useFocusTrap } from '../shared/useFocusTrap';
 import { api } from '../api';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -58,15 +60,31 @@ const SIG_SIZE_OPTIONS = [
 const SIZE_OPTIONS = [10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24];
 
 export default function SettingsModal() {
-  const { setShowSettings } = useStore();
+  const setShowSettings = useStore(s => s.setShowSettings);
   const [tab, setTab] = useState<Tab>('accounts');
+  const trapRef = useFocusTrap<HTMLDivElement>({
+    active: true,
+    onEscape: () => setShowSettings(false),
+  });
 
   return (
-    <div className="settings-overlay">
-      <div className="settings-modal">
+    <div className="settings-overlay" role="presentation">
+      <div
+        className="settings-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Einstellungen"
+        ref={trapRef}
+      >
         <div className="settings-titlebar">
           <span>Einstellungen</span>
-          <button className="settings-close" onClick={() => setShowSettings(false)}>✕</button>
+          <button
+            className="settings-close"
+            onClick={() => setShowSettings(false)}
+            aria-label="Einstellungen schließen"
+          >
+            ✕
+          </button>
         </div>
         <div className="settings-tabs">
           <button className={tab === 'accounts' ? 'active' : ''} onClick={() => setTab('accounts')}>Accounts</button>
@@ -85,10 +103,19 @@ export default function SettingsModal() {
 
 function AppearanceTab() {
   const {
-    composeFont, setComposeFont, theme, setTheme,
-    previewPosition, setPreviewPosition, density, setDensity,
-    threadingEnabled, setThreadingEnabled
-  } = useStore();
+    composeFont, theme, previewPosition, density, threadingEnabled
+  } = useStore(useShallow(s => ({
+    composeFont: s.composeFont,
+    theme: s.theme,
+    previewPosition: s.previewPosition,
+    density: s.density,
+    threadingEnabled: s.threadingEnabled,
+  })));
+  const setComposeFont = useStore(s => s.setComposeFont);
+  const setTheme = useStore(s => s.setTheme);
+  const setPreviewPosition = useStore(s => s.setPreviewPosition);
+  const setDensity = useStore(s => s.setDensity);
+  const setThreadingEnabled = useStore(s => s.setThreadingEnabled);
 
   return (
     <div className="settings-section">
@@ -215,7 +242,10 @@ function emptyAccountForm(color: string) {
 }
 
 function AccountsTab() {
-  const { accounts, setAccounts, setSelectedAccount, selectedAccount } = useStore();
+  const accounts = useStore(s => s.accounts);
+  const selectedAccount = useStore(s => s.selectedAccount);
+  const setAccounts = useStore(s => s.setAccounts);
+  const setSelectedAccount = useStore(s => s.setSelectedAccount);
   const [mode, setMode] = useState<'idle' | 'add' | 'edit'>('idle');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyAccountForm('#007AFF'));
@@ -348,7 +378,9 @@ function AccountsTab() {
 }
 
 function SignaturesTab() {
-  const { signatures, accounts, setSignatures } = useStore();
+  const signatures = useStore(s => s.signatures);
+  const accounts = useStore(s => s.accounts);
+  const setSignatures = useStore(s => s.setSignatures);
   const [editing, setEditing] = useState<number | null>(null);
   const [name, setName] = useState('');
   const [accountId, setAccountId] = useState<number | null>(null);
