@@ -1,8 +1,7 @@
 // Shared mail-HTML renderer for both the production reader and the prototype
 // reader. Builds a full HTML document out of the mail body, resolves cid:
-// inline images to backend attachment URLs, and only injects our own
-// background/color CSS when the mail didn't bring its own – so newsletters
-// with an intentional design stay intact in dark mode.
+// inline images to backend attachment URLs, and in dark mode forces light
+// text on a dark canvas (inline color:#000 loses to !important).
 
 export interface MailAttachmentLike {
   filename?: string;
@@ -27,25 +26,26 @@ export interface BuildMailDocumentOptions {
 export interface BuildMailDocumentResult {
   srcDoc: string;
   hasOwnBackground: boolean;
+  canvas: 'light' | 'dark';
   blockedCount: number;
   blockedHosts: string[];
 }
 
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-// A mail "brings its own background" if it sets one on <body>, on any wrapper
-// with a class/id, uses <table bgcolor=…>, or ships a <style> block that sets
-// a background on body/html. Anything with these signals should not have our
-// dark-mode overrides applied on top.
+// A mail "brings its own background" if html/body itself is painted — that
+// is a designed newsletter we should not recolor. Table/td bgcolor and
+// stray `background-color` on inner bits are too common (signatures, one
+// highlighted cell) and used to suppress dark-mode colors, which left black
+// text sitting on the app's dark chrome.
 export function hasOwnBackground(html: string): boolean {
   if (!html) return false;
   const patterns = [
     /<body[^>]*\bbgcolor\s*=/i,
+    /<html[^>]*\bbgcolor\s*=/i,
     /<body[^>]*style\s*=\s*['"][^'"]*background/i,
-    /<table[^>]*\bbgcolor\s*=/i,
-    /<td[^>]*\bbgcolor\s*=/i,
-    /background-color\s*:/i,
-    /background\s*:\s*(?!none|transparent|inherit|initial|unset)/i,
+    /<html[^>]*style\s*=\s*['"][^'"]*background/i,
+    /(?:^|}|;|\s)(?:html|body)\s*\{[^}]*background(?:-color)?\s*:/i,
   ];
   return patterns.some((re) => re.test(html));
 }
@@ -178,18 +178,12 @@ function baseCss(opts: {
   fontFamily?: string;
   fontSize?: number;
   padding: number;
-  applyColors: boolean;
 }): string {
   const font = opts.fontFamily || '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   const size = opts.fontSize || 14;
-  const colors = opts.applyColors
-    ? `
-      color: ${opts.isDark ? '#f5f5f7' : '#1d1d1f'};
-      background: ${opts.isDark ? '#1a1b1f' : '#ffffff'};`
-    : '';
-  const blockquoteColor = opts.applyColors
-    ? (opts.isDark ? '#98989d' : '#6e6e73')
-    : 'inherit';
+  const fg = opts.isDark ? '#f5f5f7' : '#1d1d1f';
+  const bg = opts.isDark ? '#1a1b1f' : '#ffffff';
+  const blockquoteColor = opts.isDark ? '#98989d' : '#6e6e73';
   const blockquoteBorder = opts.isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.15)';
   return `
     :root { color-scheme: ${opts.isDark ? 'dark' : 'light'}; }
@@ -198,11 +192,14 @@ function baseCss(opts: {
        set html/body height:100% would otherwise feed the measurement back
        into itself, so this one wins over the mail's own stylesheet. */
     html, body { margin: 0; height: auto !important; min-height: 0 !important; }
+    html { background: ${bg}; }
     body {
       padding: ${opts.padding}px;
       font-family: ${font};
       font-size: ${size}px;
-      line-height: 1.65;${colors}
+      line-height: 1.65;
+      color: ${fg};
+      background: ${bg};
       word-wrap: break-word;
       overflow-x: auto;
     }
@@ -216,6 +213,20 @@ function baseCss(opts: {
     }
     pre { white-space: pre-wrap; word-wrap: break-word; }
     table { max-width: 100%; }
+  `.trim();
+}
+
+// Loaded after the mail's own <style> so Outlook color:#000 cannot win.
+// Light table fills become transparent so white text does not sit on white cells.
+function darkOverrideCss(): string {
+  return `
+    html, body { background: #1a1b1f !important; color: #f5f5f7 !important; }
+    body :not(img):not(video):not(svg) { color: #f5f5f7 !important; }
+    body a, body a * { color: #6eb3ff !important; }
+    body table, body td, body th, body div {
+      background-color: transparent !important;
+      background-image: none !important;
+    }
   `.trim();
 }
 
@@ -236,13 +247,13 @@ export function buildMailDocument(opts: BuildMailDocumentOptions): BuildMailDocu
   }
 
   const own = hasOwnBackground(workHtml);
+  const canvas: 'light' | 'dark' = opts.isDark ? 'dark' : 'light';
   const pad = opts.padding ?? 18;
   const css = baseCss({
     isDark: opts.isDark,
     fontFamily: opts.fontFamily,
     fontSize: opts.fontSize,
     padding: pad,
-    applyColors: !own,
   });
 
   // If the mail already ships a full document, do not prepend our <style> in
@@ -263,9 +274,10 @@ export function buildMailDocument(opts: BuildMailDocumentOptions): BuildMailDocu
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>${css}</style>
     ${inheritedHead}
+    ${opts.isDark ? `<style>${darkOverrideCss()}</style>` : ''}
   </head><body>${inner}</body></html>`;
 
-  return { srcDoc, hasOwnBackground: own, blockedCount, blockedHosts };
+  return { srcDoc, hasOwnBackground: own, canvas, blockedCount, blockedHosts };
 }
 
 function extractBodyContent(html: string): string | null {

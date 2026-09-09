@@ -69,7 +69,14 @@ export default function ComposeModal() {
   })));
   const closeCompose = useStore(s => s.closeCompose);
 
-  const fromAccount = accounts.find(a => a.id === replyTo?.accountId) || selectedAccount;
+  const [fromId, setFromId] = useState<number | null>(
+    (accounts.find(a => a.id === replyTo?.accountId) || selectedAccount || accounts[0])?.id ?? null
+  );
+  const fromAccount = accounts.find(a => a.id === fromId) || selectedAccount || accounts[0] || null;
+  const visibleSignatures = useMemo(
+    () => signatures.filter(s => !s.account_id || s.account_id === fromAccount?.id),
+    [signatures, fromAccount]
+  );
 
   const initial = useMemo(() => {
     const sig = signatures.find(
@@ -275,7 +282,28 @@ export default function ComposeModal() {
         <div className="compose-fields">
           <div className="compose-field">
             <label>Von:</label>
-            <span className="compose-from">{fromAccount?.email}</span>
+            {accounts.length > 1 ? (
+              <select
+                className="compose-from-select"
+                value={fromAccount?.id ?? ''}
+                onChange={e => {
+                  const id = Number(e.target.value);
+                  setFromId(id);
+                  const next = accounts.find(a => a.id === id);
+                  const sig = signatures.find(
+                    s => s.is_default && (s.account_id === next?.id || !s.account_id)
+                  );
+                  applySignature(sig?.id ?? null);
+                }}
+                aria-label="Absenderkonto"
+              >
+                {accounts.map(a => (
+                  <option key={a.id} value={a.id}>{a.name ? `${a.name} · ${a.email}` : a.email}</option>
+                ))}
+              </select>
+            ) : (
+              <span className="compose-from">{fromAccount?.email}</span>
+            )}
           </div>
           <div className="compose-field">
             <label>An:</label>
@@ -403,7 +431,7 @@ export default function ComposeModal() {
             title="Signatur"
           >
             <option value="">Keine Signatur</option>
-            {signatures.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            {visibleSignatures.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </div>
 

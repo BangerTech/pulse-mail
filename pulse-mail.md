@@ -163,7 +163,7 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 ### Darstellung
 - Vorschaufenster rechts oder unten (verschiebbar)
 - Einzelklick zeigt rechts nur eine Vorschau; Doppelklick öffnet die Mail in einem eigenen Fenster
-- Mail-Header mit Avatar, Absenderkarte und Antwort-Pills (Vorschau und Vollansicht)
+- Mail-Header mit Avatar und Absenderkarte. Antworten, Allen antworten und Weiterleiten als Icons über dem Betreff (plus dieselben Aktionen in der globalen Toolbar).
 - Kompakte oder komfortable Listenansicht
 - Schriftart und -größe für das Verfassen
 - Logo und Favicon unter `frontend/public/`
@@ -175,7 +175,8 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Dekodierung versucht bei kaputtem UTF-8 automatisch `windows-1252` / `iso-8859-1` (die Variante mit dem geringsten Anteil an Steuer-/Replacement-Zeichen gewinnt)
 - `repairEncodedText` übernimmt eine „Reparatur" nur, wenn das Ergebnis sauberer ist als die Eingabe — verhindert, dass ein Fehlalarm von `looksLikeBase64` einen intakten Body in Binärmüll verwandelt
 - `db.js` leert beim Start Bodies, die als Binärmüll im Cache liegen (`dropCorruptBodies`); sie werden beim nächsten Öffnen sauber nachgeladen
-- Gemeinsamer Mail-Renderer unter `frontend/src/shared/mail-html.ts` und `useMailFrame.ts`: baut ein sauberes HTML5-Dokument, löst `cid:`-Inline-Bilder auf, überschreibt Farben im Dark Mode nur bei Mails ohne eigenen Hintergrund, misst per Same-Origin-Sandbox die Höhe und skaliert breite Newsletter proportional herunter. Genutzt von `MailContent.tsx` und dem Prototyp `Reader.tsx`.
+- Gemeinsamer Mail-Renderer unter `frontend/src/shared/mail-html.ts` und `useMailFrame.ts`: baut ein sauberes HTML5-Dokument, löst `cid:`-Inline-Bilder auf, misst per Same-Origin-Sandbox die Höhe und skaliert breite Newsletter proportional herunter. Genutzt von `MailContent.tsx` und dem Prototyp `Reader.tsx`.
+- **Dark Mode:** Die Mail bleibt auf dunklem Grund. Ein nachgelagertes Stylesheet setzt Schrift auf Hell (`#f5f5f7 !important`), damit Outlook-`color:#000` nicht gewinnt. Helle Tabellenhintergründe werden transparent, Links bleiben blau.
 - **Höhenmessung immer über `body.scrollHeight`, nie über `documentElement.scrollHeight`.** Letzteres ist mindestens so hoch wie das iframe-Viewport; damit fließt die gesetzte Höhe in die nächste Messung zurück und die Mail wächst endlos. Dazu gehören: `html, body { height: auto !important }` im injizierten CSS, ein Epsilon von 2px vor dem Schreiben, ein Flag gegen selbst ausgelöste ResizeObserver-Callbacks und ein Pass-Limit.
 - Plain-Text-Mails werden über `frontend/src/shared/plain-text.ts` gerendert: `format=flowed` wird nach RFC 3676 entpackt, URLs/E-Mails verlinkt, `>`-Zitatebenen als geschachtelte `<blockquote>` gestylt
 - **Externe Bilder standardmäßig blockiert.** `buildMailDocument({ blockRemote: true })` nimmt `src`/`srcset`/`url()` für http(s) heraus (Original in `data-blocked-src`), `cid:` und `data:` bleiben. Beide Reader zeigen `RemoteImagesBar` („Laden“ einmal, oder Absenderdomain dauerhaft erlauben). Allowlist in `localStorage` unter `pulse:imageAllowlist:v1`, geteilt zwischen App und Prototyp.
@@ -213,7 +214,7 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 
 ## Prototyp „Pulse Mail 2026"
 
-Klickbarer Design-Prototyp neben der bestehenden App. Die Logik (`classify.ts`, `extract.ts`) läuft im Frontend; Live-Daten kommen aus dem SQLite-Cache (`GET /api/prototype/messages`), nicht aus den Fixtures, sobald das Backend erreichbar ist.
+Klickbarer Design-Prototyp neben der bestehenden App — dieselbe Datenbasis und dieselben schreibenden Endpunkte, andere Oberfläche. Die Logik (`classify.ts`, `extract.ts`) läuft im Frontend; Live-Daten kommen aus dem SQLite-Cache (`GET /api/prototype/messages`), nicht aus den Fixtures, sobald das Backend erreichbar ist.
 
 ### Erreichbarkeit
 - Produktion: `http://<host>:8080/prototype.html`
@@ -237,10 +238,11 @@ Klickbarer Design-Prototyp neben der bestehenden App. Die Logik (`classify.ts`, 
 - **Triage-Modus** — bildschirmfüllend, `←` Archiv / `→` Behalten / `↑` Später / `⌘Z` Undo. Archiv und Behalten schreiben über `POST /api/mail/:accountId/archive` bzw. `flags` (`\Seen`) ins Backend (`frontend/src/prototype/data/actions.ts`).
 - **Scrubber** — Sparkline der Mail-Dichte pro Woche am Listenrand; Klick springt zur ersten Zeile dieser Woche (`data-week`).
 - **Reader** setzt `\Seen` beim Öffnen und blockiert externe Bilder analog zur Produktions-App.
+- **Verfassen** nutzt denselben Composer wie die Produktions-App (`ComposeModal.tsx`, `POST /api/mail/:accountId/send` und `/draft`). Signaturen kommen von `GET /api/signatures`. `N`/`C` neue Mail, im Reader `R` antworten, `A` allen antworten, `F` weiterleiten. Bei mehreren Konten ist der Absender im Composer wählbar.
 - **Design-System** in `src/prototype/styles/tokens.css`: oklch-Farben (Akzent in einer Zeile umfärbbar), Spacing-/Radius-/Typo-Skalen, Absenderfarbe aus Domain-Hash bei fixer Helligkeit/Chroma
 
 ### Tastatur
-- `1` `2` `3` Linsen (Pfeiltasten im Tablist) · `T` Triage · `D` Theme · `Esc` Reader schliessen
+- `1` `2` `3` Linsen (Pfeiltasten im Tablist) · `N`/`C` Schreiben · `R` Antworten · `A` Allen · `F` Weiterleiten · `T` Triage · `D` Theme · `Esc` schliessen
 
 ### Dateistruktur
 ```
@@ -251,7 +253,8 @@ frontend/src/prototype/
 ├── data/
 │   ├── types.ts             RawMessage-Typ
 │   ├── fixtures.ts          ~40 Nachrichten mit echten Rohheadern
-│   └── actions.ts           Archivieren, Löschen, `\Seen` über die Produktions-API
+│   ├── actions.ts           Archivieren, Löschen, `\Seen` über die Produktions-API
+│   └── compose.ts           RawMessage → MailDetail für Antworten/Weiterleiten
 ├── logic/
 │   ├── classify.ts          Klassifikator (Lane/Category), Trust, Spoofing
 │   ├── extract.ts           JSON-LD/ICS/Regex-Extraktoren, Tracker-Detektion

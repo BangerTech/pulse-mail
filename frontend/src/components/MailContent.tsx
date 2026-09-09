@@ -138,7 +138,7 @@ function MailContentInner({
     const accountId = selectedMessage?.accountId ?? selectedAccount?.id;
     const folder = selectedMessage?.folder || selectedFolder;
     if (!htmlSource || !accountId || !selectedMessage) {
-      return { srcDoc: '', hasOwnBackground: false, blockedCount: 0, blockedHosts: [] as string[] };
+      return { srcDoc: '', hasOwnBackground: false, canvas: 'light' as const, blockedCount: 0, blockedHosts: [] as string[] };
     }
 
     const pad = variant === 'preview' ? 18 : 28;
@@ -287,21 +287,6 @@ function MailContentInner({
             </div>
           </div>
         </div>
-
-        <div className="mailcontent-pills">
-          <button className="mail-pill primary" onClick={() => openCompose('reply', selectedMessage)}>
-            <Icon name="reply" size={14} />
-            Antworten
-          </button>
-          <button className="mail-pill" onClick={() => openCompose('replyAll', selectedMessage)}>
-            <Icon name="replyAll" size={14} />
-            Allen
-          </button>
-          <button className="mail-pill" onClick={() => openCompose('forward', selectedMessage)}>
-            <Icon name="forward" size={14} />
-            Weiterleiten
-          </button>
-        </div>
       </div>
 
       {fileAttachments.length > 0 && (
@@ -350,6 +335,7 @@ function MailContentInner({
             srcDoc={srcDoc}
             onLoad={onLoad}
             className="mail-iframe"
+            style={{ background: doc.canvas === 'dark' ? '#1a1b1f' : '#ffffff' }}
             // Same-origin is needed so we can measure the rendered document
             // for auto-height and downscale wide newsletters. We deliberately
             // do NOT allow-scripts, so mail JS is still blocked.

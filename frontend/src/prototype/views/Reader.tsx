@@ -11,15 +11,19 @@ import { RemoteImagesBar } from '../../shared/RemoteImagesBar';
 import { isSenderAllowed, allowSender } from '../../shared/imageAllowlist';
 import { useFocusTrap } from '../../shared/useFocusTrap';
 import { setSeen } from '../data/actions';
+import { Icon } from '../../components/Icon';
+import type { ComposeMode } from '../../store';
 
 interface Props {
   msg: RawMessage;
   cls: Classification;
   ents: Entity[];
   onClose: () => void;
+  onCompose?: (mode: Exclude<ComposeMode, 'new'>) => void;
+  composeEnabled?: boolean;
 }
 
-export function Reader({ msg, cls, ents, onClose }: Props) {
+export function Reader({ msg, cls, ents, onClose, onCompose, composeEnabled }: Props) {
   const [showTrackers, setShowTrackers] = useState(false);
   const [loadedHtml, setLoadedHtml] = useState<string | null>(null);
   const [loadedText, setLoadedText] = useState<string | null>(null);
@@ -120,6 +124,44 @@ export function Reader({ msg, cls, ents, onClose }: Props) {
         <div className="reader-date">{formatRelative(msg.date)}</div>
       </header>
 
+      {onCompose && (
+        <div className="reader-actions">
+          <button
+            type="button"
+            className="reader-action"
+            disabled={!composeEnabled}
+            onClick={() => onCompose('reply')}
+            title={composeEnabled ? 'Antworten (R)' : 'Antworten braucht Live-Daten'}
+            aria-label="Antworten"
+          >
+            <Icon name="reply" size={15} />
+            Antworten
+          </button>
+          <button
+            type="button"
+            className="reader-action"
+            disabled={!composeEnabled}
+            onClick={() => onCompose('replyAll')}
+            title={composeEnabled ? 'Allen antworten (A)' : 'Antworten braucht Live-Daten'}
+            aria-label="Allen antworten"
+          >
+            <Icon name="replyAll" size={15} />
+            Allen
+          </button>
+          <button
+            type="button"
+            className="reader-action"
+            disabled={!composeEnabled}
+            onClick={() => onCompose('forward')}
+            title={composeEnabled ? 'Weiterleiten (F)' : 'Weiterleiten braucht Live-Daten'}
+            aria-label="Weiterleiten"
+          >
+            <Icon name="forward" size={15} />
+            Weiterleiten
+          </button>
+        </div>
+      )}
+
       <h1 className="reader-subject" id="reader-subject">{msg.subject}</h1>
 
       {cls.spoofing.reasons.length > 0 && (
@@ -170,6 +212,7 @@ export function Reader({ msg, cls, ents, onClose }: Props) {
             onLoad={onLoad}
             className="reader-iframe"
             srcDoc={originalHtml}
+            style={{ background: doc.canvas === 'dark' ? '#1a1b1f' : '#ffffff' }}
             // Same-origin lets the parent measure and downscale the mail; we
             // still block scripts by not adding allow-scripts.
             sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"

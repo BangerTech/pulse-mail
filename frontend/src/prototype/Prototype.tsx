@@ -11,6 +11,11 @@ import { Reader } from './views/Reader';
 import { TriageMode } from './views/TriageMode';
 import { Scrubber } from './views/Scrubber';
 import { archiveMessage, setSeen } from './data/actions';
+import { loadComposeTarget } from './data/compose';
+import { api } from '../api';
+import { useStore, type ComposeMode } from '../store';
+import ComposeModal from '../components/ComposeModal';
+import { Icon } from '../components/Icon';
 
 export type LensKey = 'people' | 'feed' | 'things';
 export type Source = 'live' | 'fixtures';
@@ -37,6 +42,13 @@ export function Prototype() {
   const [seenIds, setSeenIds] = useState<Set<string>>(new Set());
   const loadGen = useRef(0);
 
+  const composing = useStore(s => s.composing);
+  const accounts = useStore(s => s.accounts);
+  const setAccounts = useStore(s => s.setAccounts);
+  const setSelectedAccount = useStore(s => s.setSelectedAccount);
+  const setSignatures = useStore(s => s.setSignatures);
+  const openCompose = useStore(s => s.openCompose);
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('proto-theme', theme);
@@ -45,6 +57,20 @@ export function Prototype() {
   useEffect(() => {
     localStorage.setItem('proto-source', source);
   }, [source]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [accs, sigs] = await Promise.all([api.getAccounts(), api.getSignatures()]);
+        if (cancelled) return;
+        setAccounts(accs);
+        setSignatures(sigs);
+        if (accs[0]) setSelectedAccount(accs[0]);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [setAccounts, setSignatures, setSelectedAccount]);
 
   const loadLive = useCallback(async (sync = false) => {
     const gen = ++loadGen.current;
@@ -172,6 +198,20 @@ export function Prototype() {
     el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }, []);
 
+  const startCompose = useCallback(async (mode: ComposeMode, msg?: RawMessage) => {
+    if (!accounts.length) return;
+    if (mode === 'new') {
+      setSelectedAccount(accounts[0]);
+      openCompose('new');
+      return;
+    }
+    if (!msg || msg.accountId == null || msg.uid == null) return;
+    const account = accounts.find(a => a.id === msg.accountId) || accounts[0];
+    setSelectedAccount(account);
+    const detail = await loadComposeTarget(msg);
+    openCompose(mode, detail);
+  }, [accounts, openCompose, setSelectedAccount]);
+
   const onDecision = useCallback((item: { msg: RawMessage }, decision: 'archive' | 'keep' | 'later') => {
     if (decision === 'archive') {
       archiveMessage(item.msg).catch(() => {});
@@ -196,18 +236,23 @@ export function Prototype() {
   // Tastatur
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).matches('input, textarea')) return;
-      if (triage) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      if (triage || composing) return;
       if (e.key === '1') { withMorph(() => { setLens('people'); setSelectedId(null); }); }
       else if (e.key === '2') { withMorph(() => { setLens('feed'); setSelectedId(null); }); }
       else if (e.key === '3') { withMorph(() => { setLens('things'); setSelectedId(null); }); }
       else if (e.key === 't') { setTriage(true); }
       else if (e.key === 'Escape') { if (selectedId) closeReader(); }
       else if (e.key === 'd') { setTheme(t => t === 'dark' ? 'light' : 'dark'); }
+      else if (e.key === 'n' || e.key === 'c') { e.preventDefault(); startCompose('new'); }
+      else if (e.key === 'r' && selectedMsg) { e.preventDefault(); startCompose('reply', selectedMsg.msg); }
+      else if (e.key === 'a' && selectedMsg) { e.preventDefault(); startCompose('replyAll', selectedMsg.msg); }
+      else if (e.key === 'f' && selectedMsg) { e.preventDefault(); startCompose('forward', selectedMsg.msg); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [triage, selectedId, closeReader, withMorph]);
+  }, [triage, composing, selectedId, selectedMsg, closeReader, withMorph, startCompose]);
 
   if (triage) {
     return <TriageMode
@@ -269,6 +314,17 @@ export function Prototype() {
         </nav>
 
         <div className="proto-tools">
+          <button
+            className="proto-chip proto-chip-compose"
+            data-chip="compose"
+            onClick={() => startCompose('new')}
+            disabled={!accounts.length}
+            title={accounts.length ? 'Neue Nachricht (N)' : 'Kein Postfach verbunden'}
+            aria-label="Neue Nachricht"
+          >
+            <Icon name="compose" size={14} />
+            Schreiben
+          </button>
           <SourceChip
             source={source}
             liveMeta={liveMeta}
@@ -330,22 +386,28 @@ export function Prototype() {
               cls={selectedMsg.cls}
               ents={selectedMsg.ents}
               onClose={closeReader}
+              onCompose={(mode) => startCompose(mode, selectedMsg.msg)}
+              composeEnabled={selectedMsg.msg.accountId != null && selectedMsg.msg.uid != null && accounts.length > 0}
             />
           </aside>
         </>
       )}
 
       <footer className="proto-footer">
+        <span><kbd>N</kbd> Schreiben</span>
+        <span><kbd>R</kbd> <kbd>A</kbd> <kbd>F</kbd> Antwort / Allen / Weiter</span>
         <span><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> Linsen</span>
         <span><kbd>T</kbd> Triage</span>
         <span><kbd>D</kbd> Theme</span>
-        <span><kbd>Esc</kbd> Reader schliessen</span>
+        <span><kbd>Esc</kbd> Schliessen</span>
         <span className="proto-footer-note">
           {source === 'live' && liveMeta
             ? `Live · ${liveMeta.count} Nachrichten · ${liveMeta.withHeaders}/${liveMeta.count} mit Rohheadern · ${liveMeta.withBody}/${liveMeta.count} mit Body`
             : 'Fixtures (deterministisch, kein Backend)'}
         </span>
       </footer>
+
+      {composing && <ComposeModal />}
     </div>
   );
 }

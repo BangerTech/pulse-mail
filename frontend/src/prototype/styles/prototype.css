@@ -24,6 +24,22 @@ button {
   padding: 0;
 }
 
+/* Shared compose.css talks in production tokens. Map them onto the
+   prototype scale so the same editor looks native here. */
+:root {
+  --text-primary: var(--fg);
+  --text-secondary: var(--fg-muted);
+  --text-tertiary: var(--fg-faint);
+  --text-inverse: var(--fg-inverse);
+  --border-color: var(--border);
+  --surface-secondary: var(--bg-sunken);
+  --surface-tertiary: var(--bg-inset);
+  --hover-bg: var(--hover);
+  --accent-color: var(--accent);
+  --destructive: var(--bad);
+  --shadow-chip: var(--shadow-1);
+}
+
 kbd {
   font-family: var(--font-mono);
   font-size: var(--t-xs);
@@ -152,6 +168,17 @@ kbd {
   font-size: var(--t-sm);
   text-decoration: none;
   transition: background var(--dur-fast) var(--e-out), color var(--dur-fast) var(--e-out);
+}
+.proto-chip:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.proto-chip-compose {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  border-color: color-mix(in oklch, var(--accent) 28%, transparent);
 }
 .proto-chip:hover { color: var(--fg); background: var(--hover); }
 .proto-chip-ghost { background: transparent; }
@@ -751,6 +778,32 @@ kbd {
 }
 .reader-mono { font-family: var(--font-mono); }
 .reader-date { color: var(--fg-faint); font-size: var(--t-sm); font-variant-numeric: tabular-nums; }
+
+.reader-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+.reader-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--r-full);
+  font-size: var(--t-sm);
+  color: var(--fg-muted);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+}
+.reader-action:hover:not(:disabled) {
+  color: var(--fg);
+  background: var(--hover);
+  border-color: var(--border-strong);
+}
+.reader-action:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
 
 .reader-subject {
   font-size: var(--t-xl);
