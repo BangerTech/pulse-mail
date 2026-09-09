@@ -406,11 +406,14 @@ export default function mailRouter(db, broadcast = () => {}) {
 
       if (!att) return res.status(404).json({ error: 'Attachment not found' });
 
-      const disposition = inline === '1' ? 'inline' : 'attachment';
-      res.set('Content-Type', att.contentType || 'application/octet-stream');
-      res.set('Content-Disposition', `${disposition}; filename="${att.filename || 'attachment'}"`);
+      const buf = Buffer.isBuffer(att.content) ? att.content : Buffer.from(att.content || []);
+      const filename = att.filename || req.params.filename;
+      const type = sniffContentType(filename, att.contentType, buf);
+      const asInline = inline === '1';
+      res.set('Content-Type', type);
+      res.set('Content-Disposition', `${asInline ? 'inline' : 'attachment'}; filename="${String(filename).replace(/"/g, '')}"`);
       res.set('Cache-Control', 'private, max-age=3600');
-      res.send(att.content);
+      res.send(buf);
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -620,6 +623,14 @@ const SPECIAL_FALLBACKS = {
 function normalizeCid(cid) {
   if (!cid) return '';
   return String(cid).replace(/^<|>$/g, '').trim().toLowerCase();
+}
+
+function sniffContentType(filename, contentType, buf) {
+  const name = String(filename || '').toLowerCase();
+  const type = String(contentType || '').toLowerCase();
+  if (type.includes('pdf') || name.endsWith('.pdf')) return 'application/pdf';
+  if (buf && buf.length >= 5 && buf.slice(0, 5).toString('ascii') === '%PDF-') return 'application/pdf';
+  return contentType || 'application/octet-stream';
 }
 
 async function findSpecialFolder(client, specialUse) {

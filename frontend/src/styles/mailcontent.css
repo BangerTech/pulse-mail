@@ -318,6 +318,10 @@
   transition: transform 0.1s ease;
 }
 
+.attachment-chip.pdf {
+  border: 0.5px solid color-mix(in srgb, var(--accent-color) 35%, transparent);
+}
+
 .attachment-chip:hover {
   transform: translateY(-1px);
 }

@@ -8,6 +8,8 @@ import { useMailFrame } from '../shared/useMailFrame';
 import { renderPlainText } from '../shared/plain-text';
 import { RemoteImagesBar } from '../shared/RemoteImagesBar';
 import { isSenderAllowed, allowSender } from '../shared/imageAllowlist';
+import { PdfPreview } from '../shared/PdfPreview';
+import { isPdfAttachment } from '../shared/pdf';
 import '../shared/shared.css';
 import '../styles/mailcontent.css';
 
@@ -111,10 +113,11 @@ function MailContentInner({
   // message changes so opening a new mail always starts in the blocked state
   // unless the sender is on the allowlist.
   const [loadRemoteOnce, setLoadRemoteOnce] = useState(false);
+  const [previewPdf, setPreviewPdf] = useState<string | null>(null);
   const messageKey = selectedMessage
     ? `${selectedMessage.accountId ?? ''}:${selectedMessage.uid}`
     : '';
-  useEffect(() => { setLoadRemoteOnce(false); }, [messageKey]);
+  useEffect(() => { setLoadRemoteOnce(false); setPreviewPdf(null); }, [messageKey]);
 
   // Re-render when the allowlist changes (e.g. after adding the sender).
   const [allowlistTick, setAllowlistTick] = useState(0);
@@ -192,6 +195,11 @@ function MailContentInner({
   function downloadAttachment(filename: string) {
     if (!mailAccountId) return;
     window.open(attachmentUrl(filename), '_blank');
+  }
+
+  function openAttachment(att: { filename: string; contentType?: string }) {
+    if (isPdfAttachment(att)) setPreviewPdf(att.filename);
+    else downloadAttachment(att.filename);
   }
 
   const isImage = (type?: string) => !!type && type.toLowerCase().startsWith('image/');
@@ -291,17 +299,21 @@ function MailContentInner({
 
       {fileAttachments.length > 0 && (
         <div className="mailcontent-attachments">
-          {fileAttachments.map(att => (
-            <button
-              key={att.filename}
-              className="attachment-chip"
-              onClick={() => downloadAttachment(att.filename)}
-            >
-              <Icon name="download" size={14} />
-              <span className="attachment-name">{att.filename}</span>
-              <span className="attachment-size">{formatSize(att.size)}</span>
-            </button>
-          ))}
+          {fileAttachments.map(att => {
+            const pdf = isPdfAttachment(att);
+            return (
+              <button
+                key={att.filename}
+                className={`attachment-chip ${pdf ? 'pdf' : ''}`}
+                onClick={() => openAttachment(att)}
+                title={pdf ? 'PDF-Vorschau' : 'Herunterladen'}
+              >
+                <Icon name={pdf ? 'pdf' : 'download'} size={14} />
+                <span className="attachment-name">{att.filename}</span>
+                <span className="attachment-size">{formatSize(att.size)}</span>
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -374,6 +386,14 @@ function MailContentInner({
             </figure>
           ))}
         </div>
+      )}
+      {previewPdf && mailAccountId && (
+        <PdfPreview
+          src={attachmentUrl(previewPdf, true)}
+          filename={previewPdf}
+          downloadHref={attachmentUrl(previewPdf, false)}
+          onClose={() => setPreviewPdf(null)}
+        />
       )}
     </div>
   );

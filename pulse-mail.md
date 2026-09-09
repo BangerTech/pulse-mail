@@ -93,7 +93,7 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - `GET /api/mail/unified/unread` - Ungelesen-Summe aller Posteingänge
 - `GET /api/mail/:accountId/messages` - Mails auflisten (`folder`, `limit`, `offset`), liefert `messages` und `threads`
 - `GET /api/mail/:accountId/message/:uid` - Mail-Detail (Cache zuerst, sonst IMAP nur Body-Parts)
-- `GET /api/mail/:accountId/attachment/:uid/:filename` - Anhang download
+- `GET /api/mail/:accountId/attachment/:uid/:filename` - Anhang; `?inline=1` liefert `Content-Disposition: inline` (PDF-Vorschau). Dateien mit `.pdf` oder `%PDF-`-Signatur bekommen `application/pdf`.
 - `GET /api/mail/:accountId/unread-counts` - Ungelesen-Zähler pro Ordner
 - `POST /api/mail/:accountId/send` - Mail senden (multipart/form-data)
 - `POST /api/mail/:accountId/draft` - Entwurf im IMAP-Drafts-Ordner speichern
@@ -150,6 +150,7 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Mehrfachauswahl: Cmd/Ctrl-Klick und Shift-Klick, Schnellaktionen beim Hover
 - Nachladen beim Scrollen
 - Entwürfe: Button oder automatisch beim Schließen des Editors, wenn Inhalt vorhanden ist
+- **PDF-Vorschau:** Klick auf einen PDF-Anhang öffnet ihn in der App (`frontend/src/shared/PdfPreview.tsx`), nicht in einem neuen Tab. Download über das Icon in der Vorschau-Leiste.
 
 ### Suche
 - Alle Ordner und optional alle Accounts
@@ -279,7 +280,9 @@ frontend/src/shared/               Von App und Prototyp gemeinsam genutzt
 ├── RemoteImagesBar.tsx            „N externe Bilder blockiert"
 ├── useFocusTrap.ts                Tab-Zyklus, Restore-Fokus
 ├── keyboard.ts                    Enter/Leertaste
-└── shared.css                     Focus-Ring, Remote-Bar, reduced-motion
+├── pdf.ts                         PDF-Erkennung
+├── PdfPreview.tsx                 In-App-PDF-Vorschau
+└── shared.css                     Focus-Ring, Remote-Bar, reduced-motion, PDF-Overlay
 ```
 
 ### Portierungspfad in die Produktions-App

@@ -13,6 +13,8 @@ import { useFocusTrap } from '../../shared/useFocusTrap';
 import { setSeen } from '../data/actions';
 import { Icon } from '../../components/Icon';
 import type { ComposeMode } from '../../store';
+import { PdfPreview } from '../../shared/PdfPreview';
+import { isPdfAttachment } from '../../shared/pdf';
 
 interface Props {
   msg: RawMessage;
@@ -71,7 +73,8 @@ export function Reader({ msg, cls, ents, onClose, onCompose, composeEnabled }: P
   ), [effectiveMsg]);
 
   const [loadRemoteOnce, setLoadRemoteOnce] = useState(false);
-  useEffect(() => { setLoadRemoteOnce(false); }, [msg.id]);
+  const [previewPdf, setPreviewPdf] = useState<MailAttachment | null>(null);
+  useEffect(() => { setLoadRemoteOnce(false); setPreviewPdf(null); }, [msg.id]);
   const [allowlistTick, setAllowlistTick] = useState(0);
   useEffect(() => {
     const bump = () => setAllowlistTick((t) => t + 1);
@@ -229,16 +232,31 @@ export function Reader({ msg, cls, ents, onClose, onCompose, composeEnabled }: P
           <ul>
             {attachments.filter(a => !a.inline).map((a, i) => {
               const canDownload = canLoadLive;
+              const pdf = isPdfAttachment(a);
               const href = canDownload
                 ? attachmentUrl(msg.accountId!, msg.uid!, a.filename || `anhang-${i}`, msg.folder, a.cid)
+                : undefined;
+              const previewHref = canDownload && pdf
+                ? attachmentUrl(msg.accountId!, msg.uid!, a.filename || `anhang-${i}`, msg.folder, a.cid, true)
                 : undefined;
               return (
                 <li key={`${a.filename}-${i}`}>
                   {href ? (
-                    <a href={href} target="_blank" rel="noopener" className="att-link" download={a.filename}>
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener"
+                      className="att-link"
+                      download={pdf ? undefined : a.filename}
+                      onClick={(e) => {
+                        if (!pdf || !previewHref) return;
+                        e.preventDefault();
+                        setPreviewPdf(a);
+                      }}
+                    >
                       <span className="att-icon" aria-hidden>{fileIcon(a.mime, a.filename)}</span>
                       <span className="att-name">{a.filename || 'Anhang'}</span>
-                      <span className="att-meta">{a.mime} · {formatBytes(a.size)}</span>
+                      <span className="att-meta">{pdf ? 'PDF-Vorschau' : `${a.mime} · ${formatBytes(a.size)}`}</span>
                     </a>
                   ) : (
                     <div className="att-link att-disabled" title="Nur mit Live-Daten öffnbar">
@@ -252,6 +270,14 @@ export function Reader({ msg, cls, ents, onClose, onCompose, composeEnabled }: P
             })}
           </ul>
         </div>
+      )}
+      {previewPdf && canLoadLive && (
+        <PdfPreview
+          src={attachmentUrl(msg.accountId!, msg.uid!, previewPdf.filename, msg.folder, previewPdf.cid, true)}
+          filename={previewPdf.filename}
+          downloadHref={attachmentUrl(msg.accountId!, msg.uid!, previewPdf.filename, msg.folder, previewPdf.cid)}
+          onClose={() => setPreviewPdf(null)}
+        />
       )}
     </div>
   );
