@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Pulse Mail",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "identifier": "de.bangertech.pulsemail",
   "build": {
     "frontendDist": "../ui"
