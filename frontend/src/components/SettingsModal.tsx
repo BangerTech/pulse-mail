@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store';
 import { useFocusTrap } from '../shared/useFocusTrap';
-import { getNotifyPermission, requestNotifyPermission } from '../shared/notifyMail';
+import { getNotifyPermission, requestNotifyPermission, resolveNotifyPermission } from '../shared/notifyMail';
 import { playNewMailSound, setNotifyVolume, getNotifySoundStatus } from '../shared/notifySound';
 import { APP_VERSION, formatBuildTime } from '../shared/version';
 import UserAvatar from './UserAvatar';
@@ -270,6 +270,10 @@ function AlertsTab() {
   const setNotifyWhenFocused = useStore(s => s.setNotifyWhenFocused);
   const setVolume = useStore(s => s.setNotifyVolume);
   const [notifyPermission, setNotifyPermission] = useState(getNotifyPermission);
+
+  useEffect(() => {
+    void resolveNotifyPermission().then(setNotifyPermission);
+  }, []);
 
   return (
     <div className="settings-section">

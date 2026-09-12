@@ -15,6 +15,15 @@ export interface ShortcutHandlers {
   onSearch: () => void;
   onPalette: () => void;
   onRefresh: () => void;
+  onSettings?: () => void;
+  onSidebar?: () => void;
+  onTheme?: () => void;
+  onPreview?: () => void;
+  onOpen?: () => void;
+  onInbox?: () => void;
+  onMove?: () => void;
+  onThreading?: () => void;
+  onAccount?: (index: number) => void;
 }
 
 function isTyping(target: EventTarget | null) {
@@ -39,6 +48,11 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers, enabled: boolea
         handlers.onPalette();
         return;
       }
+      if (meta && e.key === ',') {
+        e.preventDefault();
+        handlers.onSettings?.();
+        return;
+      }
 
       if (e.key === 'Escape') {
         handlers.onEscape();
@@ -51,6 +65,16 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers, enabled: boolea
         if (e.key.toLowerCase() === 'n') {
           e.preventDefault();
           handlers.onCompose();
+          return;
+        }
+        if (e.key.toLowerCase() === 'r') {
+          e.preventDefault();
+          handlers.onRefresh();
+          return;
+        }
+        if (e.key >= '1' && e.key <= '9') {
+          e.preventDefault();
+          handlers.onAccount?.(Number(e.key) - 1);
         }
         return;
       }
@@ -108,6 +132,44 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers, enabled: boolea
         case '.':
           e.preventDefault();
           handlers.onRefresh();
+          break;
+        case ',':
+          e.preventDefault();
+          handlers.onSettings?.();
+          break;
+        case '[':
+          e.preventDefault();
+          handlers.onSidebar?.();
+          break;
+        case 't':
+          e.preventDefault();
+          handlers.onTheme?.();
+          break;
+        case 'p':
+          e.preventDefault();
+          handlers.onPreview?.();
+          break;
+        case 'o':
+        case 'Enter':
+          e.preventDefault();
+          handlers.onOpen?.();
+          break;
+        case 'i':
+          e.preventDefault();
+          handlers.onInbox?.();
+          break;
+        case 'm':
+        case 'v':
+          e.preventDefault();
+          handlers.onMove?.();
+          break;
+        case '\\':
+          e.preventDefault();
+          handlers.onThreading?.();
+          break;
+        case '?':
+          e.preventDefault();
+          handlers.onPalette();
           break;
         default:
           break;

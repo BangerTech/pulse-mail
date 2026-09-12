@@ -10,6 +10,7 @@ import { RemoteImagesBar } from '../shared/RemoteImagesBar';
 import { isSenderAllowed, allowSender } from '../shared/imageAllowlist';
 import { PdfPreview } from '../shared/PdfPreview';
 import { isPdfAttachment } from '../shared/pdf';
+import SenderAvatar from '../shared/SenderAvatar';
 import '../shared/shared.css';
 import '../styles/mailcontent.css';
 
@@ -47,24 +48,6 @@ function formatSize(bytes: number) {
 
 function addressList(list: { name?: string; address?: string }[] = []) {
   return list.map(a => a.name || a.address).filter(Boolean).join(', ');
-}
-
-function getInitials(name?: string, address?: string) {
-  const source = (name || address || '?').trim();
-  const parts = source.split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return source.charAt(0).toUpperCase();
-}
-
-const AVATAR_COLORS = ['#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#007AFF', '#5856D6', '#AF52DE', '#FF2D55'];
-
-function getAvatarColor(address?: string) {
-  if (!address) return '#8E8E93';
-  let hash = 0;
-  for (let i = 0; i < address.length; i++) {
-    hash = address.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
 function formatHeaderDate(dateStr?: string, detailed = false) {
@@ -259,12 +242,12 @@ function MailContentInner({
         </h1>
 
         <div className="mailcontent-person">
-          <div
+          <SenderAvatar
             className="mailcontent-avatar"
-            style={{ background: getAvatarColor(selectedMessage.from.address) }}
-          >
-            {getInitials(selectedMessage.from.name, selectedMessage.from.address)}
-          </div>
+            name={selectedMessage.from.name}
+            address={selectedMessage.from.address}
+            allowRemote={loadRemoteImages}
+          />
           <div className="mailcontent-person-body">
             <div className="mailcontent-person-top">
               <span className="mailcontent-person-name">

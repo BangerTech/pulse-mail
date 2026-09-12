@@ -26,6 +26,7 @@ export default function SearchResults({ options, onOptionsChange, onOpen }: Sear
   const searching = useStore(s => s.searching);
   const selectedUid = useStore(s => s.selectedMessage?.uid);
   const folders = useStore(s => s.folders);
+  const unifiedView = useStore(s => s.unifiedView);
   const [showFilters, setShowFilters] = useState(false);
 
   const folderLabel = (path: string) => {
@@ -33,8 +34,9 @@ export default function SearchResults({ options, onOptionsChange, onOpen }: Sear
     return match?.name || path;
   };
 
+  const searchAllAccounts = options.scopeAllAccounts || unifiedView;
   const activeFilters =
-    (options.scopeAllAccounts ? 1 : 0) +
+    (searchAllAccounts ? 1 : 0) +
     (options.from ? 1 : 0) +
     (options.hasAttachments ? 1 : 0) +
     (options.since ? 1 : 0) +
@@ -61,7 +63,8 @@ export default function SearchResults({ options, onOptionsChange, onOpen }: Sear
           <label className="search-filter-row">
             <input
               type="checkbox"
-              checked={options.scopeAllAccounts}
+              checked={searchAllAccounts}
+              disabled={unifiedView}
               onChange={e => onOptionsChange({ ...options, scopeAllAccounts: e.target.checked })}
             />
             Alle Accounts durchsuchen

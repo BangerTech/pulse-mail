@@ -323,7 +323,7 @@ export default function App() {
 
     const timer = setTimeout(() => runSearch(), 250);
     return () => clearTimeout(timer);
-  }, [searchQuery, searchOptions, selectedAccount]);
+  }, [searchQuery, searchOptions, selectedAccount, unifiedView]);
 
   async function loadAccounts() {
     try {
@@ -421,7 +421,7 @@ export default function App() {
     setSearching(true);
     try {
       const results = await api.search(query, {
-        accountId: searchOptions.scopeAllAccounts ? undefined : selectedAccount?.id,
+        accountId: (searchOptions.scopeAllAccounts || unifiedView) ? undefined : selectedAccount?.id,
         folder: searchOptions.folder || undefined,
         from: searchOptions.from || undefined,
         hasAttachments: searchOptions.hasAttachments,
@@ -770,7 +770,39 @@ export default function App() {
     onEscape: handleEscape,
     onSearch: focusSearch,
     onPalette: () => setShowPalette(true),
-    onRefresh: handleRefresh
+    onRefresh: handleRefresh,
+    onSettings: () => setShowSettings(true),
+    onSidebar: toggleSidebar,
+    onTheme: () => {
+      const current = useStore.getState().theme;
+      setTheme(current === 'dark' ? 'light' : current === 'light' ? 'system' : 'dark');
+    },
+    onPreview: () => {
+      const current = useStore.getState().previewPosition;
+      setPreviewPosition(current === 'right' ? 'bottom' : 'right');
+    },
+    onOpen: () => {
+      if (useStore.getState().selectedMessage) setReadingFull(true);
+    },
+    onInbox: () => {
+      const state = useStore.getState();
+      if (state.accounts.length > 1) setUnifiedView(true);
+      else if (state.selectedAccount) selectMailbox(state.selectedAccount, 'INBOX');
+    },
+    onMove: () => {
+      const state = useStore.getState();
+      if (!state.selectedMessage && !state.selectedKeys.length) return;
+      const target = window.prompt('Ordnerpfad (z.B. Archive):');
+      if (target) handleMove(target);
+    },
+    onThreading: () => setThreadingEnabled(!useStore.getState().threadingEnabled),
+    onAccount: (index) => {
+      const account = useStore.getState().accounts[index];
+      if (account) {
+        setUnifiedView(false);
+        selectMailbox(account, 'INBOX');
+      }
+    }
   }, shortcutsEnabled);
 
   const commands = useMemo<Command[]>(() => {
@@ -805,7 +837,7 @@ export default function App() {
         disabled: !selectedMessage, run: handleToggleUnread
       },
       {
-        id: 'move', label: 'In Ordner verschieben...', icon: 'folder',
+        id: 'move', label: 'In Ordner verschieben...', icon: 'folder', shortcut: 'M',
         disabled: !selectedMessage && !selectedKeys.length,
         run: () => {
           const target = window.prompt('Ordnerpfad (z.B. Archive):');
@@ -813,24 +845,32 @@ export default function App() {
         }
       },
       { id: 'search', label: 'Suchen', icon: 'search', shortcut: '/', run: focusSearch },
-      { id: 'settings', label: 'Einstellungen öffnen', icon: 'settings', run: () => setShowSettings(true) },
-      { id: 'sidebar', label: 'Seitenleiste umschalten', icon: 'sidebar', run: toggleSidebar },
+      { id: 'refresh', label: 'Aktualisieren', icon: 'refresh', shortcut: '.', run: handleRefresh },
+      {
+        id: 'open', label: 'Mail öffnen', icon: 'envelopeOpen', shortcut: '↵',
+        disabled: !selectedMessage, run: () => setReadingFull(true)
+      },
+      { id: 'settings', label: 'Einstellungen öffnen', icon: 'settings', shortcut: ',', run: () => setShowSettings(true) },
+      { id: 'sidebar', label: 'Seitenleiste umschalten', icon: 'sidebar', shortcut: '[', run: toggleSidebar },
       {
         id: 'threading',
         label: threadingEnabled ? 'Konversationen ausschalten' : 'Konversationen einschalten',
         icon: 'inbox',
+        shortcut: '\\',
         run: () => setThreadingEnabled(!threadingEnabled)
       },
       {
         id: 'preview',
         label: previewPosition === 'right' ? 'Vorschau nach unten' : 'Vorschau nach rechts',
         icon: 'sidebar',
+        shortcut: 'P',
         run: () => setPreviewPosition(previewPosition === 'right' ? 'bottom' : 'right')
       },
       {
         id: 'theme',
         label: 'Erscheinungsbild wechseln',
         icon: 'moon',
+        shortcut: 'T',
         hint: theme === 'system' ? 'System' : theme === 'dark' ? 'Dunkel' : 'Hell',
         run: () => setTheme(theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark')
       }
@@ -841,8 +881,19 @@ export default function App() {
       label: 'Alle Eingänge',
       hint: 'Alle Postfächer',
       icon: 'inbox',
+      shortcut: 'I',
       run: () => setUnifiedView(true)
-    }] : [];
+    }] : [{
+      id: 'inbox',
+      label: 'Eingang',
+      hint: 'INBOX',
+      icon: 'inbox',
+      shortcut: 'I',
+      run: () => {
+        const account = useStore.getState().selectedAccount;
+        if (account) selectMailbox(account, 'INBOX');
+      }
+    }];
 
     const folderCommands: Command[] = folders.map(folder => ({
       id: `folder-${folder.path}`,
@@ -852,11 +903,12 @@ export default function App() {
       run: () => setSelectedFolder(folder.path)
     }));
 
-    const accountCommands: Command[] = accounts.map(account => ({
+    const accountCommands: Command[] = accounts.map((account, index) => ({
       id: `account-${account.id}`,
       label: account.email,
       hint: 'Account wechseln',
       icon: 'envelope',
+      shortcut: index < 9 ? `⌘${index + 1}` : undefined,
       run: () => { setUnifiedView(false); selectMailbox(account, 'INBOX'); }
     }));
 
@@ -865,7 +917,7 @@ export default function App() {
     selectedMessage, selectedKeys, folders, accounts, theme, threadingEnabled,
     previewPosition, openCompose, handleArchive, handleDelete, handleMove, handleToggleFlag,
     handleToggleUnread, handleRefresh, focusSearch, setShowSettings, toggleSidebar,
-    setThreadingEnabled, setPreviewPosition, setTheme, setSelectedFolder, setSelectedAccount,
+    setThreadingEnabled, setPreviewPosition, setTheme, setSelectedFolder,
     setUnifiedView, selectMailbox
   ]);
 

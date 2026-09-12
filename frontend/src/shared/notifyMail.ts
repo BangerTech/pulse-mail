@@ -23,9 +23,25 @@ function tauriInvoke(): ((cmd: string, args?: Record<string, unknown>) => Promis
   return typeof invoke === 'function' ? invoke : null;
 }
 
+export function isDesktopShell() {
+  return Boolean(tauriInvoke());
+}
+
 export function getNotifyPermission(): NotifyPermission {
   if (typeof Notification === 'undefined') return 'unavailable';
   return Notification.permission;
+}
+
+export async function resolveNotifyPermission(): Promise<NotifyPermission> {
+  const invoke = tauriInvoke();
+  if (invoke) {
+    try {
+      const granted = await invoke('plugin:notification|is_permission_granted');
+      if (granted === true) return 'granted';
+      if (granted === false) return 'denied';
+    } catch {}
+  }
+  return getNotifyPermission();
 }
 
 export async function requestNotifyPermission(): Promise<NotifyPermission> {

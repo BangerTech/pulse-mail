@@ -56,7 +56,7 @@ function inboxUnread(folders: Folder[]) {
 function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
   const {
     accounts, selectedAccount, folders, foldersByAccount, selectedFolder,
-    unifiedView, unifiedUnread, collapsedAccounts, theme,
+    unifiedView, unifiedUnread, collapsedAccounts,
   } = useStore(useShallow(s => ({
     accounts: s.accounts,
     selectedAccount: s.selectedAccount,
@@ -66,20 +66,10 @@ function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
     unifiedView: s.unifiedView,
     unifiedUnread: s.unifiedUnread,
     collapsedAccounts: s.collapsedAccounts,
-    theme: s.theme,
   })));
-  const setShowSettings = useStore(s => s.setShowSettings);
   const setUnifiedView = useStore(s => s.setUnifiedView);
-  const setTheme = useStore(s => s.setTheme);
   const selectMailbox = useStore(s => s.selectMailbox);
   const toggleAccountCollapsed = useStore(s => s.toggleAccountCollapsed);
-
-  const cycleTheme = () => {
-    const order: Array<typeof theme> = ['system', 'light', 'dark'];
-    setTheme(order[(order.indexOf(theme) + 1) % order.length]);
-  };
-
-  const themeLabel = theme === 'system' ? 'System' : theme === 'light' ? 'Hell' : 'Dunkel';
 
   const renderFolder = (account: Account, folder: Folder) => {
     const active = !unifiedView
@@ -161,23 +151,6 @@ function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
             {accounts.length > 1 ? 'Postfächer' : 'Favoriten'}
           </div>
           {accounts.map(renderAccount)}
-        </div>
-      </div>
-
-      <div className="sidebar-footer">
-        <div className="sidebar-footer-actions">
-          <button className="sidebar-footer-btn" onClick={() => { setShowSettings(true); onNavigate?.(); }} aria-label="Einstellungen">
-            <Icon name="settings" size={15} />
-            <span>Einstellungen</span>
-          </button>
-          <button
-            className="sidebar-footer-btn icon-only"
-            onClick={cycleTheme}
-            title={`Erscheinungsbild: ${themeLabel}`}
-            aria-label={`Erscheinungsbild wechseln (aktuell: ${themeLabel})`}
-          >
-            <Icon name="moon" size={15} />
-          </button>
         </div>
       </div>
     </div>

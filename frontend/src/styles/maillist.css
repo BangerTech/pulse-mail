@@ -139,6 +139,19 @@
   position: relative;
 }
 
+.maillist-avatar.has-icon {
+  background: #fff;
+  color: transparent;
+}
+
+.maillist-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  padding: 4px;
+}
+
 .maillist-account-dot {
   position: absolute;
   right: -2px;

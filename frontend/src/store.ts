@@ -218,6 +218,13 @@ export function isInboxFolder(f: { path: string; specialUse?: string }) {
   return f.specialUse === '\\Inbox' || f.path.toUpperCase() === 'INBOX';
 }
 
+export function isSentFolder(f?: { path?: string; specialUse?: string } | null) {
+  if (!f) return false;
+  if (f.specialUse === '\\Sent') return true;
+  const path = String(f.path || '').toLowerCase();
+  return /(^|\/)(sent|gesendet|sent items)(\/|$)/i.test(path);
+}
+
 export function totalInboxUnread(
   foldersByAccount: Record<number, Folder[]>,
   unifiedUnread: number,

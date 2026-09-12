@@ -222,9 +222,9 @@ export function searchCache(db, { accountId, accountIds, query, folder, from, ha
   if (folder) { where.push('folder = ?'); params.push(folder); }
 
   if (query) {
-    where.push('(subject LIKE ? OR from_name LIKE ? OR from_address LIKE ? OR snippet LIKE ? OR body_text LIKE ?)');
+    where.push('(subject LIKE ? OR from_name LIKE ? OR from_address LIKE ? OR to_address LIKE ? OR cc_address LIKE ? OR snippet LIKE ? OR body_text LIKE ?)');
     const like = `%${query}%`;
-    params.push(like, like, like, like, like);
+    params.push(like, like, like, like, like, like, like);
   }
 
   if (from) {

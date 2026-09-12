@@ -1,7 +1,8 @@
 import { useRef, useCallback, useState, useEffect, memo, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useStore, msgKey, MailThread, MailMessage } from '../store';
+import { useStore, msgKey, isSentFolder, MailThread, MailMessage, Address } from '../store';
+import SenderAvatar from '../shared/SenderAvatar';
 import { Icon } from './Icon';
 import { format, isToday, isYesterday, isThisYear } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -17,24 +18,27 @@ function formatDate(dateStr?: string) {
   return format(date, 'd. MMM yy', { locale: de });
 }
 
-function getInitials(name?: string, address?: string) {
-  const source = (name || address || '?').trim();
-  const parts = source.split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-  return source.charAt(0).toUpperCase();
+function normalizeAddress(a?: Address & { mailbox?: string; host?: string }): Address {
+  if (!a) return {};
+  const address = a.address
+    || (a.mailbox && a.host ? `${a.mailbox}@${a.host}` : a.mailbox);
+  return { name: a.name, address };
 }
 
-const AVATAR_COLORS = ['#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#007AFF', '#5856D6', '#AF52DE', '#FF2D55'];
+function formatRecipients(to?: Address[]): Address {
+  const list = (to || []).map(normalizeAddress).filter(a => a.name || a.address);
+  if (!list.length) return { name: 'Kein Empfänger' };
+  const first = list[0];
+  if (list.length === 1) return first;
+  return {
+    name: `${first.name || first.address} +${list.length - 1}`,
+    address: first.address
+  };
+}
 
-function getAvatarColor(address?: string) {
-  if (!address) return '#8E8E93';
-  let hash = 0;
-  for (let i = 0; i < address.length; i++) {
-    hash = address.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+function listPeer(from: Address | undefined, to: Address[] | undefined, sent: boolean): Address {
+  if (sent) return formatRecipients(to);
+  return from || {};
 }
 
 interface MailListProps {
@@ -53,6 +57,7 @@ interface Row {
   keys: string[];
   subject: string;
   from: { name?: string; address?: string };
+  peerPrefix?: string;
   date: string;
   snippet: string;
   unread: boolean;
@@ -207,30 +212,31 @@ const MailRow = memo(function MailRow({
         role="button"
         tabIndex={0}
         aria-selected={isActive}
-        aria-label={`${row.unread ? 'Ungelesen: ' : ''}${row.from.name || row.from.address || 'Unbekannt'} — ${row.subject || 'Kein Betreff'}`}
+        aria-label={`${row.unread ? 'Ungelesen: ' : ''}${row.peerPrefix || ''}${row.from.name || row.from.address || 'Unbekannt'} — ${row.subject || 'Kein Betreff'}`}
       >
         <div className="maillist-indicator">
           {row.unread && <span className="maillist-unread-dot" />}
         </div>
 
-        <div
+        <SenderAvatar
           className="maillist-avatar"
-          style={{ background: getAvatarColor(row.from.address) }}
+          name={row.from.name}
+          address={row.from.address}
           title={row.showAccount ? row.accountEmail : undefined}
+          allowRemote={useStore(s => s.loadRemoteImages)}
         >
-          {getInitials(row.from.name, row.from.address)}
           {row.showAccount && (
             <span
               className="maillist-account-dot"
               style={{ background: row.accountColor || 'var(--accent-color)' }}
             />
           )}
-        </div>
+        </SenderAvatar>
 
         <div className="maillist-content">
           <div className="maillist-row">
             <span className="maillist-from">
-              {row.from.name || row.from.address || 'Unbekannt'}
+              {row.peerPrefix}{row.from.name || row.from.address || 'Unbekannt'}
             </span>
             {row.count > 1 && <span className="maillist-count">{row.count}</span>}
             <span className="maillist-date">{formatDate(row.date)}</span>
@@ -302,6 +308,9 @@ export default function MailList({ onOpen, onLoadMore, onArchive, onDelete, onTo
   const loading = useStore(s => s.loading);
   const loadingMore = useStore(s => s.loadingMore);
   const showAccount = useStore(useShallow(s => s.unifiedView && s.accounts.length > 1));
+  const sentFolder = useStore(s => !s.unifiedView && isSentFolder(
+    s.folders.find(f => f.path === s.selectedFolder) || { path: s.selectedFolder }
+  ));
   const toggleSelectedKey = useStore(s => s.toggleSelectedKey);
   const setSelectedKeys = useStore(s => s.setSelectedKeys);
 
@@ -315,12 +324,14 @@ export default function MailList({ onOpen, onLoadMore, onArchive, onDelete, onTo
           const keys = (t.messages?.length
             ? t.messages.map(m => msgKey(m.accountId ?? accountId, m.uid))
             : t.uids.map(u => msgKey(accountId, u)));
+          const latest = t.messages?.[t.messages.length - 1];
           return {
             key: t.threadId,
             uid: t.uid,
             keys,
             subject: t.subject,
-            from: t.from || {},
+            from: listPeer(t.from, latest?.to, sentFolder),
+            peerPrefix: sentFolder ? 'An ' : '',
             date: t.date,
             snippet: t.snippet,
             unread: t.unread,
@@ -337,7 +348,8 @@ export default function MailList({ onOpen, onLoadMore, onArchive, onDelete, onTo
           uid: m.uid,
           keys: [msgKey(m.accountId, m.uid)],
           subject: m.subject,
-          from: m.from || {},
+          from: listPeer(m.from, m.to, sentFolder),
+          peerPrefix: sentFolder ? 'An ' : '',
           date: m.date,
           snippet: m.snippet || '',
           unread: !m.flags.includes('\\Seen'),
@@ -348,7 +360,7 @@ export default function MailList({ onOpen, onLoadMore, onArchive, onDelete, onTo
           accountEmail: m.accountEmail,
           showAccount
         }))
-  ), [threadingEnabled, threads, messages, showAccount]);
+  ), [threadingEnabled, threads, messages, showAccount, sentFolder]);
 
   const selectedKeySet = useMemo(() => new Set(selectedKeys), [selectedKeys]);
 

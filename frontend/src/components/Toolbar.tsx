@@ -38,7 +38,7 @@ function ToolbarInner({
 }: ToolbarProps) {
   const {
     selectedMessage, selectedKeys, selectedAccount, selectedFolder,
-    sidebarVisible, searchQuery, folders,
+    sidebarVisible, searchQuery, folders, theme,
   } = useStore(useShallow(s => ({
     selectedMessage: s.selectedMessage,
     selectedKeys: s.selectedKeys,
@@ -47,11 +47,42 @@ function ToolbarInner({
     sidebarVisible: s.sidebarVisible,
     searchQuery: s.searchQuery,
     folders: s.folders,
+    theme: s.theme,
   })));
   const openCompose = useStore(s => s.openCompose);
   const toggleSidebar = useStore(s => s.toggleSidebar);
   const setSearchQuery = useStore(s => s.setSearchQuery);
   const setShowPalette = useStore(s => s.setShowPalette);
+  const setShowSettings = useStore(s => s.setShowSettings);
+  const setTheme = useStore(s => s.setTheme);
+
+  const cycleTheme = () => {
+    const order = ['system', 'light', 'dark'] as const;
+    setTheme(order[(order.indexOf(theme) + 1) % order.length]);
+  };
+  const themeLabel = theme === 'system' ? 'System' : theme === 'light' ? 'Hell' : 'Dunkel';
+  const themeIcon = theme === 'light' ? 'sun' : theme === 'dark' ? 'moon' : 'display';
+
+  const appButtons = (
+    <>
+      <button
+        className="toolbar-btn"
+        onClick={() => setShowSettings(true)}
+        title="Einstellungen (,)"
+        aria-label="Einstellungen"
+      >
+        <Icon name="settings" />
+      </button>
+      <button
+        className="toolbar-btn"
+        onClick={cycleTheme}
+        title={`Erscheinungsbild: ${themeLabel} (T)`}
+        aria-label={`Erscheinungsbild wechseln (aktuell: ${themeLabel})`}
+      >
+        <Icon name={themeIcon} />
+      </button>
+    </>
+  );
 
   const [showMove, setShowMove] = useState(false);
   const moveRef = useRef<HTMLDivElement>(null);
@@ -112,6 +143,7 @@ function ToolbarInner({
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
+              {appButtons}
               <button
                 className={`toolbar-btn ${refreshing ? 'spinning' : ''}`}
                 onClick={onRefresh}
@@ -249,6 +281,7 @@ function ToolbarInner({
           )}
         </div>
 
+        {appButtons}
         <button className="toolbar-btn" onClick={() => setShowPalette(true)} title="Befehle (⌘K)" aria-label="Befehlspalette">
           <Icon name="command" />
         </button>

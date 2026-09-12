@@ -2,7 +2,7 @@
 
 ## Version
 
-Aktuelle Version: **1.4.4** — Quelle ist `frontend/package.json`, Anzeige unter Einstellungen → Info (`__APP_VERSION__` / `__APP_BUILD__` aus dem Vite-Build). Fallback in `frontend/src/shared/version.ts`. Backend `package.json` und `desktop/` halten dieselbe Versionsnummer.
+Aktuelle Version: **1.4.7** — Quelle ist `frontend/package.json`, Anzeige unter Einstellungen → Info (`__APP_VERSION__` / `__APP_BUILD__` aus dem Vite-Build). Fallback in `frontend/src/shared/version.ts`. Backend `package.json` und `desktop/` halten dieselbe Versionsnummer.
 
 **Bei jeder inhaltlichen Änderung** (nicht nur beim nächsten Commit):
 
@@ -11,6 +11,19 @@ Aktuelle Version: **1.4.4** — Quelle ist `frontend/package.json`, Anzeige unte
 3. Commit mit der neuen Versionsnummer
 
 ### Changelog
+
+#### 1.4.7 (2026-09-12)
+- Einstellungen und Erscheinungsbild stehen oben rechts neben der Suche (Zahnrad, Sonne/Mond/System), nicht mehr unten in der Sidebar.
+- Suche findet auch Empfänger (An/CC). In **Alle Eingänge** durchsucht sie automatisch alle Postfächer.
+- Windows-Installer **1.4.7** (GitHub Release `v1.4.7`). Die Hülle lädt weiter die Server-URL; neue UI kommt nach Docker-Rebuild ohne neue `.exe`.
+
+#### 1.4.6 (2026-09-12)
+- Absender-Icons: Favicon der Domain (Google, Fallback DuckDuckGo) in Liste und Lesen. Private Postfächer (Gmail, Outlook, …) bleiben bei der Initiale. Aus wenn `loadRemoteImages` aus ist.
+
+#### 1.4.5 (2026-09-12)
+- Hinweis-Banner unter der Toolbar kommt nicht mehr bei jedem App-Start: in der Windows-App ausgeblendet (Ton/Badge reichen), im Browser merkt sich **Nicht mehr anzeigen** `localStorage` (`pulse:notifyPromptDismissed`). Zulassen bleibt unter Einstellungen → Hinweise.
+- Weitere Shortcuts: `,` Einstellungen, `[` Seitenleiste, `I` Eingang, `O`/`Enter` Mail öffnen, `T` Theme, `P` Vorschau, `M`/`V` verschieben, `\\` Konversationen, `.`/`⌘R` aktualisieren, `⌘1–9` Postfach, `?` Palette.
+- Gesendet-Ordner zeigt **An Empfänger** statt den eigenen Absender (Avatar und Initiale vom Empfänger).
 
 #### 1.4.4 (2026-09-12)
 - Windows-Workflow legt ein öffentliches GitHub-Release mit der `.exe` an (`tagName: v__VERSION__`, `contents: write`). Zusätzlich Artifact `pulse-mail-windows` am Actions-Lauf.
@@ -58,7 +71,7 @@ Aktuelle Version: **1.4.4** — Quelle ist `frontend/package.json`, Anzeige unte
 
 Pake wird nicht mehr unterstützt. Die App liegt in `desktop/` (Tauri 2 + WebView2).
 
-1. Nach dem Build: **Releases** → `Pulse Mail 1.4.4` → `Pulse Mail_1.4.4_x64-setup.exe`
+1. Nach dem Build: **Releases** → `Pulse Mail 1.4.7` → `Pulse Mail_1.4.7_x64-setup.exe`
 2. Fallback: **Actions → Windows App** → Artifact `pulse-mail-windows` (nur mit GitHub-Login, 90 Tage)
 3. Installieren, starten, Server-URL eintragen (z. B. `http://192.168.2.83:8080`)
 4. Es erscheint der normale Pulse-Mail-Login
@@ -234,14 +247,14 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 ### Toolbar
 - Links: Seitenleiste ein/aus, **Neue E-Mail**
 - Mitte: Archivieren, Löschen, Verschieben, Antworten, Allen antworten, Weiterleiten, Markieren, Gelesen-Status
-- Rechts: Suche, Command-Palette, Aktualisieren, Account-Avatar
+- Rechts: Suche, Einstellungen, Erscheinungsbild, Command-Palette, Aktualisieren, Benutzer-Avatar
 
 ### Navigation
 - Bei mehreren Accounts: **Alle Eingänge** oben in der Sidebar (wie Apple Mail)
 - Jedes Postfach ist in der Sidebar ausklappbar und zeigt die eigenen Ordner
 - Accounts nachträglich bearbeitbar: Name, Server, Passwort, Farbe
 - Account-Farbe in den Einstellungen wählbar (Punkte in der Sidebar und Liste)
-- Einstellungen und Theme am unteren Rand der Sidebar
+- Einstellungen und Theme oben rechts neben der Suche (auch im Benutzermenü und per `,` / `T`)
 - Ungelesen-Zähler als Badge an Ordnern, Accounts und Alle Eingänge
 - Ungelesen-Zahl im Browser-Tab: `(3) Pulse Mail` (Gmail-Muster), aus Inbox-Zählern (`unifiedUnread` bei mehreren Accounts)
 - Ungelesen-Zahl über `navigator.setAppBadge`, `set_dock_badge` und Windows `setOverlayIcon` (`frontend/src/shared/appBadge.ts`). Die Desktop-App setzt zusätzlich ein Overlay aus dem Fenstertitel `(N) Pulse Mail`.
@@ -251,6 +264,7 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Dark Mode (System / Hell / Dunkel)
 
 ### Mail-Aktionen
+- Im Ordner **Gesendet** (`\\Sent`, Sent, Sent Items) zeigt die Liste den Empfänger (`An …`), nicht das eigene Konto.
 - Konversations-Threading über Message-ID / In-Reply-To / References, plus Betreff bei Antworten (Re:, AW:, Odp. …)
 - Ein/aus unter Einstellungen → Darstellung → Konversationen
 - Allen antworten, Weiterleiten, Archivieren, Favorit, als ungelesen markieren
@@ -262,18 +276,22 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - **PDF-Vorschau:** Klick auf einen PDF-Anhang öffnet ihn in der App (`frontend/src/shared/PdfPreview.tsx`), nicht in einem neuen Tab. Download über das Icon in der Vorschau-Leiste.
 
 ### Suche
-- Alle Ordner und optional alle Accounts
-- Filter: Absender, Anhang, Zeitraum, Ordner
+- Cache-Suche (`GET /api/mail/search`): Betreff, Absender, Empfänger (An/CC), Snippet, Textkörper. Nur bereits synchronisierte Mails, Limit 200.
+- Standard: aktuelles Postfach. In **Alle Eingänge** oder mit Filter: alle Accounts.
+- Filter: Absender, Anhang, Zeitraum, Ordner. `/` fokussiert das Suchfeld.
 
 ### Tastatur
 - `N`/`C` neue Mail, `R` antworten, `A` allen antworten, `F` weiterleiten
 - `E` archivieren, `#`/`Backspace` löschen, `L` markieren, `U` gelesen umschalten
-- `J`/`K` bzw. Pfeile navigieren, `/` Suche, `.` aktualisieren, `⌘K` Palette, `Esc` schließen
+- `J`/`K` bzw. Pfeile navigieren, `O`/`Enter` Mail öffnen, `/` Suche, `.` oder `⌘R` aktualisieren
+- `,` oder `⌘,` Einstellungen, `[` Seitenleiste, `I` Eingang / Alle Eingänge
+- `T` Erscheinungsbild, `P` Vorschau-Lage, `M`/`V` verschieben, `\\` Konversationen
+- `⌘1`–`⌘9` Postfach, `⌘K` oder `?` Palette, `Esc` schließen
 
 ### Darstellung
 - Vorschaufenster rechts oder unten (verschiebbar)
 - Einzelklick zeigt rechts nur eine Vorschau; Doppelklick öffnet die Mail in einem eigenen Fenster
-- Mail-Header mit Avatar und Absenderkarte. Antworten, Allen antworten und Weiterleiten als Icons über dem Betreff (plus dieselben Aktionen in der globalen Toolbar).
+- Mail-Header mit Avatar und Absenderkarte. Firmen-Absender zeigen das Favicon der Domain (`SenderAvatar`, Google/DuckDuckGo); Gmail/Outlook & Co. bleiben bei der Initiale. Antworten, Allen antworten und Weiterleiten als Icons über dem Betreff.
 - Kompakte oder komfortable Listenansicht
 - Schriftart und -größe für das Verfassen
 - Externe Bilder laden oder blockieren (Einstellung `loadRemoteImages`, Standard: laden)
@@ -283,12 +301,12 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 ### Hinweise (eigener Einstellungs-Reiter)
 - System-Hinweis (`notifyDesktop`) und Ton (`notifySound`), Lautstärke (`notifyVolume`)
 - Banner auch im Vordergrund (`notifyWhenFocused`)
-- Button **Zulassen** und **Ton testen**
+- Button **Zulassen** und **Ton testen**. Das Banner unter der Toolbar erscheint in der Windows-App nicht; im Browser nur bis **Nicht mehr anzeigen** (`localStorage`).
 - Statische Datei `frontend/public/notify.wav`. Der Player wird beim Gesten-Klick nur entsperrt, spielt den Ding aber nicht nach — sonst hörte man ihn erst beim Öffnen der neuen Mail.
 
 ### Info (eigener Einstellungs-Reiter)
-- Version aus `frontend/package.json` (aktuell **1.4.4**), Build-Zeitpunkt aus dem Vite-Build (`__APP_VERSION__`, `__APP_BUILD__`)
-- Hinweis-Berechtigung und Tonkanal-Status. Titelzeile der Einstellungen zeigt `v1.4.4`
+- Version aus `frontend/package.json` (aktuell **1.4.7**), Build-Zeitpunkt aus dem Vite-Build (`__APP_VERSION__`, `__APP_BUILD__`)
+- Hinweis-Berechtigung und Tonkanal-Status. Titelzeile der Einstellungen zeigt `v1.4.7`
 - Profilbild setzen/entfernen (siehe App-Benutzer)
 
 ### MIME / Anzeige
@@ -326,7 +344,7 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Steigt der Inbox-Ungelesen-Zähler nach dem Start (4 s Schonfrist), gilt das ebenfalls als neue Mail (Fallback, falls `new_mail` ausbleibt)
 - **Desktop-Hinweis** (`frontend/src/shared/notifyMail.ts`): Windows-Toast im Hintergrund, Taskbar-Flash, sonst Ding. Abschaltbar unter Einstellungen → Darstellung
 - **Ton:** Ein HTMLAudio-Player wird beim ersten Klick/Tastendruck entsperrt und bleibt wiederverwendbar. Web-Audio-Oscillatoren werden nicht mehr im `suspended`-Zustand gestartet (sonst hörte man den Ding erst beim nächsten Klick auf die Mail).
-- Berechtigung nur über den Button **Zulassen** (Banner unter der Toolbar oder Einstellungen). In der Windows-App läuft das über `tauri-plugin-notification` (native Toasts, auch unter HTTP).
+- Browser-Berechtigung nur über **Zulassen** in den Einstellungen. Die Windows-App nutzt `tauri-plugin-notification` und zeigt das Banner nicht bei jedem Start.
 
 ### Zwei-Wege-Abgleich (`backend/src/sync.js`)
 - `reconcileFolder` fetcht `1:*` mit `{ uid, flags }` und gleicht damit sowohl Löschungen als auch Flag-Änderungen ab, die in anderen Clients (z. B. Apple Mail) passiert sind
@@ -405,6 +423,8 @@ frontend/src/shared/               Von App und Prototyp gemeinsam genutzt
 ├── useMailFrame.ts                iframe-Höhe (body.scrollHeight)
 ├── plain-text.ts                  format=flowed, Zitate, Links
 ├── imageAllowlist.ts              Absenderdomain in localStorage
+├── senderIcon.ts                  Favicon-URLs zur Absenderdomain
+├── SenderAvatar.tsx               Favicon oder Initiale
 ├── notifySound.ts                 HTMLAudio `/notify.wav`, Unlock spielt keinen Ding
 ├── version.ts                     App-Version und Build-Zeit
 ├── notifyMail.ts                  Windows-Toast, Sound, Taskbar-Flash, Permission nur per Klick
