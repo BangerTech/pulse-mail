@@ -31,4 +31,4 @@ jobs:
         with:
           projectPath: desktop
           tauriScript: npm run tauri
-          args: -- --bundles nsis
+          args: --bundles nsis
