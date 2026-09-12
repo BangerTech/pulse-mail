@@ -1,0 +1,19 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-remote",
+  "windows": ["main"],
+  "remote": {
+    "urls": [
+      "http://*/*",
+      "http://*:*/*",
+      "https://*/*",
+      "https://*:*/*"
+    ]
+  },
+  "permissions": [
+    "core:default",
+    "core:window:allow-set-overlay-icon",
+    "core:window:allow-request-user-attention",
+    "notification:default"
+  ]
+}

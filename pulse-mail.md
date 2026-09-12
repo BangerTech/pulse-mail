@@ -2,7 +2,7 @@
 
 ## Version
 
-Aktuelle Version: **1.3.0** — Quelle ist `frontend/package.json`, Anzeige unter Einstellungen → Info (`__APP_VERSION__` / `__APP_BUILD__` aus dem Vite-Build). Fallback in `frontend/src/shared/version.ts`. Backend `package.json` hält dieselbe Versionsnummer.
+Aktuelle Version: **1.4.0** — Quelle ist `frontend/package.json`, Anzeige unter Einstellungen → Info (`__APP_VERSION__` / `__APP_BUILD__` aus dem Vite-Build). Fallback in `frontend/src/shared/version.ts`. Backend `package.json` und `desktop/` halten dieselbe Versionsnummer.
 
 **Bei jeder inhaltlichen Änderung** (nicht nur beim nächsten Commit):
 
@@ -11,6 +11,15 @@ Aktuelle Version: **1.3.0** — Quelle ist `frontend/package.json`, Anzeige unte
 3. Commit mit der neuen Versionsnummer
 
 ### Changelog
+
+#### 1.4.0 (2026-09-12)
+- Eigene Windows-App unter `desktop/` (Tauri 2), ersetzt Pake
+- Erster Start: Server-URL eingeben (Standard `http://192.168.2.83:8080`), gespeichert in `%APPDATA%\de.bangertech.pulsemail\config.json`
+- WebView2 ohne HTTP-Cache (`--disable-http-cache`), eigener Datenordner — kein alter Pake-Stand ohne Login
+- Taskbar-Badge aus Fenstertitel `(N) Pulse Mail` und über `set_dock_badge` / `setOverlayIcon`
+- Native Hinweise über `tauri-plugin-notification` (unabhängig vom unsicheren HTTP-Origin)
+- Menü Datei → Server ändern / Neu laden
+- Build: GitHub Action `.github/workflows/windows-desktop.yml` (NSIS-Installer), manuell unter Actions → Windows App → Run workflow
 
 #### 1.3.0 (2026-09-12)
 - App-Benutzer mit eigenem Login, 30-Tage-Session (`app_users`, `app_sessions`), Postfächer und Signaturen pro Benutzer
@@ -31,6 +40,23 @@ Aktuelle Version: **1.3.0** — Quelle ist `frontend/package.json`, Anzeige unte
 - **Frontend:** React 19 + TypeScript + Vite, TipTap Editor, Zustand, `@tanstack/react-virtual`
 - **Backend:** Node.js + Express, imapflow (IMAP), nodemailer (SMTP), better-sqlite3
 - **Deployment:** Docker Compose (Frontend via Nginx, Backend als Node.js Container)
+- **Windows-App:** Tauri 2 unter `desktop/` — lädt die Server-URL in WebView2, baut den Installer per GitHub Action
+
+### Windows-App bauen und nutzen
+
+Pake wird nicht mehr unterstützt. Die App liegt in `desktop/` (Tauri 2 + WebView2).
+
+1. Auf GitHub: **Actions → Windows App → Run workflow**
+2. Nach dem Lauf unter Artifacts den NSIS-Installer herunterladen (`Pulse Mail_1.4.0_x64-setup.exe` o. ä.)
+3. Installieren, starten, Server-URL eintragen (z. B. `http://192.168.2.83:8080`)
+4. Es erscheint der normale Pulse-Mail-Login
+
+Gespeicherte URL: `%APPDATA%\de.bangertech.pulsemail\config.json`  
+WebView-Daten: `%LOCALAPPDATA%\de.bangertech.pulsemail` (getrennt von Pake)
+
+Menü **Datei → Server ändern…** oder Start mit `--setup`. Feste URL: `--url http://192.168.2.83:8080` bzw. Umgebungsvariable `PULSE_MAIL_URL`.
+
+Lokal (auf einem Windows-Rechner mit Rust und Node): `cd desktop && npm install && npm run build`.
 
 ## Datenbank Schema (SQLite)
 
@@ -190,7 +216,8 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Jeder Benutzer sieht nur die eigenen Postfächer. Admin legt weitere Benutzer unter Einstellungen → Benutzer an.
 - Erster Start: Einrichtungsbildschirm, bestehende Postfächer gehen an diesen Admin.
 - Session 30 Tage, Token in `localStorage` (`pulse:session`), `Authorization: Bearer` und WS-Query.
-- Login-Screen ist `position: fixed` (Pake/WebView hatte sonst oft Höhe 0). `index.html` wird mit `Cache-Control: no-store` ausgeliefert, sonst zeigt Pake die alte App ohne Login. Nach einem Frontend-Update Pake-App neu bauen und ggf. den WebView-Cache löschen (`%LOCALAPPDATA%\<AppName>\EBWebView`).
+- Login-Screen ist `position: fixed`. `index.html` wird mit `Cache-Control: no-store` ausgeliefert.
+- **Offizielle Windows-App** (`desktop/`): eigener WebView2-Cache, HTTP-Cache aus. Pake nicht mehr nutzen — der zeigte nach Updates oft den alten Stand ohne Login.
 
 ### Toolbar
 - Links: Seitenleiste ein/aus, **Neue E-Mail**
@@ -205,8 +232,8 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Einstellungen und Theme am unteren Rand der Sidebar
 - Ungelesen-Zähler als Badge an Ordnern, Accounts und Alle Eingänge
 - Ungelesen-Zahl im Browser-Tab: `(3) Pulse Mail` (Gmail-Muster), aus Inbox-Zählern (`unifiedUnread` bei mehreren Accounts)
-- Ungelesen-Zahl zusätzlich über `navigator.setAppBadge`, Pake `set_dock_badge` und Windows `setOverlayIcon` (`frontend/src/shared/appBadge.ts`). Die sichtbare Taskleisten-Zahl kommt unter Windows vor allem von einer Desktop-Benachrichtigung (Windows 11: Badge am Icon) plus Taskbar-Blinken. Overlay-Icon braucht in Pake `core:window:allow-set-overlay-icon`.
-- Pake muss laufen (minimieren, nicht schließen). Ist das Fenster zu, gibt es keinen Ton und keine Taskbar-Zahl.
+- Ungelesen-Zahl über `navigator.setAppBadge`, `set_dock_badge` und Windows `setOverlayIcon` (`frontend/src/shared/appBadge.ts`). Die Desktop-App setzt zusätzlich ein Overlay aus dem Fenstertitel `(N) Pulse Mail`.
+- Die Windows-App muss laufen (minimieren, nicht schließen). Ist das Fenster zu, gibt es keinen Ton und keine Taskbar-Zahl.
 - Account-Farbe in den Einstellungen wählbar (Punkte in der Sidebar und Liste)
 - Command-Palette mit Cmd/Ctrl+K
 - Dark Mode (System / Hell / Dunkel)
@@ -248,8 +275,8 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Statische Datei `frontend/public/notify.wav`. Der Player wird beim Gesten-Klick nur entsperrt, spielt den Ding aber nicht nach — sonst hörte man ihn erst beim Öffnen der neuen Mail.
 
 ### Info (eigener Einstellungs-Reiter)
-- Version aus `frontend/package.json` (aktuell **1.3.0**), Build-Zeitpunkt aus dem Vite-Build (`__APP_VERSION__`, `__APP_BUILD__`)
-- Hinweis-Berechtigung und Tonkanal-Status. Titelzeile der Einstellungen zeigt `v1.3.0`
+- Version aus `frontend/package.json` (aktuell **1.4.0**), Build-Zeitpunkt aus dem Vite-Build (`__APP_VERSION__`, `__APP_BUILD__`)
+- Hinweis-Berechtigung und Tonkanal-Status. Titelzeile der Einstellungen zeigt `v1.4.0`
 - Profilbild setzen/entfernen (siehe App-Benutzer)
 
 ### MIME / Anzeige
@@ -287,7 +314,7 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Steigt der Inbox-Ungelesen-Zähler nach dem Start (4 s Schonfrist), gilt das ebenfalls als neue Mail (Fallback, falls `new_mail` ausbleibt)
 - **Desktop-Hinweis** (`frontend/src/shared/notifyMail.ts`): Windows-Toast im Hintergrund, Taskbar-Flash, sonst Ding. Abschaltbar unter Einstellungen → Darstellung
 - **Ton:** Ein HTMLAudio-Player wird beim ersten Klick/Tastendruck entsperrt und bleibt wiederverwendbar. Web-Audio-Oscillatoren werden nicht mehr im `suspended`-Zustand gestartet (sonst hörte man den Ding erst beim nächsten Klick auf die Mail).
-- Berechtigung nur über den Button **Zulassen** (Banner unter der Toolbar oder Einstellungen). Stilles `requestPermission` beim ersten Klick wird von Browser/Pake oft verschluckt, deshalb gibt es keine Systemfrage ohne sichtbaren Button.
+- Berechtigung nur über den Button **Zulassen** (Banner unter der Toolbar oder Einstellungen). In der Windows-App läuft das über `tauri-plugin-notification` (native Toasts, auch unter HTTP).
 
 ### Zwei-Wege-Abgleich (`backend/src/sync.js`)
 - `reconcileFolder` fetcht `1:*` mit `{ uid, flags }` und gleicht damit sowohl Löschungen als auch Flag-Änderungen ab, die in anderen Clients (z. B. Apple Mail) passiert sind

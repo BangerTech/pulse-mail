@@ -319,7 +319,7 @@ function AlertsTab() {
           </select>
         </div>
         <p className="appearance-hint">
-          Banner auch dann, wenn du gerade in Pulse Mail bist. Die Pake-App muss laufen (minimieren, nicht schließen).
+          Banner auch dann, wenn du gerade in Pulse Mail bist. Die Windows-App muss laufen (minimieren, nicht schließen).
         </p>
       </div>
 

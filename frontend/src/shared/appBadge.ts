@@ -1,6 +1,5 @@
-// Drive unread count into the browser tab and into Pake/Tauri desktop shells.
-// Pake intercepts navigator.setAppBadge and forwards it to set_dock_badge
-// (macOS dock, Linux/Windows taskbar when the wrapper supports it).
+// Drive unread count into the browser tab and the official Tauri desktop app.
+// The shell implements set_dock_badge / clear_dock_badge and setOverlayIcon.
 
 type TauriInvoke = (cmd: string, args?: Record<string, unknown>) => Promise<unknown>;
 
@@ -77,7 +76,7 @@ async function setWindowsTaskbarOverlay(count: number) {
     }
     await win.setOverlayIcon(await overlayPng(count));
   } catch {
-    // Stock Pake often lacks core:window:allow-set-overlay-icon.
+    // Overlay is best-effort; the desktop app also watches the window title.
   }
 }
 

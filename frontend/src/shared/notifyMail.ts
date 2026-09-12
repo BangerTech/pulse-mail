@@ -1,7 +1,6 @@
-// Windows toast + sound + taskbar flash. A Pake/WebView2 window only
+// Windows toast + sound + taskbar flash. The desktop WebView only
 // receives this while it is still running (minimized is fine, closed is not).
-// Permission is requested only from an explicit button click — browsers and
-// Pake swallow silent Notification.requestPermission() calls.
+// Permission is requested only from an explicit button click.
 
 import { flashTaskbarAttention } from './appBadge';
 import { scheduleNewMailSound, unlockNotifySound } from './notifySound';
