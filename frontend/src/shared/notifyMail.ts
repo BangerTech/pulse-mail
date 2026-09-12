@@ -68,7 +68,7 @@ async function showTauriToast(title: string, body: string): Promise<boolean> {
   }
 }
 
-function showBrowserToast(title: string, body: string): boolean {
+function showBrowserToast(title: string, body: string, silent = false): boolean {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
     return false;
   }
@@ -78,7 +78,7 @@ function showBrowserToast(title: string, body: string): boolean {
       icon: `${window.location.origin}/favicon-32.png`,
       tag: 'pulse-mail-inbox',
       renotify: true,
-      silent: false
+      silent
     });
     n.onclick = () => {
       try { window.focus(); } catch {}
@@ -105,25 +105,25 @@ export function announceNewMail(opts: {
   preview?: MailPreview;
   playSound?: boolean;
   desktop?: boolean;
+  whenFocused?: boolean;
 } = {}) {
   const now = Date.now();
   if (now - lastAt < 2500) return;
   lastAt = now;
 
-  unlockNotifySound();
   flashTaskbarAttention();
 
   const unfocused = typeof document !== 'undefined'
     && (document.hidden || !document.hasFocus());
 
-  let toast = false;
-  if (opts.desktop !== false && unfocused) {
+  if (opts.desktop !== false && (unfocused || opts.whenFocused)) {
     const { title, body } = toastCopy(opts.preview);
-    toast = showBrowserToast(title, body);
-    if (!toast) void showTauriToast(title, body).then((ok) => { toast = toast || ok; });
+    if (!showBrowserToast(title, body, opts.playSound === true)) {
+      void showTauriToast(title, body);
+    }
   }
 
-  if (opts.playSound !== false && !toast) {
+  if (opts.playSound !== false) {
     scheduleNewMailSound(0);
   }
 }

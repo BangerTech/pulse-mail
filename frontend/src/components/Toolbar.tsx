@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, memo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store';
 import { Icon } from './Icon';
+import UserMenu from './UserMenu';
 import '../styles/toolbar.css';
 
 interface ToolbarProps {
@@ -51,7 +52,6 @@ function ToolbarInner({
   const toggleSidebar = useStore(s => s.toggleSidebar);
   const setSearchQuery = useStore(s => s.setSearchQuery);
   const setShowPalette = useStore(s => s.setShowPalette);
-  const setShowSettings = useStore(s => s.setShowSettings);
 
   const [showMove, setShowMove] = useState(false);
   const moveRef = useRef<HTMLDivElement>(null);
@@ -68,8 +68,6 @@ function ToolbarInner({
   const multiple = selectedKeys.length > 1;
   const isFlagged = selectedMessage?.flags?.includes('\\Flagged');
   const isUnread = selectedMessage ? !selectedMessage.flags?.includes('\\Seen') : false;
-
-  const initial = (selectedAccount?.name || selectedAccount?.email || '?').charAt(0).toUpperCase();
 
   if (mobile) {
     return (
@@ -122,6 +120,7 @@ function ToolbarInner({
               >
                 <Icon name="refresh" />
               </button>
+              <UserMenu />
             </>
           )}
         </div>
@@ -261,15 +260,7 @@ function ToolbarInner({
         >
           <Icon name="refresh" />
         </button>
-        <button
-          className="account-avatar"
-          onClick={() => setShowSettings(true)}
-          title={selectedAccount?.email || 'Einstellungen'}
-          aria-label="Einstellungen"
-          style={{ background: selectedAccount?.color || 'var(--accent-color)' }}
-        >
-          {initial}
-        </button>
+        <UserMenu />
       </div>
     </div>
   );

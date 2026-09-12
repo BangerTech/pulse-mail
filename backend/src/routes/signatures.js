@@ -29,34 +29,41 @@ export default function signaturesRouter(db) {
   const router = Router();
 
   router.get('/', (req, res) => {
-    const signatures = db.prepare('SELECT * FROM signatures ORDER BY created_at DESC').all();
+    if (!req.user) return res.json([]);
+    const signatures = db.prepare(
+      'SELECT * FROM signatures WHERE user_id = ? ORDER BY created_at DESC'
+    ).all(req.user.id);
     res.json(signatures);
   });
 
   router.post('/', (req, res) => {
     const { name, content, is_default, account_id } = req.body;
     if (is_default) {
-      db.prepare('UPDATE signatures SET is_default = 0 WHERE account_id = ?').run(account_id || null);
+      db.prepare('UPDATE signatures SET is_default = 0 WHERE user_id = ? AND account_id IS ?')
+        .run(req.user.id, account_id || null);
     }
     const result = db.prepare(
-      'INSERT INTO signatures (name, content, is_default, account_id) VALUES (?, ?, ?, ?)'
-    ).run(name, content, is_default ? 1 : 0, account_id || null);
+      'INSERT INTO signatures (name, content, is_default, account_id, user_id) VALUES (?, ?, ?, ?, ?)'
+    ).run(name, content, is_default ? 1 : 0, account_id || null, req.user.id);
     res.json({ id: result.lastInsertRowid });
   });
 
   router.put('/:id', (req, res) => {
+    const existing = db.prepare('SELECT * FROM signatures WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+    if (!existing) return res.status(404).json({ error: 'Not found' });
     const { name, content, is_default, account_id } = req.body;
     if (is_default) {
-      db.prepare('UPDATE signatures SET is_default = 0 WHERE account_id = ?').run(account_id || null);
+      db.prepare('UPDATE signatures SET is_default = 0 WHERE user_id = ? AND account_id IS ?')
+        .run(req.user.id, account_id || null);
     }
     db.prepare(
-      'UPDATE signatures SET name = ?, content = ?, is_default = ?, account_id = ? WHERE id = ?'
-    ).run(name, content, is_default ? 1 : 0, account_id || null, req.params.id);
+      'UPDATE signatures SET name = ?, content = ?, is_default = ?, account_id = ? WHERE id = ? AND user_id = ?'
+    ).run(name, content, is_default ? 1 : 0, account_id || null, req.params.id, req.user.id);
     res.json({ ok: true });
   });
 
   router.delete('/:id', (req, res) => {
-    db.prepare('DELETE FROM signatures WHERE id = ?').run(req.params.id);
+    db.prepare('DELETE FROM signatures WHERE id = ? AND user_id = ?').run(req.params.id, req.user.id);
     res.json({ ok: true });
   });
 

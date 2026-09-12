@@ -4,7 +4,9 @@ import { useStore, msgKey, parseKey, totalInboxUnread } from './store';
 import { announceNewMail } from './shared/notifyMail';
 import { NotifyPermissionBar } from './shared/NotifyPermissionBar';
 import { setUnreadAppBadge } from './shared/appBadge';
-import { api } from './api';
+import { setNotifyVolume } from './shared/notifySound';
+import { api, getToken, clearToken } from './api';
+import LoginScreen from './components/LoginScreen';
 import Sidebar from './components/Sidebar';
 import MailList from './components/MailList';
 import MailContent from './components/MailContent';
@@ -158,6 +160,11 @@ export default function App() {
   const threadingEnabled = useStore(s => s.threadingEnabled);
   const inboxUnread = useStore(s => totalInboxUnread(s.foldersByAccount, s.unifiedUnread, s.accounts.length));
   const notifyDesktop = useStore(s => s.notifyDesktop);
+  const notifyVolume = useStore(s => s.notifyVolume);
+  const showTabUnread = useStore(s => s.showTabUnread);
+  const appUser = useStore(s => s.appUser);
+  const setAppUser = useStore(s => s.setAppUser);
+  const [authMode, setAuthMode] = useState<'loading' | 'setup' | 'login' | 'ready'>('login');
 
   const [refreshing, setRefreshing] = useState(false);
   const [mobile, setMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 860);
@@ -215,7 +222,11 @@ export default function App() {
   const unreadWatch = useRef({ primed: false, last: 0, bootAt: Date.now() });
 
   useEffect(() => {
-    document.title = inboxUnread > 0 ? `(${inboxUnread}) Pulse Mail` : 'Pulse Mail';
+    setNotifyVolume(notifyVolume / 100);
+  }, [notifyVolume]);
+
+  useEffect(() => {
+    document.title = showTabUnread && inboxUnread > 0 ? `(${inboxUnread}) Pulse Mail` : 'Pulse Mail';
     setUnreadAppBadge(inboxUnread);
 
     const watch = unreadWatch.current;
@@ -230,19 +241,68 @@ export default function App() {
         announceNewMail({
           preview: { count: inboxUnread - watch.last },
           playSound: state.notifySound,
-          desktop: state.notifyDesktop
+          desktop: state.notifyDesktop,
+          whenFocused: state.notifyWhenFocused
         });
       }
     }
     watch.last = inboxUnread;
-  }, [inboxUnread]);
+  }, [inboxUnread, showTabUnread]);
 
   useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const status = await api.authStatus();
+        if (cancelled) return;
+        if (status.needsSetup) {
+          setAuthMode('setup');
+          return;
+        }
+        if (!getToken()) {
+          setAuthMode('login');
+          return;
+        }
+        const me = await api.me();
+        if (cancelled) return;
+        setAppUser(me);
+        setAuthMode('ready');
+      } catch {
+        clearToken();
+        if (cancelled) return;
+        try {
+          const status = await api.authStatus();
+          setAuthMode(status.needsSetup ? 'setup' : 'login');
+        } catch {
+          setAuthMode('login');
+        }
+      }
+    })();
+    const onLogout = () => {
+      setAppUser(null);
+      setAccounts([]);
+      setMessages([]);
+      setThreads([]);
+      setAuthMode('login');
+    };
+    window.addEventListener('pulse:logout', onLogout);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('pulse:logout', onLogout);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (appUser) setAuthMode('ready');
+  }, [appUser]);
+
+  useEffect(() => {
+    if (!appUser) return;
     loadAccounts();
     loadSignatures();
     const cleanup = connectWebSocket();
     return cleanup;
-  }, []);
+  }, [appUser]);
 
   useEffect(() => {
     if (unifiedView) {
@@ -385,8 +445,10 @@ export default function App() {
       if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
         return;
       }
+      const token = getToken();
+      if (!token) return;
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+      ws = new WebSocket(`${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`);
 
       ws.onmessage = (e) => {
         try {
@@ -397,7 +459,8 @@ export default function App() {
               announceNewMail({
                 preview: data.preview,
                 playSound: state.notifySound,
-                desktop: state.notifyDesktop
+                desktop: state.notifyDesktop,
+                whenFocused: state.notifyWhenFocused
               });
             }
           }
@@ -565,6 +628,12 @@ export default function App() {
     if (!list.length) return;
     const groups = refsFromKeys(list);
     if (!groups.length) return;
+    if (useStore.getState().confirmDelete) {
+      const ok = window.confirm(
+        list.length > 1 ? `${list.length} Nachrichten in den Papierkorb?` : 'Nachricht in den Papierkorb?'
+      );
+      if (!ok) return;
+    }
 
     removeKeys(list);
     try {
@@ -817,6 +886,13 @@ export default function App() {
   })();
 
   const showSidebar = mobile ? drawerOpen : sidebarVisible;
+
+  if (authMode === 'loading') {
+    return <div className="login-screen">Pulse Mail</div>;
+  }
+  if (!appUser) {
+    return <LoginScreen mode={authMode === 'setup' ? 'setup' : 'login'} />;
+  }
 
   return (
     <div className={`app ${mobile ? 'mobile' : ''} ${reading ? 'reading' : ''}`}>

@@ -109,23 +109,34 @@ export function countMessages(db, accountId, folder) {
 
 // Merged inbox across every account. The account colour/email are joined in so
 // the list can show which mailbox a message belongs to.
-export function readUnifiedInbox(db, { limit = 50, offset = 0 } = {}) {
+function accountFilter(accountIds, column = 'c.account_id') {
+  if (!accountIds) return { sql: '', params: [] };
+  if (!accountIds.length) return { sql: ` AND ${column} = -1`, params: [] };
+  return {
+    sql: ` AND ${column} IN (${accountIds.map(() => '?').join(',')})`,
+    params: accountIds.map(Number)
+  };
+}
+
+export function readUnifiedInbox(db, { limit = 50, offset = 0, accountIds } = {}) {
+  const filter = accountFilter(accountIds);
   const rows = db.prepare(`
     SELECT c.*, a.email AS account_email, a.color AS account_color
     FROM mail_cache c
     JOIN accounts a ON a.id = c.account_id
-    WHERE c.folder = 'INBOX'
+    WHERE c.folder = 'INBOX'${filter.sql}
     ORDER BY c.date DESC
     LIMIT ? OFFSET ?
-  `).all(limit, offset);
+  `).all(...filter.params, limit, offset);
 
   return rows.map(rowToMessage);
 }
 
-export function countUnifiedInbox(db) {
+export function countUnifiedInbox(db, accountIds) {
+  const filter = accountFilter(accountIds, 'account_id');
   const row = db.prepare(
-    "SELECT COUNT(*) AS total FROM mail_cache WHERE folder = 'INBOX'"
-  ).get();
+    `SELECT COUNT(*) AS total FROM mail_cache WHERE folder = 'INBOX'${filter.sql}`
+  ).get(...filter.params);
   return row?.total || 0;
 }
 
@@ -198,11 +209,16 @@ export function pruneFolder(db, accountId, folder, liveUids) {
   removeMessages(db, accountId, folder, stale);
 }
 
-export function searchCache(db, { accountId, query, folder, from, hasAttachments, since, before, limit = 100 }) {
+export function searchCache(db, { accountId, accountIds, query, folder, from, hasAttachments, since, before, limit = 100 }) {
   const where = [];
   const params = [];
 
   if (accountId) { where.push('account_id = ?'); params.push(Number(accountId)); }
+  else if (accountIds) {
+    if (!accountIds.length) return [];
+    where.push(`account_id IN (${accountIds.map(() => '?').join(',')})`);
+    params.push(...accountIds.map(Number));
+  }
   if (folder) { where.push('folder = ?'); params.push(folder); }
 
   if (query) {

@@ -10,7 +10,7 @@
 }
 
 .settings-modal {
-  width: 580px;
+  width: 640px;
   max-height: 72vh;
   background: var(--bg-elevated);
   border-radius: 12px;
@@ -54,8 +54,16 @@
   color: var(--text-primary);
 }
 
+.settings-version {
+  margin-left: 8px;
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
 .settings-tabs {
   display: flex;
+  flex-wrap: wrap;
   padding: 0 20px;
   border-bottom: 0.5px solid var(--border-color);
   gap: 4px;
@@ -493,6 +501,65 @@
   color: var(--text-primary);
   line-height: 1.5;
   margin-top: 4px;
+}
+
+.appearance-slider {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent-color);
+}
+
+.appearance-slider-value {
+  width: 40px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.info-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.info-row strong {
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: right;
+}
+
+.profile-photo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 4px 0 12px;
+}
+
+.profile-photo-img {
+  width: 72px;
+  height: 72px;
+  font-size: 28px;
+}
+
+.profile-photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sr-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 @media (max-width: 859px) {

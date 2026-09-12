@@ -1,8 +1,11 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store';
 import { useFocusTrap } from '../shared/useFocusTrap';
 import { getNotifyPermission, requestNotifyPermission } from '../shared/notifyMail';
+import { playNewMailSound, setNotifyVolume, getNotifySoundStatus } from '../shared/notifySound';
+import { APP_VERSION, formatBuildTime } from '../shared/version';
+import UserAvatar from './UserAvatar';
 import { api } from '../api';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -15,7 +18,7 @@ import { ResizableImage } from './ResizableImage';
 import { FontSize } from '../extensions/FontSize';
 import '../styles/settings.css';
 
-type Tab = 'accounts' | 'signatures' | 'appearance';
+type Tab = 'accounts' | 'users' | 'signatures' | 'appearance' | 'alerts' | 'info';
 
 const FONT_OPTIONS = [
   { label: 'SF Pro', value: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif' },
@@ -62,6 +65,7 @@ const SIZE_OPTIONS = [10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24];
 
 export default function SettingsModal() {
   const setShowSettings = useStore(s => s.setShowSettings);
+  const appUser = useStore(s => s.appUser);
   const [tab, setTab] = useState<Tab>('accounts');
   const trapRef = useFocusTrap<HTMLDivElement>({
     active: true,
@@ -78,7 +82,7 @@ export default function SettingsModal() {
         ref={trapRef}
       >
         <div className="settings-titlebar">
-          <span>Einstellungen</span>
+          <span>Einstellungen <span className="settings-version">v{APP_VERSION}</span></span>
           <button
             className="settings-close"
             onClick={() => setShowSettings(false)}
@@ -88,14 +92,22 @@ export default function SettingsModal() {
           </button>
         </div>
         <div className="settings-tabs">
-          <button className={tab === 'accounts' ? 'active' : ''} onClick={() => setTab('accounts')}>Accounts</button>
+          <button className={tab === 'accounts' ? 'active' : ''} onClick={() => setTab('accounts')}>Postfächer</button>
+          {appUser?.role === 'admin' && (
+            <button className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>Benutzer</button>
+          )}
           <button className={tab === 'signatures' ? 'active' : ''} onClick={() => setTab('signatures')}>Signaturen</button>
           <button className={tab === 'appearance' ? 'active' : ''} onClick={() => setTab('appearance')}>Darstellung</button>
+          <button className={tab === 'alerts' ? 'active' : ''} onClick={() => setTab('alerts')}>Hinweise</button>
+          <button className={tab === 'info' ? 'active' : ''} onClick={() => setTab('info')}>Info</button>
         </div>
         <div className="settings-content">
           {tab === 'accounts' && <AccountsTab />}
+          {tab === 'users' && appUser?.role === 'admin' && <UsersTab />}
           {tab === 'signatures' && <SignaturesTab />}
           {tab === 'appearance' && <AppearanceTab />}
+          {tab === 'alerts' && <AlertsTab />}
+          {tab === 'info' && <InfoTab />}
         </div>
       </div>
     </div>
@@ -105,26 +117,25 @@ export default function SettingsModal() {
 function AppearanceTab() {
   const {
     composeFont, theme, previewPosition, density, threadingEnabled,
-    notifySound, notifyDesktop, loadRemoteImages
+    loadRemoteImages, confirmDelete, showTabUnread
   } = useStore(useShallow(s => ({
     composeFont: s.composeFont,
     theme: s.theme,
     previewPosition: s.previewPosition,
     density: s.density,
     threadingEnabled: s.threadingEnabled,
-    notifySound: s.notifySound,
-    notifyDesktop: s.notifyDesktop,
     loadRemoteImages: s.loadRemoteImages,
+    confirmDelete: s.confirmDelete,
+    showTabUnread: s.showTabUnread,
   })));
   const setComposeFont = useStore(s => s.setComposeFont);
   const setTheme = useStore(s => s.setTheme);
   const setPreviewPosition = useStore(s => s.setPreviewPosition);
   const setDensity = useStore(s => s.setDensity);
   const setThreadingEnabled = useStore(s => s.setThreadingEnabled);
-  const setNotifySound = useStore(s => s.setNotifySound);
-  const setNotifyDesktop = useStore(s => s.setNotifyDesktop);
   const setLoadRemoteImages = useStore(s => s.setLoadRemoteImages);
-  const [notifyPermission, setNotifyPermission] = useState(getNotifyPermission);
+  const setConfirmDelete = useStore(s => s.setConfirmDelete);
+  const setShowTabUnread = useStore(s => s.setShowTabUnread);
 
   return (
     <div className="settings-section">
@@ -183,44 +194,23 @@ function AppearanceTab() {
       </div>
 
       <div className="appearance-group">
-        <h3 className="appearance-title">Benachrichtigungen</h3>
+        <h3 className="appearance-title">Verhalten</h3>
         <div className="appearance-row">
-          <label>Desktop-Hinweis</label>
+          <label>Löschen bestätigen</label>
           <select
-            value={notifyDesktop ? 'on' : 'off'}
-            onChange={e => setNotifyDesktop(e.target.value === 'on')}
+            value={confirmDelete ? 'on' : 'off'}
+            onChange={e => setConfirmDelete(e.target.value === 'on')}
             className="appearance-select"
           >
-            <option value="on">An</option>
-            <option value="off">Aus</option>
+            <option value="on">Nachfragen</option>
+            <option value="off">Sofort</option>
           </select>
         </div>
-        {notifyDesktop && notifyPermission !== 'granted' && (
-          <div className="appearance-row">
-            <label>Berechtigung</label>
-            <button
-              type="button"
-              className="remote-images-bar-btn"
-              onClick={async () => setNotifyPermission(await requestNotifyPermission())}
-            >
-              Zulassen
-            </button>
-          </div>
-        )}
-        <p className="appearance-hint">
-          {notifyPermission === 'granted'
-            ? 'Benachrichtigungen sind erlaubt.'
-            : notifyPermission === 'denied'
-              ? 'Blockiert. In den Browser- oder Windows-Einstellungen für diese Seite erlauben.'
-              : notifyPermission === 'unavailable'
-                ? 'Diese Hülle bietet keine System-Hinweise. Ton und Tab-Zahl funktionieren trotzdem.'
-                : 'Zulassen klicken — erst dann fragt Windows bzw. der Browser nach.'}
-        </p>
         <div className="appearance-row">
-          <label>Ton bei neuer Mail</label>
+          <label>Ungelesen im Titel</label>
           <select
-            value={notifySound ? 'on' : 'off'}
-            onChange={e => setNotifySound(e.target.value === 'on')}
+            value={showTabUnread ? 'on' : 'off'}
+            onChange={e => setShowTabUnread(e.target.value === 'on')}
             className="appearance-select"
           >
             <option value="on">An</option>
@@ -228,7 +218,7 @@ function AppearanceTab() {
           </select>
         </div>
         <p className="appearance-hint">
-          Kurzer Hinweis-Ton, wenn eine neue Nachricht im Posteingang ankommt.
+          `(3) Pulse Mail` im Fenster- bzw. Tab-Titel.
         </p>
       </div>
 
@@ -261,6 +251,302 @@ function AppearanceTab() {
         <div className="appearance-preview" style={{ fontFamily: composeFont.family, fontSize: composeFont.size }}>
           Dies ist eine Vorschau deiner gewählten Schriftart und -größe.
         </div>
+      </div>
+    </div>
+  );
+}
+
+function AlertsTab() {
+  const {
+    notifySound, notifyDesktop, notifyWhenFocused, notifyVolume
+  } = useStore(useShallow(s => ({
+    notifySound: s.notifySound,
+    notifyDesktop: s.notifyDesktop,
+    notifyWhenFocused: s.notifyWhenFocused,
+    notifyVolume: s.notifyVolume,
+  })));
+  const setNotifySound = useStore(s => s.setNotifySound);
+  const setNotifyDesktop = useStore(s => s.setNotifyDesktop);
+  const setNotifyWhenFocused = useStore(s => s.setNotifyWhenFocused);
+  const setVolume = useStore(s => s.setNotifyVolume);
+  const [notifyPermission, setNotifyPermission] = useState(getNotifyPermission);
+
+  return (
+    <div className="settings-section">
+      <div className="appearance-group">
+        <h3 className="appearance-title">Desktop</h3>
+        <div className="appearance-row">
+          <label>System-Hinweis</label>
+          <select
+            value={notifyDesktop ? 'on' : 'off'}
+            onChange={e => setNotifyDesktop(e.target.value === 'on')}
+            className="appearance-select"
+          >
+            <option value="on">An</option>
+            <option value="off">Aus</option>
+          </select>
+        </div>
+        {notifyDesktop && notifyPermission !== 'granted' && (
+          <div className="appearance-row">
+            <label>Berechtigung</label>
+            <button
+              type="button"
+              className="remote-images-bar-btn"
+              onClick={async () => setNotifyPermission(await requestNotifyPermission())}
+            >
+              Zulassen
+            </button>
+          </div>
+        )}
+        <p className="appearance-hint">
+          {notifyPermission === 'granted'
+            ? 'Benachrichtigungen sind erlaubt.'
+            : notifyPermission === 'denied'
+              ? 'Blockiert. In den Browser- oder Windows-Einstellungen für diese Seite erlauben.'
+              : notifyPermission === 'unavailable'
+                ? 'Diese Hülle bietet keine System-Hinweise. Ton und Tab-Zahl funktionieren trotzdem.'
+                : 'Zulassen klicken — erst dann fragt Windows bzw. der Browser nach.'}
+        </p>
+        <div className="appearance-row">
+          <label>Auch im Vordergrund</label>
+          <select
+            value={notifyWhenFocused ? 'on' : 'off'}
+            onChange={e => setNotifyWhenFocused(e.target.value === 'on')}
+            className="appearance-select"
+          >
+            <option value="on">An</option>
+            <option value="off">Nur im Hintergrund</option>
+          </select>
+        </div>
+        <p className="appearance-hint">
+          Banner auch dann, wenn du gerade in Pulse Mail bist. Die Pake-App muss laufen (minimieren, nicht schließen).
+        </p>
+      </div>
+
+      <div className="appearance-group">
+        <h3 className="appearance-title">Ton</h3>
+        <div className="appearance-row">
+          <label>Ton bei neuer Mail</label>
+          <select
+            value={notifySound ? 'on' : 'off'}
+            onChange={e => setNotifySound(e.target.value === 'on')}
+            className="appearance-select"
+          >
+            <option value="on">An</option>
+            <option value="off">Aus</option>
+          </select>
+        </div>
+        <div className="appearance-row">
+          <label>Lautstärke</label>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={notifyVolume}
+            className="appearance-slider"
+            onChange={e => {
+              const next = Number(e.target.value);
+              setVolume(next);
+              setNotifyVolume(next / 100);
+            }}
+            disabled={!notifySound}
+          />
+          <span className="appearance-slider-value">{notifyVolume}%</span>
+        </div>
+        <div className="appearance-row">
+          <label>Probe</label>
+          <button
+            type="button"
+            className="remote-images-bar-btn"
+            onClick={() => {
+              setNotifyVolume(notifyVolume / 100);
+              playNewMailSound();
+            }}
+          >
+            Ton testen
+          </button>
+        </div>
+        <p className="appearance-hint">
+          Einmal in die App klicken, dann „Ton testen“. Wenn der Test geht, muss der gleiche Ton bei neuer Mail sofort kommen — nicht erst beim Öffnen der Nachricht.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function InfoTab() {
+  const appUser = useStore(s => s.appUser);
+  const setAppUser = useStore(s => s.setAppUser);
+  const sound = getNotifySoundStatus();
+  const permission = getNotifyPermission();
+  const permissionLabel = {
+    granted: 'erlaubt',
+    denied: 'blockiert',
+    default: 'noch nicht gefragt',
+    unavailable: 'nicht verfügbar'
+  }[permission];
+  const [name, setName] = useState(appUser?.name || '');
+  const [password, setPassword] = useState('');
+  const [saved, setSaved] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const saveProfile = async () => {
+    try {
+      const next = await api.updateMe({ name, color: appUser?.color, password: password || undefined });
+      setAppUser(next);
+      setPassword('');
+      setSaved('Gespeichert');
+    } catch (err: any) {
+      setSaved(err.message || 'Fehler');
+    }
+  };
+
+  return (
+    <div className="settings-section">
+      <div className="appearance-group">
+        <h3 className="appearance-title">Angemeldet als</h3>
+        {appUser && (
+          <div className="profile-photo">
+            <UserAvatar user={appUser} className="account-avatar profile-photo-img" size={72} />
+            <div className="profile-photo-actions">
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                className="sr-file-input"
+                onChange={async e => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  if (!file) return;
+                  try {
+                    setAppUser(await api.uploadAvatar(file));
+                    setSaved('Profilbild gespeichert');
+                  } catch (err: any) {
+                    setSaved(err.message || 'Bild fehlgeschlagen');
+                  }
+                }}
+              />
+              <button type="button" className="remote-images-bar-btn" onClick={() => fileRef.current?.click()}>
+                Bild wählen
+              </button>
+              {appUser.avatarUrl && (
+                <button
+                  type="button"
+                  className="remote-images-bar-btn subtle"
+                  onClick={async () => {
+                    try {
+                      setAppUser(await api.removeAvatar());
+                      setSaved('Profilbild entfernt');
+                    } catch (err: any) {
+                      setSaved(err.message);
+                    }
+                  }}
+                >
+                  Entfernen
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        <p className="appearance-hint">JPG, PNG, GIF oder WebP, höchstens 4 MB.</p>
+        <div className="info-row"><span>Benutzer</span><strong>@{appUser?.username}</strong></div>
+        <div className="info-row"><span>Rolle</span><strong>{appUser?.role === 'admin' ? 'Administrator' : 'Benutzer'}</strong></div>
+        <div className="appearance-row">
+          <label>Anzeigename</label>
+          <input className="appearance-select" value={name} onChange={e => setName(e.target.value)} />
+        </div>
+        <div className="appearance-row">
+          <label>Neues Passwort</label>
+          <input className="appearance-select" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="unverändert" />
+        </div>
+        <div className="appearance-row">
+          <label />
+          <button type="button" className="remote-images-bar-btn" onClick={saveProfile}>Profil speichern</button>
+        </div>
+        {saved && <p className="appearance-hint">{saved}</p>}
+      </div>
+      <div className="appearance-group">
+        <h3 className="appearance-title">Pulse Mail</h3>
+        <div className="info-row"><span>Version</span><strong>{APP_VERSION}</strong></div>
+        <div className="info-row"><span>Build</span><strong>{formatBuildTime()}</strong></div>
+        <div className="info-row"><span>Hinweise</span><strong>{permissionLabel}</strong></div>
+        <div className="info-row"><span>Tonkanal</span><strong>{sound.ready ? 'bereit' : 'wartet auf ersten Klick'}</strong></div>
+        <p className="appearance-hint">
+          Diese Version ist {APP_VERSION} vom {formatBuildTime()}.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function UsersTab() {
+  const [users, setUsers] = useState<any[]>([]);
+  const [form, setForm] = useState({ name: '', username: '', password: '', role: 'user' });
+  const [error, setError] = useState('');
+
+  const load = async () => {
+    try { setUsers(await api.getUsers()); } catch {}
+  };
+  useEffect(() => { void load(); }, []);
+
+  const add = async () => {
+    setError('');
+    try {
+      await api.addUser(form);
+      setForm({ name: '', username: '', password: '', role: 'user' });
+      await load();
+    } catch (err: any) {
+      setError(err.message || 'Anlegen fehlgeschlagen');
+    }
+  };
+
+  const remove = async (id: number) => {
+    if (!window.confirm('Benutzer löschen? Die Postfächer bleiben in der Datenbank, sind aber keinem Login mehr zugeordnet.')) return;
+    try { await api.deleteUser(id); await load(); } catch (err: any) { setError(err.message); }
+  };
+
+  return (
+    <div className="settings-section">
+      <p className="appearance-hint">
+        Jeder Benutzer sieht nach dem Login nur die eigenen Postfächer. Lege z. B. „Anna“ mit Mail A+B und „Ben“ mit Mail C+D an.
+      </p>
+      <div className="accounts-list">
+        {users.map(u => (
+          <div key={u.id} className="account-item">
+            <UserAvatar user={u} size={28} />
+            <div className="account-info">
+              <span className="account-name">{u.name}</span>
+              <span className="account-email">@{u.username} · {u.role === 'admin' ? 'Admin' : 'Benutzer'}</span>
+            </div>
+            <div className="account-actions">
+              <button className="account-delete" type="button" onClick={() => remove(u.id)}>Entfernen</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="appearance-group">
+        <h3 className="appearance-title">Neuen Benutzer</h3>
+        <div className="appearance-row">
+          <label>Name</label>
+          <input className="appearance-select" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+        </div>
+        <div className="appearance-row">
+          <label>Benutzername</label>
+          <input className="appearance-select" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} />
+        </div>
+        <div className="appearance-row">
+          <label>Passwort</label>
+          <input className="appearance-select" type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
+        </div>
+        <div className="appearance-row">
+          <label>Rolle</label>
+          <select className="appearance-select" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
+            <option value="user">Benutzer</option>
+            <option value="admin">Administrator</option>
+          </select>
+        </div>
+        {error && <p className="appearance-hint">{error}</p>}
+        <button type="button" className="remote-images-bar-btn" onClick={add}>Benutzer anlegen</button>
       </div>
     </div>
   );

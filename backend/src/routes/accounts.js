@@ -3,6 +3,7 @@ import { encryptPassword, decryptPassword } from '../db.js';
 import { ImapFlow } from 'imapflow';
 import { withClient, getConnection, closeConnection } from '../imap-pool.js';
 import { unreadCounts } from '../mail-cache.js';
+import { requireOwnedAccount } from '../auth.js';
 
 async function testImap({ imap_host, imap_port, username, password }) {
   const client = new ImapFlow({
@@ -22,8 +23,8 @@ export default function accountsRouter(db) {
 
   router.get('/', (req, res) => {
     const accounts = db.prepare(
-      'SELECT id, name, email, imap_host, imap_port, smtp_host, smtp_port, username, color FROM accounts'
-    ).all();
+      'SELECT id, name, email, imap_host, imap_port, smtp_host, smtp_port, username, color FROM accounts WHERE user_id = ?'
+    ).all(req.user.id);
     res.json(accounts);
   });
 
@@ -38,15 +39,15 @@ export default function accountsRouter(db) {
 
     const encrypted = encryptPassword(password);
     const result = db.prepare(
-      'INSERT INTO accounts (name, email, imap_host, imap_port, smtp_host, smtp_port, username, password_encrypted, color) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    ).run(name, email, imap_host, imap_port || 993, smtp_host, smtp_port || 587, username, encrypted, color || '#007AFF');
+      'INSERT INTO accounts (name, email, imap_host, imap_port, smtp_host, smtp_port, username, password_encrypted, color, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(name, email, imap_host, imap_port || 993, smtp_host, smtp_port || 587, username, encrypted, color || '#007AFF', req.user.id);
 
     getConnection(result.lastInsertRowid).catch(() => {});
 
     res.json({ id: result.lastInsertRowid });
   });
 
-  router.put('/:id', async (req, res) => {
+  router.put('/:id', requireOwnedAccount(db), async (req, res) => {
     const existing = db.prepare('SELECT * FROM accounts WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Account not found' });
 
@@ -95,7 +96,7 @@ export default function accountsRouter(db) {
     res.json({ ok: true });
   });
 
-  router.delete('/:id', (req, res) => {
+  router.delete('/:id', requireOwnedAccount(db), (req, res) => {
     closeConnection(req.params.id);
     db.prepare('DELETE FROM accounts WHERE id = ?').run(req.params.id);
     db.prepare('DELETE FROM mail_cache WHERE account_id = ?').run(req.params.id);
@@ -103,7 +104,7 @@ export default function accountsRouter(db) {
     res.json({ ok: true });
   });
 
-  router.get('/:id/folders', async (req, res) => {
+  router.get('/:id/folders', requireOwnedAccount(db), async (req, res) => {
     try {
       const folders = await withClient(req.params.id, client => client.list());
       const counts = unreadCounts(db, req.params.id);

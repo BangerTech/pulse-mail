@@ -1,5 +1,15 @@
 import { create } from 'zustand';
 
+export interface AppUser {
+  id: number;
+  name: string;
+  username: string;
+  role: 'admin' | 'user';
+  color: string;
+  avatar?: string | null;
+  avatarUrl?: string | null;
+}
+
 export interface Account {
   id: number;
   name: string;
@@ -141,7 +151,12 @@ interface MailStore {
   threadingEnabled: boolean;
   notifySound: boolean;
   notifyDesktop: boolean;
+  notifyWhenFocused: boolean;
+  notifyVolume: number;
+  confirmDelete: boolean;
+  showTabUnread: boolean;
   loadRemoteImages: boolean;
+  appUser: AppUser | null;
   // Optimistic hide for delete/archive. Lives in Zustand (not React
   // useOptimistic) because MailList, App and the WebSocket reload all need
   // the same set, and a component-local optimistic state would desync.
@@ -191,7 +206,12 @@ interface MailStore {
   setThreadingEnabled: (enabled: boolean) => void;
   setNotifySound: (enabled: boolean) => void;
   setNotifyDesktop: (enabled: boolean) => void;
+  setNotifyWhenFocused: (enabled: boolean) => void;
+  setNotifyVolume: (volume: number) => void;
+  setConfirmDelete: (enabled: boolean) => void;
+  setShowTabUnread: (enabled: boolean) => void;
   setLoadRemoteImages: (enabled: boolean) => void;
+  setAppUser: (user: AppUser | null) => void;
 }
 
 export function isInboxFolder(f: { path: string; specialUse?: string }) {
@@ -298,7 +318,12 @@ export const useStore = create<MailStore>((set, get) => ({
   threadingEnabled: loadSetting('threadingEnabled', true),
   notifySound: loadSetting('notifySound', true),
   notifyDesktop: loadSetting('notifyDesktop', true),
+  notifyWhenFocused: loadSetting('notifyWhenFocused', false),
+  notifyVolume: loadSetting('notifyVolume', 70),
+  confirmDelete: loadSetting('confirmDelete', false),
+  showTabUnread: loadSetting('showTabUnread', true),
   loadRemoteImages: loadSetting('loadRemoteImages', true),
+  appUser: null,
   hiddenKeys: [],
   unifiedView: loadSetting('unifiedView', true),
   unifiedUnread: 0,
@@ -500,8 +525,26 @@ export const useStore = create<MailStore>((set, get) => ({
     persist('notifyDesktop', enabled);
     set({ notifyDesktop: enabled });
   },
+  setNotifyWhenFocused: (enabled) => {
+    persist('notifyWhenFocused', enabled);
+    set({ notifyWhenFocused: enabled });
+  },
+  setNotifyVolume: (volume) => {
+    const next = Math.max(0, Math.min(100, Math.round(Number(volume) || 0)));
+    persist('notifyVolume', next);
+    set({ notifyVolume: next });
+  },
+  setConfirmDelete: (enabled) => {
+    persist('confirmDelete', enabled);
+    set({ confirmDelete: enabled });
+  },
+  setShowTabUnread: (enabled) => {
+    persist('showTabUnread', enabled);
+    set({ showTabUnread: enabled });
+  },
   setLoadRemoteImages: (enabled) => {
     persist('loadRemoteImages', enabled);
     set({ loadRemoteImages: enabled });
   },
+  setAppUser: (appUser) => set({ appUser }),
 }));

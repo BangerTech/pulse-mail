@@ -102,7 +102,8 @@ export function Prototype() {
     let retry: number | undefined;
     const connect = () => {
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      ws = new WebSocket(`${proto}//${window.location.host}/ws`);
+      const token = localStorage.getItem('pulse:session') || '';
+      ws = new WebSocket(`${proto}//${window.location.host}/ws?token=${encodeURIComponent(token)}`);
       ws.onmessage = (ev) => {
         try {
           const msg = JSON.parse(ev.data);

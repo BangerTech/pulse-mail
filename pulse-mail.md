@@ -1,5 +1,31 @@
 # Pulse Mail - Projektdokumentation
 
+## Version
+
+Aktuelle Version: **1.3.0** — Quelle ist `frontend/package.json`, Anzeige unter Einstellungen → Info (`__APP_VERSION__` / `__APP_BUILD__` aus dem Vite-Build). Fallback in `frontend/src/shared/version.ts`. Backend `package.json` hält dieselbe Versionsnummer.
+
+**Bei jeder inhaltlichen Änderung** (nicht nur beim nächsten Commit):
+
+1. Version erhöhen (Minor bei Feature, Patch bei Fix) in `frontend/package.json`, `backend/package.json` und dem Fallback in `frontend/src/shared/version.ts`
+2. Diese Datei aktualisieren: Schema, Migrationen, API, Features und Changelog
+3. Commit mit der neuen Versionsnummer
+
+### Changelog
+
+#### 1.3.0 (2026-09-12)
+- App-Benutzer mit eigenem Login, 30-Tage-Session (`app_users`, `app_sessions`), Postfächer und Signaturen pro Benutzer
+- Profilbild: Upload/Entfernen unter Einstellungen → Info, Anzeige oben rechts und in der Benutzerliste; Dateien in `backend/uploads/avatars/` (JPG/PNG/GIF/WebP, max. 4 MB)
+- Einstellungen umgebaut: Reiter Hinweise und Info, Version/Build sichtbar
+- Zusätzliche Optionen: `notifyWhenFocused`, `notifyVolume`, `confirmDelete`, `showTabUnread`
+- Login-Screen `position: fixed`; `index.html` ohne Cache (`Cache-Control: no-store`), damit Pake nicht eine alte App ohne Login zeigt
+- Hinweis-Ton entsperrt sich still; Systemfrage nur über den Button Zulassen
+
+#### 1.2.0
+- Nicht als eigener Commit erschienen; Inhalte sind in 1.3.0 aufgegangen (Einstellungen-Info, Versionsanzeige).
+
+#### 1.0.0
+- Ausgangsstand vor App-Login, Profilbild und Versionsanzeige.
+
 ## Architektur
 
 - **Frontend:** React 19 + TypeScript + Vite, TipTap Editor, Zustand, `@tanstack/react-virtual`
@@ -23,7 +49,28 @@ Daten liegen lokal in `./data/mail.db` (nicht im Git-Repository).
 | username | TEXT | Login-Benutzername |
 | password_encrypted | TEXT | AES-256 verschlüsselt |
 | color | TEXT | Account-Farbe |
+| user_id | INTEGER FK | App-Benutzer (`app_users.id`) |
 | created_at | DATETIME | Erstellungsdatum |
+
+### app_users
+| Spalte | Typ | Beschreibung |
+|--------|-----|-------------|
+| id | INTEGER PK | Auto-increment |
+| name | TEXT | Anzeigename |
+| username | TEXT UNIQUE | Login-Name |
+| password_hash | TEXT | scrypt (salt:hash) |
+| role | TEXT | `admin` oder `user` |
+| color | TEXT | Avatar-Farbe |
+| avatar | TEXT | Dateiname unter `backend/uploads/avatars/` |
+| created_at | DATETIME | Erstellungsdatum |
+
+### app_sessions
+| Spalte | Typ | Beschreibung |
+|--------|-----|-------------|
+| token | TEXT PK | Session-Token |
+| user_id | INTEGER FK | App-Benutzer |
+| created_at | DATETIME | Erstellung |
+| expires_at | DATETIME | Ablauf (30 Tage) |
 
 ### signatures
 | Spalte | Typ | Beschreibung |
@@ -33,6 +80,7 @@ Daten liegen lokal in `./data/mail.db` (nicht im Git-Repository).
 | content | TEXT | HTML-Inhalt |
 | is_default | INTEGER | 1 = Standard-Signatur |
 | account_id | INTEGER FK | Zugeordneter Account (null = alle) |
+| user_id | INTEGER FK | App-Benutzer |
 | created_at | DATETIME | Erstellungsdatum |
 
 ### mail_cache
@@ -82,10 +130,20 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - `raw_headers` — Rohheader für den Prototyp-Klassifikator
 - `extracted_pdf_text` — Klartext aus Rechnungs-PDFs (Prototyp-Anreicherung)
 - Tabelle `folder_sync` — merkt sich `uid_validity` pro Ordner für den Reconcile
+- `accounts.user_id`, `signatures.user_id`
+- Tabellen `app_users`, `app_sessions`. Beim ersten Setup werden bestehende Postfächer dem ersten Admin zugeordnet.
+- `app_users.avatar` — Dateiname des Profilbilds
 
 ## API Endpoints
 
-- `GET /api/accounts` - Alle Accounts
+- `GET /api/auth/status` - `{ needsSetup }`
+- `POST /api/auth/setup` - Ersten Admin anlegen
+- `POST /api/auth/login` / `POST /api/auth/logout` / `GET|PUT /api/auth/me`
+- `POST /api/auth/me/avatar` - Profilbild (multipart-Feld `image`; JPG/PNG/GIF/WebP, max. 4 MB). Session wird vor dem Speichern geprüft.
+- `DELETE /api/auth/me/avatar` - Profilbild entfernen
+- `GET /api/auth/avatars/:filename` - Profilbild ausliefern (Dateiname ist UUID)
+- `GET|POST /api/users`, `PUT|DELETE /api/users/:id` — nur Admin
+- `GET /api/accounts` - Postfächer des angemeldeten Benutzers
 - `PUT /api/accounts/:id` - Account bearbeiten (Name, Server, Farbe; Passwort optional)
 - `DELETE /api/accounts/:id` - Account löschen
 - `GET /api/accounts/:id/folders` - IMAP-Ordner inkl. Ungelesen-Zähler
@@ -110,7 +168,7 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - `GET /api/signatures/images/:filename` - Signatur-Bild abrufen
 - `GET /api/prototype/messages` — Unified Inbox aus `mail_cache` (INBOX). `?sync=1` zieht zuerst die letzten IMAP-Nachrichten nach, dann antwortet der Cache.
 - `POST /api/prototype/refresh` — IMAP-Pull, Header-Backfill und PDF-Anreicherung erzwingen
-- `WS /ws` - WebSocket (`new_mail`, `messages_updated`)
+- `WS /ws?token=` - WebSocket (`new_mail`, `messages_updated`), nur für den Besitzer des Accounts
 
 ## Features
 
@@ -125,6 +183,14 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - **Granulare Zustandswahl:** Komponenten abonnieren einzelne Felder über `useStore(s => s.x)` bzw. `useShallow`. Der HTML-Body liegt in `messageBody`, nicht in `selectedMessage`, damit das Öffnen einer Mail nicht die Liste neu rendert.
 - `React.memo` auf `MailRow`, `Sidebar`, `Toolbar`, `MailContent`.
 - Optimistisches Ausblenden nach Löschen/Archivieren bleibt in Zustand `hiddenKeys` (geteilt zwischen App, Liste und WebSocket-Reload). `useOptimistic` ist komponentenlokal und würde hier desynchronisieren.
+
+### App-Benutzer
+- Eigener Login, unabhängig von IMAP. Oben rechts steht der **angemeldete Benutzer** (Profilbild oder Initiale, Menü: Einstellungen, Abmelden).
+- Profilbild unter Einstellungen → Info → **Bild wählen** (`POST /api/auth/me/avatar`). Erlaubt: JPG, PNG, GIF, WebP, max. 4 MB. Speicherung in `backend/uploads/avatars/` (Bind-Mount `./backend/uploads:/app/uploads`). Ohne Bild erscheint die Initiale auf der Benutzerfarbe. **Entfernen** löscht Datei und setzt `app_users.avatar` auf NULL.
+- Jeder Benutzer sieht nur die eigenen Postfächer. Admin legt weitere Benutzer unter Einstellungen → Benutzer an.
+- Erster Start: Einrichtungsbildschirm, bestehende Postfächer gehen an diesen Admin.
+- Session 30 Tage, Token in `localStorage` (`pulse:session`), `Authorization: Bearer` und WS-Query.
+- Login-Screen ist `position: fixed` (Pake/WebView hatte sonst oft Höhe 0). `index.html` wird mit `Cache-Control: no-store` ausgeliefert, sonst zeigt Pake die alte App ohne Login. Nach einem Frontend-Update Pake-App neu bauen und ggf. den WebView-Cache löschen (`%LOCALAPPDATA%\<AppName>\EBWebView`).
 
 ### Toolbar
 - Links: Seitenleiste ein/aus, **Neue E-Mail**
@@ -172,9 +238,19 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Kompakte oder komfortable Listenansicht
 - Schriftart und -größe für das Verfassen
 - Externe Bilder laden oder blockieren (Einstellung `loadRemoteImages`, Standard: laden)
-- Desktop-Hinweis ein/aus (Einstellung `notifyDesktop`, Standard: an) — Windows-Toast über die Notification API
-- Ton bei neuer Mail ein/aus (Einstellung `notifySound`, Standard: an)
+- Löschen bestätigen (`confirmDelete`), Ungelesen-Zahl im Fenstertitel (`showTabUnread`)
 - Logo und Favicon unter `frontend/public/`
+
+### Hinweise (eigener Einstellungs-Reiter)
+- System-Hinweis (`notifyDesktop`) und Ton (`notifySound`), Lautstärke (`notifyVolume`)
+- Banner auch im Vordergrund (`notifyWhenFocused`)
+- Button **Zulassen** und **Ton testen**
+- Statische Datei `frontend/public/notify.wav`. Der Player wird beim Gesten-Klick nur entsperrt, spielt den Ding aber nicht nach — sonst hörte man ihn erst beim Öffnen der neuen Mail.
+
+### Info (eigener Einstellungs-Reiter)
+- Version aus `frontend/package.json` (aktuell **1.3.0**), Build-Zeitpunkt aus dem Vite-Build (`__APP_VERSION__`, `__APP_BUILD__`)
+- Hinweis-Berechtigung und Tonkanal-Status. Titelzeile der Einstellungen zeigt `v1.3.0`
+- Profilbild setzen/entfernen (siehe App-Benutzer)
 
 ### MIME / Anzeige
 - HTML- und Textteile werden inkl. Base64 und Quoted-Printable dekodiert
@@ -290,7 +366,8 @@ frontend/src/shared/               Von App und Prototyp gemeinsam genutzt
 ├── useMailFrame.ts                iframe-Höhe (body.scrollHeight)
 ├── plain-text.ts                  format=flowed, Zitate, Links
 ├── imageAllowlist.ts              Absenderdomain in localStorage
-├── notifySound.ts                 Entsperrter HTMLAudio-Ding, kein Oscillator im Suspend
+├── notifySound.ts                 HTMLAudio `/notify.wav`, Unlock spielt keinen Ding
+├── version.ts                     App-Version und Build-Zeit
 ├── notifyMail.ts                  Windows-Toast, Sound, Taskbar-Flash, Permission nur per Klick
 ├── NotifyPermissionBar.tsx        Banner „Benachrichtigungen zulassen“
 ├── appBadge.ts                    setAppBadge, Overlay-Icon, requestUserAttention, Favicon-Zahl

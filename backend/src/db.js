@@ -65,6 +65,24 @@ export function initDb() {
       last_sync_at DATETIME,
       PRIMARY KEY (account_id, folder)
     );
+
+    CREATE TABLE IF NOT EXISTS app_users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      username TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      role TEXT DEFAULT 'user',
+      color TEXT DEFAULT '#007AFF',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS app_sessions (
+      token TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      expires_at DATETIME NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES app_users(id)
+    );
   `);
 
   migrate(db);
@@ -96,6 +114,19 @@ function migrate(db) {
     CREATE INDEX IF NOT EXISTS idx_mail_thread ON mail_cache(account_id, folder, thread_id);
     CREATE INDEX IF NOT EXISTS idx_mail_message_id ON mail_cache(message_id);
   `);
+
+  const accountCols = db.prepare('PRAGMA table_info(accounts)').all().map(c => c.name);
+  if (!accountCols.includes('user_id')) {
+    db.exec('ALTER TABLE accounts ADD COLUMN user_id INTEGER');
+  }
+  const sigCols = db.prepare('PRAGMA table_info(signatures)').all().map(c => c.name);
+  if (!sigCols.includes('user_id')) {
+    db.exec('ALTER TABLE signatures ADD COLUMN user_id INTEGER');
+  }
+  const userCols = db.prepare('PRAGMA table_info(app_users)').all().map(c => c.name);
+  if (!userCols.includes('avatar')) {
+    db.exec('ALTER TABLE app_users ADD COLUMN avatar TEXT');
+  }
 
   dropCorruptBodies(db);
 }

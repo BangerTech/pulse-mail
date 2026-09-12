@@ -16,6 +16,7 @@ import {
 } from '../mime.js';
 import { markPendingDelete, clearPendingDelete, isPending } from '../pending.js';
 import { reconcileFolder } from '../sync.js';
+import { userAccountIds, requireOwnedAccount } from '../auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UPLOADS_DIR = path.join(__dirname, '../../uploads/signatures');
@@ -42,8 +43,14 @@ export default function mailRouter(db, broadcast = () => {}) {
     const { q, accountId, folder, from, hasAttachments, since, before } = req.query;
 
     try {
+      const mine = userAccountIds(db, req.user.id);
+      const wanted = accountId ? Number(accountId) : undefined;
+      if (wanted && !mine.includes(wanted)) {
+        return res.json([]);
+      }
       const results = cache.searchCache(db, {
-        accountId: accountId ? Number(accountId) : undefined,
+        accountId: wanted,
+        accountIds: wanted ? undefined : mine,
         query: q || undefined,
         folder: folder || undefined,
         from: from || undefined,
@@ -53,7 +60,7 @@ export default function mailRouter(db, broadcast = () => {}) {
         limit: 200
       });
 
-      const accounts = db.prepare('SELECT id, name, email, color FROM accounts').all();
+      const accounts = db.prepare('SELECT id, name, email, color FROM accounts WHERE user_id = ?').all(req.user.id);
       const byId = new Map(accounts.map(a => [a.id, a]));
 
       res.json(results.map(r => ({ ...r, account: byId.get(r.accountId) || null })));
@@ -68,7 +75,8 @@ export default function mailRouter(db, broadcast = () => {}) {
     const skip = Number(req.query.offset) || 0;
 
     try {
-      const window = cache.readUnifiedInbox(db, { limit: skip + take + THREAD_LOOKBACK, offset: 0 })
+      const mine = userAccountIds(db, req.user.id);
+      const window = cache.readUnifiedInbox(db, { limit: skip + take + THREAD_LOOKBACK, offset: 0, accountIds: mine })
         .filter(m => !isPending(m.accountId, m.folder || 'INBOX', m.uid));
       const messages = window.slice(skip, skip + take);
 
@@ -87,15 +95,14 @@ export default function mailRouter(db, broadcast = () => {}) {
       res.json({
         messages,
         threads: threadsForPage(window, messages),
-        total: cache.countUnifiedInbox(db),
+        total: cache.countUnifiedInbox(db, mine),
         offset: skip,
         limit: take,
         source: 'cache'
       });
 
-      const accounts = db.prepare('SELECT id FROM accounts').all();
-      for (const a of accounts) {
-        refreshFolder(a.id, 'INBOX', 50, 0).catch(() => {});
+      for (const id of mine) {
+        refreshFolder(id, 'INBOX', 50, 0).catch(() => {});
       }
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -104,7 +111,7 @@ export default function mailRouter(db, broadcast = () => {}) {
 
   router.get('/unified/unread', (req, res) => {
     try {
-      const accounts = db.prepare('SELECT id FROM accounts').all();
+      const accounts = db.prepare('SELECT id FROM accounts WHERE user_id = ?').all(req.user.id);
       let inbox = 0;
       for (const account of accounts) {
         const counts = cache.unreadCounts(db, account.id);
@@ -115,6 +122,8 @@ export default function mailRouter(db, broadcast = () => {}) {
       res.status(500).json({ error: err.message });
     }
   });
+
+  router.use('/:accountId', requireOwnedAccount(db));
 
   router.get('/:accountId/unread-counts', (req, res) => {
     try {
