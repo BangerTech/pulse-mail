@@ -9,6 +9,9 @@ on:
       - "desktop/**"
       - ".github/workflows/windows-desktop.yml"
 
+permissions:
+  contents: write
+
 jobs:
   windows:
     runs-on: windows-latest
@@ -32,3 +35,16 @@ jobs:
           projectPath: desktop
           tauriScript: npm run tauri
           args: --bundles nsis
+          tagName: v__VERSION__
+          releaseName: Pulse Mail __VERSION__
+          releaseBody: Windows-Installer. Beim ersten Start die Server-URL eintragen, z. B. http://192.168.2.83:8080
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: false
+
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: pulse-mail-windows
+          path: desktop/src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: warn
