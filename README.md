@@ -1,69 +1,103 @@
 <p align="center">
-  <img src="frontend/public/logo.png" alt="Pulse Mail" width="380">
+  <img src="frontend/public/logo.png" alt="Pulse Mail" width="140">
 </p>
 
-# Pulse Mail
+<h1 align="center">Pulse Mail</h1>
 
-Self-hosted web mail client with an Apple Mail-style layout. IMAP/SMTP, unified inbox, signatures, and a local SQLite cache.
+<p align="center">
+  Self-hosted Webmail mit Apple-Mail-Layout.<br>
+  IMAP/SMTP, eigener Login, mehrere Postfächer, lokale SQLite-Cache.
+</p>
+
+Aktuelle Version: **1.4.13** · Doku: [pulse-mail.md](./pulse-mail.md)
+
+## Windows-App
+
+Die offizielle Desktop-App ist ein Tauri-2-Fenster um deinen Pulse-Mail-Server (WebView2). Sie speichert keine Mails extra — Login und Postfächer sind dieselben wie im Browser.
+
+1. Unter [Releases](https://github.com/BangerTech/pulse-mail/releases) die Datei `Pulse Mail_x.y.z_x64-setup.exe` laden und installieren
+2. Beim ersten Start die Server-URL eintragen, z. B. `http://192.168.2.83:8080`
+3. Mit dem Pulse-Mail-Benutzer anmelden
+
+Falls noch kein Release da ist: **Actions → Windows App** → Artifact `pulse-mail-windows` (nur mit GitHub-Login, 90 Tage).
+
+Pake nicht mehr nutzen. Die offizielle App hat einen eigenen Cache; nach Server-Updates reicht **Datei → Neu laden**.
+
+| | |
+|---|---|
+| Gespeicherte URL | `%APPDATA%\de.bangertech.pulsemail\config.json` |
+| Server ändern | Menü **Datei → Server ändern…**, Start mit `--setup`, oder `--url` / `PULSE_MAIL_URL` |
+| Neu laden | **Datei → Neu laden** |
+
+Die Hülle selbst (Icon, Badge, Hinweise) ändert sich nur mit einer neuen `.exe`. Die Mail-Oberfläche kommt vom Server nach einem Docker-Rebuild.
+
+Lokal unter Windows (Rust + Node): `cd desktop && npm install && npm run build`.
 
 ## Features
 
-- Three-pane layout (sidebar, message list, reading pane)
-- Multiple accounts with a unified inbox and collapsible mailboxes
-- Account colors, names and server settings can be edited later
-- IMAP IDLE + WebSocket for new mail
-- Rich-text signatures with resizable images
-- Send and receive attachments, inline image preview
-- Full-text search across folders and accounts
-- Dark mode and a compact mobile layout
+- Drei-Spalten-Layout, Vorschau rechts oder unten
+- Mehrere IMAP-Konten, **Alle Eingänge**, eigene App-Benutzer
+- Ungelesen im Tab, als Badge und in der Windows-Taskbar
+- Neue-Mail-Ton und Desktop-Hinweis (in der Windows-App nativ)
+- Konversationen, Suche im Cache, Signaturen, Anhänge, PDF-Vorschau
+- Dark Mode, Tastaturkürzel, Command-Palette
+- Mobile Ansicht (Drawer, Wischen, volle Leseansicht)
 
-## Quick start
+## Server starten
 
 ```bash
 git clone https://github.com/BangerTech/pulse-mail.git
 cd pulse-mail
-mkdir -p data backend/uploads/signatures
+mkdir -p data backend/uploads/signatures backend/uploads/avatars
 docker compose up -d --build
 ```
 
-Open **http://localhost:8080**
+Öffnen: **http://localhost:8080** (im LAN z. B. `http://192.168.2.83:8080`)
 
-1. Open Settings
-2. Add an IMAP/SMTP account
-3. For Gmail use an [app password](https://support.google.com/accounts/answer/185833), not your normal password
+1. Ersten Benutzer anlegen (wird Admin)
+2. Unter Einstellungen ein IMAP/SMTP-Postfach hinzufügen
+3. Gmail: [App-Passwort](https://support.google.com/accounts/answer/185833), nicht das normale Passwort
 
 | | Host | Port |
 |---|---|---|
 | IMAP | `imap.gmail.com` | `993` |
 | SMTP | `smtp.gmail.com` | `587` |
 
-## Configuration
+## Konfiguration
 
-Optional environment variables for the backend (see `docker-compose.yml`):
+Optional für das Backend (`docker-compose.yml`):
 
-- `ENCRYPTION_KEY` — used to encrypt stored IMAP/SMTP passwords. Set a long random value in production.
-- `DB_PATH` — SQLite path inside the container (default `/app/data/mail.db`)
-- `PORT` — backend port (default `3001`)
+- `ENCRYPTION_KEY` — verschlüsselt gespeicherte IMAP/SMTP-Passwörter. In Produktion einen langen Zufallswert setzen.
+- `DB_PATH` — SQLite im Container (Standard `/app/data/mail.db`)
+- `PORT` — Backend (Standard `3001`)
 
-Mail data stays on the host:
+Daten auf dem Host:
 
-- `./data/mail.db` — accounts, signatures, message cache (not committed)
-- `./backend/uploads/` — signature images (not committed)
+- `./data/mail.db` — Benutzer, Konten, Signaturen, Mail-Cache (nicht im Git)
+- `./backend/uploads/` — Signaturbilder und Avatare (nicht im Git)
 
 ```bash
 docker compose logs -f
 docker compose down
 ```
 
-## Development
+Nach Frontend- oder Backend-Änderungen:
+
+```bash
+docker compose up -d --build
+```
+
+Die Windows-App danach nur neu laden, keine neue `.exe` nötig.
+
+## Entwicklung
 
 ```bash
 cd backend && npm install && npm run dev
 cd frontend && npm install --legacy-peer-deps && npm run dev
 ```
 
-Frontend Vite proxy: `/api` and `/ws` → `localhost:3001`.
+Vite-Proxy: `/api` und `/ws` → `localhost:3001`.
 
-## Docs
+## Weitere Doku
 
-See [pulse-mail.md](./pulse-mail.md) for the database schema and API.
+Schema, API, Shortcuts und Changelog stehen in [pulse-mail.md](./pulse-mail.md).
