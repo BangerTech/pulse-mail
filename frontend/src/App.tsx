@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { useStore, msgKey, parseKey } from './store';
+import { useStore, msgKey, parseKey, totalInboxUnread } from './store';
+import { scheduleNewMailSound } from './shared/notifySound';
 import { api } from './api';
 import Sidebar from './components/Sidebar';
 import MailList from './components/MailList';
@@ -153,6 +154,7 @@ export default function App() {
   const setUnifiedUnread = useStore(s => s.setUnifiedUnread);
   const selectMailbox = useStore(s => s.selectMailbox);
   const threadingEnabled = useStore(s => s.threadingEnabled);
+  const inboxUnread = useStore(s => totalInboxUnread(s.foldersByAccount, s.unifiedUnread, s.accounts.length));
 
   const [refreshing, setRefreshing] = useState(false);
   const [mobile, setMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 860);
@@ -206,6 +208,10 @@ export default function App() {
     media.addEventListener('change', apply);
     return () => media.removeEventListener('change', apply);
   }, [theme]);
+
+  useEffect(() => {
+    document.title = inboxUnread > 0 ? `(${inboxUnread}) Pulse Mail` : 'Pulse Mail';
+  }, [inboxUnread]);
 
   useEffect(() => {
     loadAccounts();
@@ -356,6 +362,9 @@ export default function App() {
       ws.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data);
+          if (data.type === 'new_mail' && useStore.getState().notifySound) {
+            scheduleNewMailSound();
+          }
           if (data.type === 'new_mail' || data.type === 'messages_updated') {
             const state = useStore.getState();
             // A missing accountId means "affects everything" – e.g. the
@@ -369,6 +378,8 @@ export default function App() {
                 loadMessages(true);
                 loadFolders();
               }, 400);
+            } else {
+              loadFolders();
             }
           }
         } catch {}

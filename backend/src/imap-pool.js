@@ -73,16 +73,18 @@ async function connectIdle(accountId) {
 
   await client.connect();
   await client.mailboxOpen('INBOX');
+  lastExists.set(accountId, client.mailbox?.exists ?? 0);
 
   client.on('exists', (data) => {
     const next = data?.count ?? client.mailbox?.exists;
     const prev = lastExists.get(accountId);
     lastExists.set(accountId, next);
-    broadcast({ type: 'new_mail', accountId, data });
-    onNewMail(accountId).catch(() => {});
-    // The `exists` event fires for both additions and (surprisingly) some
-    // expunges. If the count went down, kick off a reconcile too.
-    if (typeof prev === 'number' && typeof next === 'number' && next < prev) {
+    // `exists` also fires on some expunges. Only treat a rising count as
+    // new mail so the UI does not ding on deletes or flag changes.
+    if (typeof prev === 'number' && typeof next === 'number' && next > prev) {
+      broadcast({ type: 'new_mail', accountId, data });
+      onNewMail(accountId).catch(() => {});
+    } else if (typeof prev === 'number' && typeof next === 'number' && next < prev) {
       scheduleReconcile(db, broadcast, accountId, 'INBOX');
     }
   });
@@ -181,14 +183,13 @@ async function pollInboxes() {
         const exists = client.mailbox?.exists ?? 0;
         const previous = lastExists.get(account.id);
         lastExists.set(account.id, exists);
-        if (previous !== undefined && exists !== previous) {
+        if (previous !== undefined && exists > previous) {
           broadcast({ type: 'new_mail', accountId: account.id });
           onNewMail(account.id).catch(() => {});
+        } else if (previous !== undefined && exists < previous) {
           // A drop in count means something was expunged elsewhere; the
           // additive `onNewMail` sync can't detect that on its own.
-          if (exists < previous) {
-            scheduleReconcile(db, broadcast, account.id, 'INBOX', 200);
-          }
+          scheduleReconcile(db, broadcast, account.id, 'INBOX', 200);
         }
       });
     } catch {}

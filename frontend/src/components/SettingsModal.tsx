@@ -103,19 +103,24 @@ export default function SettingsModal() {
 
 function AppearanceTab() {
   const {
-    composeFont, theme, previewPosition, density, threadingEnabled
+    composeFont, theme, previewPosition, density, threadingEnabled,
+    notifySound, loadRemoteImages
   } = useStore(useShallow(s => ({
     composeFont: s.composeFont,
     theme: s.theme,
     previewPosition: s.previewPosition,
     density: s.density,
     threadingEnabled: s.threadingEnabled,
+    notifySound: s.notifySound,
+    loadRemoteImages: s.loadRemoteImages,
   })));
   const setComposeFont = useStore(s => s.setComposeFont);
   const setTheme = useStore(s => s.setTheme);
   const setPreviewPosition = useStore(s => s.setPreviewPosition);
   const setDensity = useStore(s => s.setDensity);
   const setThreadingEnabled = useStore(s => s.setThreadingEnabled);
+  const setNotifySound = useStore(s => s.setNotifySound);
+  const setLoadRemoteImages = useStore(s => s.setLoadRemoteImages);
 
   return (
     <div className="settings-section">
@@ -156,6 +161,38 @@ function AppearanceTab() {
         </div>
         <p className="appearance-hint">
           Antworten zum selben Thema werden in einer Zeile gebündelt. Mails desselben Absenders mit anderem Betreff bleiben getrennt.
+        </p>
+        <div className="appearance-row">
+          <label>Externe Bilder</label>
+          <select
+            value={loadRemoteImages ? 'on' : 'off'}
+            onChange={e => setLoadRemoteImages(e.target.value === 'on')}
+            className="appearance-select"
+          >
+            <option value="on">Laden</option>
+            <option value="off">Blockieren</option>
+          </select>
+        </div>
+        <p className="appearance-hint">
+          Bilder in HTML-Mails. Beim Blockieren kannst du sie pro Mail oder Absender nachladen.
+        </p>
+      </div>
+
+      <div className="appearance-group">
+        <h3 className="appearance-title">Benachrichtigungen</h3>
+        <div className="appearance-row">
+          <label>Ton bei neuer Mail</label>
+          <select
+            value={notifySound ? 'on' : 'off'}
+            onChange={e => setNotifySound(e.target.value === 'on')}
+            className="appearance-select"
+          >
+            <option value="on">An</option>
+            <option value="off">Aus</option>
+          </select>
+        </div>
+        <p className="appearance-hint">
+          Kurzer Hinweis-Ton, wenn eine neue Nachricht im Posteingang ankommt. Ungelesene Mails erscheinen zusätzlich als Zahl im Browser-Tab.
         </p>
       </div>
 

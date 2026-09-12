@@ -139,6 +139,8 @@ interface MailStore {
   previewPosition: PreviewPosition;
   density: Density;
   threadingEnabled: boolean;
+  notifySound: boolean;
+  loadRemoteImages: boolean;
   // Optimistic hide for delete/archive. Lives in Zustand (not React
   // useOptimistic) because MailList, App and the WebSocket reload all need
   // the same set, and a component-local optimistic state would desync.
@@ -186,6 +188,22 @@ interface MailStore {
   setPreviewPosition: (p: PreviewPosition) => void;
   setDensity: (d: Density) => void;
   setThreadingEnabled: (enabled: boolean) => void;
+  setNotifySound: (enabled: boolean) => void;
+  setLoadRemoteImages: (enabled: boolean) => void;
+}
+
+export function isInboxFolder(f: { path: string; specialUse?: string }) {
+  return f.specialUse === '\\Inbox' || f.path.toUpperCase() === 'INBOX';
+}
+
+export function totalInboxUnread(
+  foldersByAccount: Record<number, Folder[]>,
+  unifiedUnread: number,
+  accountCount: number
+): number {
+  if (accountCount > 1) return unifiedUnread;
+  const folders = Object.values(foldersByAccount)[0] || [];
+  return folders.find(isInboxFolder)?.unread || 0;
 }
 
 function loadSetting<T>(key: string, fallback: T): T {
@@ -276,6 +294,8 @@ export const useStore = create<MailStore>((set, get) => ({
   previewPosition: loadSetting<PreviewPosition>('previewPosition', 'right'),
   density: loadSetting<Density>('density', 'comfortable'),
   threadingEnabled: loadSetting('threadingEnabled', true),
+  notifySound: loadSetting('notifySound', true),
+  loadRemoteImages: loadSetting('loadRemoteImages', true),
   hiddenKeys: [],
   unifiedView: loadSetting('unifiedView', true),
   unifiedUnread: 0,
@@ -468,5 +488,13 @@ export const useStore = create<MailStore>((set, get) => ({
   setThreadingEnabled: (enabled) => {
     persist('threadingEnabled', enabled);
     set({ threadingEnabled: enabled });
+  },
+  setNotifySound: (enabled) => {
+    persist('notifySound', enabled);
+    set({ notifySound: enabled });
+  },
+  setLoadRemoteImages: (enabled) => {
+    persist('loadRemoteImages', enabled);
+    set({ loadRemoteImages: enabled });
   },
 }));

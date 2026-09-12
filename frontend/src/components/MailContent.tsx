@@ -88,6 +88,7 @@ function MailContentInner({
   const selectedFolder = useStore(s => s.selectedFolder);
   const composeFont = useStore(s => s.composeFont);
   const theme = useStore(s => s.theme);
+  const loadRemoteImages = useStore(s => s.loadRemoteImages);
   const openCompose = useStore(s => s.openCompose);
   const accounts = useStore(s => s.accounts);
 
@@ -110,8 +111,8 @@ function MailContentInner({
   }, [selectedMessage, messageBody]);
 
   // Per-mail override: user clicked "Laden" once. Reset when the selected
-  // message changes so opening a new mail always starts in the blocked state
-  // unless the sender is on the allowlist.
+  // message changes. Blocking only applies when the setting is off and the
+  // sender is not on the allowlist.
   const [loadRemoteOnce, setLoadRemoteOnce] = useState(false);
   const [previewPdf, setPreviewPdf] = useState<string | null>(null);
   const messageKey = selectedMessage
@@ -131,7 +132,7 @@ function MailContentInner({
     () => isSenderAllowed(selectedMessage?.from?.address),
     [selectedMessage?.from?.address, allowlistTick]
   );
-  const blockRemote = !loadRemoteOnce && !senderAllowed;
+  const blockRemote = !loadRemoteImages && !loadRemoteOnce && !senderAllowed;
 
   // Inline images arrive as cid: references which the iframe cannot resolve
   // on its own – the shared renderer swaps them for the attachment endpoint

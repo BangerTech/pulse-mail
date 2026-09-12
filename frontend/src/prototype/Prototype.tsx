@@ -14,6 +14,7 @@ import { archiveMessage, setSeen } from './data/actions';
 import { loadComposeTarget } from './data/compose';
 import { api } from '../api';
 import { useStore, type ComposeMode } from '../store';
+import { scheduleNewMailSound } from '../shared/notifySound';
 import ComposeModal from '../components/ComposeModal';
 import { Icon } from '../components/Icon';
 
@@ -105,6 +106,9 @@ export function Prototype() {
       ws.onmessage = (ev) => {
         try {
           const msg = JSON.parse(ev.data);
+          if (msg.type === 'new_mail' && useStore.getState().notifySound) {
+            scheduleNewMailSound();
+          }
           if (msg.type === 'messages_updated' || msg.type === 'new_mail') loadLive(true);
         } catch {}
       };

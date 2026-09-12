@@ -138,6 +138,7 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Account-Farbe in den Einstellungen wählbar (Punkte in der Sidebar und Liste)
 - Einstellungen und Theme am unteren Rand der Sidebar
 - Ungelesen-Zähler als Badge an Ordnern, Accounts und Alle Eingänge
+- Ungelesen-Zahl im Browser-Tab: `(3) Pulse Mail` (Gmail-Muster), aus Inbox-Zählern (`unifiedUnread` bei mehreren Accounts)
 - Account-Farbe in den Einstellungen wählbar (Punkte in der Sidebar und Liste)
 - Command-Palette mit Cmd/Ctrl+K
 - Dark Mode (System / Hell / Dunkel)
@@ -150,6 +151,7 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Mehrfachauswahl: Cmd/Ctrl-Klick und Shift-Klick, Schnellaktionen beim Hover
 - Nachladen beim Scrollen
 - Entwürfe: Button oder automatisch beim Schließen des Editors, wenn Inhalt vorhanden ist
+- Anhänge im Composer: Büroklammer oder Dateien auf das Fenster ziehen. Der Editor schluckt Drops nicht mehr; der Dateidialog schließt den Composer nicht (Overlay-Klick nach dem Picker wird ignoriert). File-Inputs sind visuell versteckt statt `hidden`, damit Chromium/Linux `change` auslöst.
 - **PDF-Vorschau:** Klick auf einen PDF-Anhang öffnet ihn in der App (`frontend/src/shared/PdfPreview.tsx`), nicht in einem neuen Tab. Download über das Icon in der Vorschau-Leiste.
 
 ### Suche
@@ -167,6 +169,8 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Mail-Header mit Avatar und Absenderkarte. Antworten, Allen antworten und Weiterleiten als Icons über dem Betreff (plus dieselben Aktionen in der globalen Toolbar).
 - Kompakte oder komfortable Listenansicht
 - Schriftart und -größe für das Verfassen
+- Externe Bilder laden oder blockieren (Einstellung `loadRemoteImages`, Standard: laden)
+- Ton bei neuer Mail ein/aus (Einstellung `notifySound`, Standard: an)
 - Logo und Favicon unter `frontend/public/`
 
 ### MIME / Anzeige
@@ -180,7 +184,7 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - **Dark Mode:** Die Mail bleibt auf dunklem Grund. Ein nachgelagertes Stylesheet setzt Schrift auf Hell (`#f5f5f7 !important`), damit Outlook-`color:#000` nicht gewinnt. Helle Tabellenhintergründe werden transparent, Links bleiben blau.
 - **Höhenmessung immer über `body.scrollHeight`, nie über `documentElement.scrollHeight`.** Letzteres ist mindestens so hoch wie das iframe-Viewport; damit fließt die gesetzte Höhe in die nächste Messung zurück und die Mail wächst endlos. Dazu gehören: `html, body { height: auto !important }` im injizierten CSS, ein Epsilon von 2px vor dem Schreiben, ein Flag gegen selbst ausgelöste ResizeObserver-Callbacks und ein Pass-Limit.
 - Plain-Text-Mails werden über `frontend/src/shared/plain-text.ts` gerendert: `format=flowed` wird nach RFC 3676 entpackt, URLs/E-Mails verlinkt, `>`-Zitatebenen als geschachtelte `<blockquote>` gestylt
-- **Externe Bilder standardmäßig blockiert.** `buildMailDocument({ blockRemote: true })` nimmt `src`/`srcset`/`url()` für http(s) heraus (Original in `data-blocked-src`), `cid:` und `data:` bleiben. Beide Reader zeigen `RemoteImagesBar` („Laden“ einmal, oder Absenderdomain dauerhaft erlauben). Allowlist in `localStorage` unter `pulse:imageAllowlist:v1`, geteilt zwischen App und Prototyp.
+- **Externe Bilder standardmäßig geladen.** Einstellung `loadRemoteImages` (localStorage, Default `true`). Wenn aus, gilt das bisherige Privacy-Verhalten: `buildMailDocument({ blockRemote: true })` nimmt `src`/`srcset`/`url()` für http(s) heraus (Original in `data-blocked-src`), `cid:` und `data:` bleiben. Beide Reader zeigen dann `RemoteImagesBar` („Laden“ einmal, oder Absenderdomain dauerhaft erlauben). Allowlist in `localStorage` unter `pulse:imageAllowlist:v1`, geteilt zwischen App und Prototyp.
 
 ### Barrierefreiheit
 - `useFocusTrap` (`frontend/src/shared/useFocusTrap.ts`) auf Compose, Einstellungen, Befehlspalette, Vollbild-Reader, Prototyp-Reader und Triage. Tab zyklisch, Escape schließt, Fokus kehrt zurück.
@@ -197,8 +201,10 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 
 ### Automatischer Abruf
 - IMAP IDLE auf dem Posteingang, neue Mails kommen per WebSocket in die UI
+- `new_mail` nur, wenn die INBOX-Anzahl **steigt** (IDLE-`exists` und `pollInboxes`). Sinkender Zähler löst Reconcile/`messages_updated` aus, keinen Ton
 - Zusätzliche Prüfung alle 60 Sekunden, falls IDLE eine Änderung verpasst
 - Verbindung wird nach Verbindungsabbruch automatisch neu aufgebaut
+- **Hinweis-Ton** über Web Audio (`frontend/src/shared/notifySound.ts`) bei `new_mail`, debounced 800 ms. AudioContext nach erstem Klick/Tastendruck. Abschaltbar unter Einstellungen → Darstellung
 
 ### Zwei-Wege-Abgleich (`backend/src/sync.js`)
 - `reconcileFolder` fetcht `1:*` mit `{ uid, flags }` und gleicht damit sowohl Löschungen als auch Flag-Änderungen ab, die in anderen Clients (z. B. Apple Mail) passiert sind
@@ -277,7 +283,8 @@ frontend/src/shared/               Von App und Prototyp gemeinsam genutzt
 ├── useMailFrame.ts                iframe-Höhe (body.scrollHeight)
 ├── plain-text.ts                  format=flowed, Zitate, Links
 ├── imageAllowlist.ts              Absenderdomain in localStorage
-├── RemoteImagesBar.tsx            „N externe Bilder blockiert"
+├── notifySound.ts                 Web-Audio-Ding bei neuer Mail
+├── RemoteImagesBar.tsx            „N externe Bilder blockiert" (nur wenn blockiert)
 ├── useFocusTrap.ts                Tab-Zyklus, Restore-Fokus
 ├── keyboard.ts                    Enter/Leertaste
 ├── pdf.ts                         PDF-Erkennung

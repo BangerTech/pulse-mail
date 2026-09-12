@@ -12,7 +12,7 @@ import { isSenderAllowed, allowSender } from '../../shared/imageAllowlist';
 import { useFocusTrap } from '../../shared/useFocusTrap';
 import { setSeen } from '../data/actions';
 import { Icon } from '../../components/Icon';
-import type { ComposeMode } from '../../store';
+import { useStore, type ComposeMode } from '../../store';
 import { PdfPreview } from '../../shared/PdfPreview';
 import { isPdfAttachment } from '../../shared/pdf';
 
@@ -81,11 +81,12 @@ export function Reader({ msg, cls, ents, onClose, onCompose, composeEnabled }: P
     window.addEventListener('pulse:allowlist-changed', bump);
     return () => window.removeEventListener('pulse:allowlist-changed', bump);
   }, []);
+  const loadRemoteImages = useStore(s => s.loadRemoteImages);
   const senderAllowed = useMemo(
     () => isSenderAllowed(msg.from.address),
     [msg.from.address, allowlistTick]
   );
-  const blockRemote = !loadRemoteOnce && !senderAllowed;
+  const blockRemote = !loadRemoteImages && !loadRemoteOnce && !senderAllowed;
 
   const readableHtml = useMemo(() => renderReadable(effectiveMsg), [effectiveMsg]);
   const doc = useMemo(

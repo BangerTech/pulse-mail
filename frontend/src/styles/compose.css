@@ -18,6 +18,23 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+}
+
+.compose-modal.is-drop-target {
+  box-shadow: 0 30px 80px rgba(20, 24, 40, 0.28), inset 0 0 0 2px var(--accent-color);
+}
+
+.compose-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .compose-titlebar {
@@ -227,6 +244,11 @@
   border-top: 0.5px solid var(--border-color);
   background: var(--surface-secondary);
   flex-shrink: 0;
+}
+
+.compose-att-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
 }
 
 .compose-att-chip {

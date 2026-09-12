@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore, MailDetail, ComposeMode, Address } from '../store';
 import { useFocusTrap } from '../shared/useFocusTrap';
@@ -134,6 +134,24 @@ export default function ComposeModal() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const pickingRef = useRef(false);
+  const addFilesRef = useRef<(files: File[]) => void>(() => {});
+  const [dragOver, setDragOver] = useState(false);
+
+  const addFiles = useCallback((incoming: File[]) => {
+    if (!incoming.length) return;
+    setAttachments(prev => {
+      const next = [...prev];
+      for (const file of incoming) {
+        const exists = next.some(f =>
+          f.name === file.name && f.size === file.size && f.lastModified === file.lastModified
+        );
+        if (!exists) next.push(file);
+      }
+      return next;
+    });
+  }, []);
+  addFilesRef.current = addFiles;
 
   const editor = useEditor({
     extensions: [
@@ -148,9 +166,40 @@ export default function ComposeModal() {
     ],
     content: initial.body,
     editorProps: {
-      attributes: { class: 'compose-editor-content' }
+      attributes: { class: 'compose-editor-content' },
+      // ProseMirror otherwise swallows file drops and never adds attachments.
+      handleDrop: (_view, event) => {
+        const files = event.dataTransfer?.files;
+        if (!files?.length) return false;
+        event.preventDefault();
+        addFilesRef.current(Array.from(files));
+        return true;
+      },
+      handlePaste: (_view, event) => {
+        const files = event.clipboardData?.files;
+        const hasText = !!(
+          event.clipboardData?.getData('text/plain') ||
+          event.clipboardData?.getData('text/html')
+        );
+        if (!files?.length || hasText) return false;
+        addFilesRef.current(Array.from(files));
+        return true;
+      }
     }
   });
+
+  function openFilePicker() {
+    pickingRef.current = true;
+    fileInputRef.current?.click();
+  }
+
+  useEffect(() => {
+    const resetPick = () => {
+      window.setTimeout(() => { pickingRef.current = false; }, 400);
+    };
+    window.addEventListener('focus', resetPick);
+    return () => window.removeEventListener('focus', resetPick);
+  }, []);
 
   function buildFormData() {
     const formData = new FormData();
@@ -213,9 +262,7 @@ export default function ComposeModal() {
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    if (e.target.files) {
-      setAttachments(prev => [...prev, ...Array.from(e.target.files!)]);
-    }
+    if (e.target.files?.length) addFiles(Array.from(e.target.files));
     e.target.value = '';
   }
 
@@ -256,17 +303,47 @@ export default function ComposeModal() {
     );
   }
 
+  const closeRef = useRef(handleClose);
+  closeRef.current = handleClose;
+  const escapeCompose = useCallback(() => { closeRef.current(); }, []);
   const trapRef = useFocusTrap<HTMLDivElement>({
     active: true,
-    initialFocusSelector: 'input[type="text"], input:not([type]), textarea',
-    onEscape: handleClose,
+    initialFocusSelector: 'input[type="text"], input:not([type="file"]), textarea',
+    onEscape: escapeCompose,
   });
 
+  function onOverlayMouseDown(e: React.MouseEvent) {
+    if (e.target !== e.currentTarget) return;
+    if (pickingRef.current) return;
+    handleClose();
+  }
+
+  function onModalDragOver(e: React.DragEvent) {
+    if (![...e.dataTransfer.types].includes('Files')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    setDragOver(true);
+  }
+
+  function onModalDragLeave(e: React.DragEvent) {
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setDragOver(false);
+  }
+
+  function onModalDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files.length) addFiles(Array.from(e.dataTransfer.files));
+  }
+
   return (
-    <div className="compose-overlay" onMouseDown={handleClose} role="presentation">
+    <div className="compose-overlay" onMouseDown={onOverlayMouseDown} role="presentation">
       <div
-        className="compose-modal"
+        className={`compose-modal${dragOver ? ' is-drop-target' : ''}`}
         onMouseDown={(e) => e.stopPropagation()}
+        onDragOver={onModalDragOver}
+        onDragLeave={onModalDragLeave}
+        onDrop={onModalDrop}
         role="dialog"
         aria-modal="true"
         aria-label={TITLES[composeMode]}
@@ -274,7 +351,7 @@ export default function ComposeModal() {
       >
         <div className="compose-titlebar">
           <span>{TITLES[composeMode]}</span>
-          <button className="compose-close" onClick={handleClose} title="Schließen" aria-label="Schließen">
+          <button type="button" className="compose-close" onClick={handleClose} title="Schließen" aria-label="Schließen">
             <Icon name="close" size={13} />
           </button>
         </div>
@@ -415,10 +492,17 @@ export default function ComposeModal() {
 
           <span className="toolbar-divider" />
 
-          <button onClick={() => fileInputRef.current?.click()} title="Anhang hinzufügen">
+          <button type="button" onClick={openFilePicker} title="Anhang hinzufügen">
             <Icon name="attachment" size={15} />
           </button>
-          <button onClick={() => imageInputRef.current?.click()} title="Bild einfügen">
+          <button
+            type="button"
+            onClick={() => {
+              pickingRef.current = true;
+              imageInputRef.current?.click();
+            }}
+            title="Bild einfügen"
+          >
             <Icon name="envelope" size={15} />
           </button>
 
@@ -442,13 +526,15 @@ export default function ComposeModal() {
           <EditorContent editor={editor} />
         </div>
 
-        {attachments.length > 0 && (
+        {(attachments.length > 0 || dragOver) && (
           <div className="compose-attachments">
-            {attachments.map((file, i) => (
-              <span key={`${file.name}-${i}`} className="compose-att-chip">
+            {attachments.length === 0 ? (
+              <span className="compose-att-hint">Dateien hier ablegen</span>
+            ) : attachments.map((file, i) => (
+              <span key={`${file.name}-${file.size}-${i}`} className="compose-att-chip">
                 <Icon name="attachment" size={12} />
                 {file.name}
-                <button onClick={() => setAttachments(a => a.filter((_, j) => j !== i))}>
+                <button type="button" onClick={() => setAttachments(a => a.filter((_, j) => j !== i))} aria-label={`${file.name} entfernen`}>
                   <Icon name="close" size={11} />
                 </button>
               </span>
@@ -459,16 +545,30 @@ export default function ComposeModal() {
         {error && <div className="compose-error">{error}</div>}
 
         <div className="compose-footer">
-          <button className="draft-btn" onClick={handleSaveDraft} disabled={savingDraft}>
+          <button type="button" className="draft-btn" onClick={handleSaveDraft} disabled={savingDraft}>
             {savingDraft ? 'Speichern...' : 'Als Entwurf speichern'}
           </button>
-          <button className="send-btn" onClick={handleSend} disabled={sending || !to.trim()}>
+          <button type="button" className="send-btn" onClick={handleSend} disabled={sending || !to.trim()}>
             {sending ? 'Senden...' : 'Senden'}
           </button>
         </div>
 
-        <input ref={fileInputRef} type="file" multiple hidden onChange={handleFileChange} />
-        <input ref={imageInputRef} type="file" accept="image/*" hidden onChange={handleImageFile} />
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="compose-file-input"
+          tabIndex={-1}
+          onChange={handleFileChange}
+        />
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          className="compose-file-input"
+          tabIndex={-1}
+          onChange={handleImageFile}
+        />
       </div>
     </div>
   );
