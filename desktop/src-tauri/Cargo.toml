@@ -1,6 +1,6 @@
 [package]
 name = "pulse-mail-desktop"
-version = "1.4.0"
+version = "1.4.1"
 description = "Pulse Mail Windows desktop shell"
 authors = ["BangerTech"]
 edition = "2021"
