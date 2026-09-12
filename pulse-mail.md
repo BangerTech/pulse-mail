@@ -139,6 +139,8 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Einstellungen und Theme am unteren Rand der Sidebar
 - Ungelesen-Zähler als Badge an Ordnern, Accounts und Alle Eingänge
 - Ungelesen-Zahl im Browser-Tab: `(3) Pulse Mail` (Gmail-Muster), aus Inbox-Zählern (`unifiedUnread` bei mehreren Accounts)
+- Ungelesen-Zahl zusätzlich über `navigator.setAppBadge`, Pake `set_dock_badge` und Windows `setOverlayIcon` (`frontend/src/shared/appBadge.ts`). Die sichtbare Taskleisten-Zahl kommt unter Windows vor allem von einer Desktop-Benachrichtigung (Windows 11: Badge am Icon) plus Taskbar-Blinken. Overlay-Icon braucht in Pake `core:window:allow-set-overlay-icon`.
+- Pake muss laufen (minimieren, nicht schließen). Ist das Fenster zu, gibt es keinen Ton und keine Taskbar-Zahl.
 - Account-Farbe in den Einstellungen wählbar (Punkte in der Sidebar und Liste)
 - Command-Palette mit Cmd/Ctrl+K
 - Dark Mode (System / Hell / Dunkel)
@@ -170,6 +172,7 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Kompakte oder komfortable Listenansicht
 - Schriftart und -größe für das Verfassen
 - Externe Bilder laden oder blockieren (Einstellung `loadRemoteImages`, Standard: laden)
+- Desktop-Hinweis ein/aus (Einstellung `notifyDesktop`, Standard: an) — Windows-Toast über die Notification API
 - Ton bei neuer Mail ein/aus (Einstellung `notifySound`, Standard: an)
 - Logo und Favicon unter `frontend/public/`
 
@@ -201,10 +204,14 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 
 ### Automatischer Abruf
 - IMAP IDLE auf dem Posteingang, neue Mails kommen per WebSocket in die UI
+- `new_mail` erst nach dem Cache-Ingest, inkl. `preview` (Absender, Betreff, Anzahl)
 - `new_mail` nur, wenn die INBOX-Anzahl **steigt** (IDLE-`exists` und `pollInboxes`). Sinkender Zähler löst Reconcile/`messages_updated` aus, keinen Ton
 - Zusätzliche Prüfung alle 60 Sekunden, falls IDLE eine Änderung verpasst
-- Verbindung wird nach Verbindungsabbruch automatisch neu aufgebaut
-- **Hinweis-Ton** über Web Audio (`frontend/src/shared/notifySound.ts`) bei `new_mail`, debounced 800 ms. AudioContext nach erstem Klick/Tastendruck. Abschaltbar unter Einstellungen → Darstellung
+- WebSocket: nginx-Timeout 7 Tage, Watchdog alle 15 s, Reconnect beim Wiederanzeigen des Fensters
+- Steigt der Inbox-Ungelesen-Zähler nach dem Start (4 s Schonfrist), gilt das ebenfalls als neue Mail (Fallback, falls `new_mail` ausbleibt)
+- **Desktop-Hinweis** (`frontend/src/shared/notifyMail.ts`): Windows-Toast im Hintergrund, Taskbar-Flash, sonst Ding. Abschaltbar unter Einstellungen → Darstellung
+- **Ton:** Ein HTMLAudio-Player wird beim ersten Klick/Tastendruck entsperrt und bleibt wiederverwendbar. Web-Audio-Oscillatoren werden nicht mehr im `suspended`-Zustand gestartet (sonst hörte man den Ding erst beim nächsten Klick auf die Mail).
+- Berechtigung nur über den Button **Zulassen** (Banner unter der Toolbar oder Einstellungen). Stilles `requestPermission` beim ersten Klick wird von Browser/Pake oft verschluckt, deshalb gibt es keine Systemfrage ohne sichtbaren Button.
 
 ### Zwei-Wege-Abgleich (`backend/src/sync.js`)
 - `reconcileFolder` fetcht `1:*` mit `{ uid, flags }` und gleicht damit sowohl Löschungen als auch Flag-Änderungen ab, die in anderen Clients (z. B. Apple Mail) passiert sind
@@ -283,7 +290,10 @@ frontend/src/shared/               Von App und Prototyp gemeinsam genutzt
 ├── useMailFrame.ts                iframe-Höhe (body.scrollHeight)
 ├── plain-text.ts                  format=flowed, Zitate, Links
 ├── imageAllowlist.ts              Absenderdomain in localStorage
-├── notifySound.ts                 Web-Audio-Ding bei neuer Mail
+├── notifySound.ts                 Entsperrter HTMLAudio-Ding, kein Oscillator im Suspend
+├── notifyMail.ts                  Windows-Toast, Sound, Taskbar-Flash, Permission nur per Klick
+├── NotifyPermissionBar.tsx        Banner „Benachrichtigungen zulassen“
+├── appBadge.ts                    setAppBadge, Overlay-Icon, requestUserAttention, Favicon-Zahl
 ├── RemoteImagesBar.tsx            „N externe Bilder blockiert" (nur wenn blockiert)
 ├── useFocusTrap.ts                Tab-Zyklus, Restore-Fokus
 ├── keyboard.ts                    Enter/Leertaste

@@ -161,8 +161,15 @@ async function pullRecent(db, broadcast = () => {}, { force = false } = {}) {
       added += delta;
       if (delta > 0) {
         // Emit per-account so the single-account view in App.tsx picks it up.
+        const newest = db.prepare(`
+          SELECT subject, from_name, from_address
+          FROM mail_cache
+          WHERE account_id = ? AND folder = 'INBOX'
+          ORDER BY datetime(date) DESC, uid DESC
+          LIMIT 1
+        `).get(account.id);
         broadcast({ type: 'messages_updated', accountId: account.id, folder: 'INBOX' });
-        summary.perAccount.push({ accountId: account.id, added: delta });
+        summary.perAccount.push({ accountId: account.id, added: delta, newest });
       }
     }
     summary.added = added;

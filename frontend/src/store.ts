@@ -140,6 +140,7 @@ interface MailStore {
   density: Density;
   threadingEnabled: boolean;
   notifySound: boolean;
+  notifyDesktop: boolean;
   loadRemoteImages: boolean;
   // Optimistic hide for delete/archive. Lives in Zustand (not React
   // useOptimistic) because MailList, App and the WebSocket reload all need
@@ -189,6 +190,7 @@ interface MailStore {
   setDensity: (d: Density) => void;
   setThreadingEnabled: (enabled: boolean) => void;
   setNotifySound: (enabled: boolean) => void;
+  setNotifyDesktop: (enabled: boolean) => void;
   setLoadRemoteImages: (enabled: boolean) => void;
 }
 
@@ -295,6 +297,7 @@ export const useStore = create<MailStore>((set, get) => ({
   density: loadSetting<Density>('density', 'comfortable'),
   threadingEnabled: loadSetting('threadingEnabled', true),
   notifySound: loadSetting('notifySound', true),
+  notifyDesktop: loadSetting('notifyDesktop', true),
   loadRemoteImages: loadSetting('loadRemoteImages', true),
   hiddenKeys: [],
   unifiedView: loadSetting('unifiedView', true),
@@ -492,6 +495,10 @@ export const useStore = create<MailStore>((set, get) => ({
   setNotifySound: (enabled) => {
     persist('notifySound', enabled);
     set({ notifySound: enabled });
+  },
+  setNotifyDesktop: (enabled) => {
+    persist('notifyDesktop', enabled);
+    set({ notifyDesktop: enabled });
   },
   setLoadRemoteImages: (enabled) => {
     persist('loadRemoteImages', enabled);

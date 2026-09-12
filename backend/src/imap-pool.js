@@ -37,6 +37,30 @@ function makeClient(account) {
   return client;
 }
 
+function emitNewMail(accountId) {
+  Promise.resolve(onNewMail(accountId))
+    .then((summary) => {
+      const row = summary?.perAccount?.find((entry) => entry.accountId === accountId)
+        || summary?.perAccount?.find((entry) => entry.added > 0);
+      const newest = row?.newest;
+      broadcast({
+        type: 'new_mail',
+        accountId,
+        preview: newest
+          ? {
+              subject: newest.subject || '',
+              fromName: newest.from_name || '',
+              fromAddress: newest.from_address || '',
+              count: row?.added || 1
+            }
+          : { count: 1 }
+      });
+    })
+    .catch(() => {
+      broadcast({ type: 'new_mail', accountId, preview: { count: 1 } });
+    });
+}
+
 function remember(map, accountId, connectFn) {
   const id = Number(accountId);
   let entry = map.get(id);
@@ -82,8 +106,7 @@ async function connectIdle(accountId) {
     // `exists` also fires on some expunges. Only treat a rising count as
     // new mail so the UI does not ding on deletes or flag changes.
     if (typeof prev === 'number' && typeof next === 'number' && next > prev) {
-      broadcast({ type: 'new_mail', accountId, data });
-      onNewMail(accountId).catch(() => {});
+      emitNewMail(accountId);
     } else if (typeof prev === 'number' && typeof next === 'number' && next < prev) {
       scheduleReconcile(db, broadcast, accountId, 'INBOX');
     }
@@ -184,8 +207,7 @@ async function pollInboxes() {
         const previous = lastExists.get(account.id);
         lastExists.set(account.id, exists);
         if (previous !== undefined && exists > previous) {
-          broadcast({ type: 'new_mail', accountId: account.id });
-          onNewMail(account.id).catch(() => {});
+          emitNewMail(account.id);
         } else if (previous !== undefined && exists < previous) {
           // A drop in count means something was expunged elsewhere; the
           // additive `onNewMail` sync can't detect that on its own.

@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store';
 import { useFocusTrap } from '../shared/useFocusTrap';
+import { getNotifyPermission, requestNotifyPermission } from '../shared/notifyMail';
 import { api } from '../api';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -104,7 +105,7 @@ export default function SettingsModal() {
 function AppearanceTab() {
   const {
     composeFont, theme, previewPosition, density, threadingEnabled,
-    notifySound, loadRemoteImages
+    notifySound, notifyDesktop, loadRemoteImages
   } = useStore(useShallow(s => ({
     composeFont: s.composeFont,
     theme: s.theme,
@@ -112,6 +113,7 @@ function AppearanceTab() {
     density: s.density,
     threadingEnabled: s.threadingEnabled,
     notifySound: s.notifySound,
+    notifyDesktop: s.notifyDesktop,
     loadRemoteImages: s.loadRemoteImages,
   })));
   const setComposeFont = useStore(s => s.setComposeFont);
@@ -120,7 +122,9 @@ function AppearanceTab() {
   const setDensity = useStore(s => s.setDensity);
   const setThreadingEnabled = useStore(s => s.setThreadingEnabled);
   const setNotifySound = useStore(s => s.setNotifySound);
+  const setNotifyDesktop = useStore(s => s.setNotifyDesktop);
   const setLoadRemoteImages = useStore(s => s.setLoadRemoteImages);
+  const [notifyPermission, setNotifyPermission] = useState(getNotifyPermission);
 
   return (
     <div className="settings-section">
@@ -181,6 +185,38 @@ function AppearanceTab() {
       <div className="appearance-group">
         <h3 className="appearance-title">Benachrichtigungen</h3>
         <div className="appearance-row">
+          <label>Desktop-Hinweis</label>
+          <select
+            value={notifyDesktop ? 'on' : 'off'}
+            onChange={e => setNotifyDesktop(e.target.value === 'on')}
+            className="appearance-select"
+          >
+            <option value="on">An</option>
+            <option value="off">Aus</option>
+          </select>
+        </div>
+        {notifyDesktop && notifyPermission !== 'granted' && (
+          <div className="appearance-row">
+            <label>Berechtigung</label>
+            <button
+              type="button"
+              className="remote-images-bar-btn"
+              onClick={async () => setNotifyPermission(await requestNotifyPermission())}
+            >
+              Zulassen
+            </button>
+          </div>
+        )}
+        <p className="appearance-hint">
+          {notifyPermission === 'granted'
+            ? 'Benachrichtigungen sind erlaubt.'
+            : notifyPermission === 'denied'
+              ? 'Blockiert. In den Browser- oder Windows-Einstellungen für diese Seite erlauben.'
+              : notifyPermission === 'unavailable'
+                ? 'Diese Hülle bietet keine System-Hinweise. Ton und Tab-Zahl funktionieren trotzdem.'
+                : 'Zulassen klicken — erst dann fragt Windows bzw. der Browser nach.'}
+        </p>
+        <div className="appearance-row">
           <label>Ton bei neuer Mail</label>
           <select
             value={notifySound ? 'on' : 'off'}
@@ -192,7 +228,7 @@ function AppearanceTab() {
           </select>
         </div>
         <p className="appearance-hint">
-          Kurzer Hinweis-Ton, wenn eine neue Nachricht im Posteingang ankommt. Ungelesene Mails erscheinen zusätzlich als Zahl im Browser-Tab.
+          Kurzer Hinweis-Ton, wenn eine neue Nachricht im Posteingang ankommt.
         </p>
       </div>
 

@@ -53,6 +53,29 @@
 
 .remote-images-bar-btn:hover { filter: brightness(1.05); }
 
+.notify-permission-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px;
+  background: color-mix(in oklch, var(--accent-color, #0A84FF) 10%, var(--bg-content, #fff));
+  border-bottom: 0.5px solid var(--border-color, rgba(0, 0, 0, 0.08));
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.notify-permission-bar-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.notify-permission-bar-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 /* Global focus-visible ring. Uses --focus-ring if the app defines one,
    otherwise falls back to the accent color. Individual components can
    still override on more specific selectors. */

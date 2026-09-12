@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore, msgKey, parseKey, totalInboxUnread } from './store';
-import { scheduleNewMailSound } from './shared/notifySound';
+import { announceNewMail } from './shared/notifyMail';
+import { NotifyPermissionBar } from './shared/NotifyPermissionBar';
+import { setUnreadAppBadge } from './shared/appBadge';
 import { api } from './api';
 import Sidebar from './components/Sidebar';
 import MailList from './components/MailList';
@@ -155,6 +157,7 @@ export default function App() {
   const selectMailbox = useStore(s => s.selectMailbox);
   const threadingEnabled = useStore(s => s.threadingEnabled);
   const inboxUnread = useStore(s => totalInboxUnread(s.foldersByAccount, s.unifiedUnread, s.accounts.length));
+  const notifyDesktop = useStore(s => s.notifyDesktop);
 
   const [refreshing, setRefreshing] = useState(false);
   const [mobile, setMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 860);
@@ -209,8 +212,29 @@ export default function App() {
     return () => media.removeEventListener('change', apply);
   }, [theme]);
 
+  const unreadWatch = useRef({ primed: false, last: 0, bootAt: Date.now() });
+
   useEffect(() => {
     document.title = inboxUnread > 0 ? `(${inboxUnread}) Pulse Mail` : 'Pulse Mail';
+    setUnreadAppBadge(inboxUnread);
+
+    const watch = unreadWatch.current;
+    if (!watch.primed || Date.now() - watch.bootAt < 4000) {
+      watch.primed = true;
+      watch.last = inboxUnread;
+      return;
+    }
+    if (inboxUnread > watch.last) {
+      const state = useStore.getState();
+      if (state.notifySound || state.notifyDesktop) {
+        announceNewMail({
+          preview: { count: inboxUnread - watch.last },
+          playSound: state.notifySound,
+          desktop: state.notifyDesktop
+        });
+      }
+    }
+    watch.last = inboxUnread;
   }, [inboxUnread]);
 
   useEffect(() => {
@@ -353,17 +377,29 @@ export default function App() {
     let ws: WebSocket | null = null;
     let timer: number | undefined;
     let reloadTimer: number | undefined;
+    let watchdog: number | undefined;
     let closed = false;
 
     const connect = () => {
+      if (closed) return;
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+        return;
+      }
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
 
       ws.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data);
-          if (data.type === 'new_mail' && useStore.getState().notifySound) {
-            scheduleNewMailSound();
+          if (data.type === 'new_mail') {
+            const state = useStore.getState();
+            if (state.notifySound || state.notifyDesktop) {
+              announceNewMail({
+                preview: data.preview,
+                playSound: state.notifySound,
+                desktop: state.notifyDesktop
+              });
+            }
           }
           if (data.type === 'new_mail' || data.type === 'messages_updated') {
             const state = useStore.getState();
@@ -386,16 +422,31 @@ export default function App() {
       };
 
       ws.onclose = () => {
-        if (!closed) timer = window.setTimeout(connect, 3000);
+        if (!closed) timer = window.setTimeout(connect, 1500);
       };
     };
 
     connect();
+    watchdog = window.setInterval(() => {
+      if (closed) return;
+      if (!ws || ws.readyState === WebSocket.CLOSING || ws.readyState === WebSocket.CLOSED) {
+        connect();
+      }
+    }, 15000);
+
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!ws || ws.readyState !== WebSocket.OPEN) connect();
+      loadFolders();
+    };
+    document.addEventListener('visibilitychange', onVisible);
 
     return () => {
       closed = true;
       clearTimeout(timer);
       clearTimeout(reloadTimer);
+      clearInterval(watchdog);
+      document.removeEventListener('visibilitychange', onVisible);
       ws?.close();
     };
   }
@@ -784,6 +835,7 @@ export default function App() {
         onMenu={() => setDrawerOpen(true)}
         folderTitle={folderTitle}
       />
+      <NotifyPermissionBar enabled={notifyDesktop} />
 
       <div className="app-body">
         {mobile && drawerOpen && (
