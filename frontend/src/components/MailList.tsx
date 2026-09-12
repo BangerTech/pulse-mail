@@ -67,6 +67,9 @@ interface Row {
   accountColor?: string;
   accountEmail?: string;
   showAccount?: boolean;
+  threadId?: string;
+  nested?: boolean;
+  expanded?: boolean;
 }
 
 const SWIPE_COMMIT = 112;
@@ -83,6 +86,7 @@ interface MailRowProps {
   onDelete: (keys: string[]) => void;
   onToggleFlag: (keys: string[], flagged?: boolean) => void;
   onOpenFull?: (key: string) => void;
+  onToggleExpand?: (threadId: string) => void;
 }
 
 const MailRow = memo(function MailRow({
@@ -95,7 +99,8 @@ const MailRow = memo(function MailRow({
   onArchive,
   onDelete,
   onToggleFlag,
-  onOpenFull
+  onOpenFull,
+  onToggleExpand
 }: MailRowProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const startRef = useRef<{ x: number; y: number; lock?: 'h' | 'v' } | null>(null);
@@ -195,7 +200,7 @@ const MailRow = memo(function MailRow({
       )}
 
       <div
-        className={`maillist-item ${isActive ? 'active' : ''} ${row.unread ? 'unread' : ''} ${snapping ? 'swipe-snap' : ''}`}
+        className={`maillist-item ${isActive ? 'active' : ''} ${row.unread ? 'unread' : ''} ${row.nested ? 'nested' : ''} ${snapping ? 'swipe-snap' : ''}`}
         style={dx ? { transform: `translateX(${dx}px)` } : undefined}
         onClick={handleClick}
         onDoubleClick={(e) => {
@@ -238,7 +243,22 @@ const MailRow = memo(function MailRow({
             <span className="maillist-from">
               {row.peerPrefix}{row.from.name || row.from.address || 'Unbekannt'}
             </span>
-            {row.count > 1 && <span className="maillist-count">{row.count}</span>}
+            {row.count > 1 && !row.nested && (
+              <button
+                type="button"
+                className={`maillist-count ${row.expanded ? 'open' : ''}`}
+                title={row.expanded ? 'Konversation einklappen' : `${row.count} Nachrichten anzeigen`}
+                aria-label={row.expanded ? 'Konversation einklappen' : `${row.count} Nachrichten anzeigen`}
+                aria-expanded={!!row.expanded}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (row.threadId) onToggleExpand?.(row.threadId);
+                }}
+              >
+                <Icon name={row.expanded ? 'chevronDown' : 'chevronRight'} size={11} />
+                {row.count}
+              </button>
+            )}
             <span className="maillist-date">{formatDate(row.date)}</span>
           </div>
 
@@ -313,54 +333,90 @@ export default function MailList({ onOpen, onLoadMore, onArchive, onDelete, onTo
   ));
   const toggleSelectedKey = useStore(s => s.toggleSelectedKey);
   const setSelectedKeys = useStore(s => s.setSelectedKeys);
+  const [expandedIds, setExpandedIds] = useState<string[]>([]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastIndexRef = useRef<number | null>(null);
 
-  const rows: Row[] = useMemo(() => (
-    threadingEnabled
-      ? threads.map((t: MailThread) => {
-          const accountId = t.accountId;
-          const keys = (t.messages?.length
-            ? t.messages.map(m => msgKey(m.accountId ?? accountId, m.uid))
-            : t.uids.map(u => msgKey(accountId, u)));
-          const latest = t.messages?.[t.messages.length - 1];
-          return {
-            key: t.threadId,
-            uid: t.uid,
-            keys,
-            subject: t.subject,
-            from: listPeer(t.from, latest?.to, sentFolder),
+  const toggleExpand = useCallback((threadId: string) => {
+    setExpandedIds(ids => ids.includes(threadId) ? ids.filter(id => id !== threadId) : [...ids, threadId]);
+  }, []);
+
+  const rows: Row[] = useMemo(() => {
+    if (!threadingEnabled) {
+      return messages.map((m: MailMessage) => ({
+        key: msgKey(m.accountId, m.uid),
+        uid: m.uid,
+        keys: [msgKey(m.accountId, m.uid)],
+        subject: m.subject,
+        from: listPeer(m.from, m.to, sentFolder),
+        peerPrefix: sentFolder ? 'An ' : '',
+        date: m.date,
+        snippet: m.snippet || '',
+        unread: !m.flags.includes('\\Seen'),
+        flagged: m.flags.includes('\\Flagged'),
+        hasAttachments: m.hasAttachments,
+        count: 1,
+        accountColor: m.accountColor,
+        accountEmail: m.accountEmail,
+        showAccount
+      }));
+    }
+
+    const rows: Row[] = [];
+    for (const t of threads) {
+      const accountId = t.accountId;
+      const keys = (t.messages?.length
+        ? t.messages.map(m => msgKey(m.accountId ?? accountId, m.uid))
+        : t.uids.map(u => msgKey(accountId, u)));
+      const latest = t.messages?.[t.messages.length - 1];
+      const expanded = t.count > 1 && expandedIds.includes(t.threadId);
+      rows.push({
+        key: t.threadId,
+        uid: t.uid,
+        keys,
+        subject: t.subject,
+        from: listPeer(t.from, latest?.to, sentFolder),
+        peerPrefix: sentFolder ? 'An ' : '',
+        date: t.date,
+        snippet: t.snippet,
+        unread: t.unread,
+        flagged: t.flagged,
+        hasAttachments: t.hasAttachments,
+        count: t.count,
+        accountColor: t.accountColor,
+        accountEmail: t.accountEmail,
+        showAccount,
+        threadId: t.threadId,
+        expanded
+      });
+      if (expanded && t.messages?.length) {
+        for (const m of t.messages) {
+          const key = msgKey(m.accountId ?? accountId, m.uid);
+          rows.push({
+            key,
+            uid: m.uid,
+            keys: [key],
+            subject: m.subject,
+            from: listPeer(m.from, m.to, sentFolder),
             peerPrefix: sentFolder ? 'An ' : '',
-            date: t.date,
-            snippet: t.snippet,
-            unread: t.unread,
-            flagged: t.flagged,
-            hasAttachments: t.hasAttachments,
-            count: t.count,
-            accountColor: t.accountColor,
-            accountEmail: t.accountEmail,
-            showAccount
-          };
-        })
-      : messages.map((m: MailMessage) => ({
-          key: msgKey(m.accountId, m.uid),
-          uid: m.uid,
-          keys: [msgKey(m.accountId, m.uid)],
-          subject: m.subject,
-          from: listPeer(m.from, m.to, sentFolder),
-          peerPrefix: sentFolder ? 'An ' : '',
-          date: m.date,
-          snippet: m.snippet || '',
-          unread: !m.flags.includes('\\Seen'),
-          flagged: m.flags.includes('\\Flagged'),
-          hasAttachments: m.hasAttachments,
-          count: 1,
-          accountColor: m.accountColor,
-          accountEmail: m.accountEmail,
-          showAccount
-        }))
-  ), [threadingEnabled, threads, messages, showAccount, sentFolder]);
+            date: m.date,
+            snippet: m.snippet || '',
+            unread: !m.flags.includes('\\Seen'),
+            flagged: m.flags.includes('\\Flagged'),
+            hasAttachments: m.hasAttachments,
+            count: 1,
+            accountColor: m.accountColor || t.accountColor,
+            accountEmail: m.accountEmail || t.accountEmail,
+            showAccount,
+            threadId: t.threadId,
+            nested: true
+          });
+        }
+      }
+    }
+    return rows;
+  }, [threadingEnabled, threads, messages, showAccount, sentFolder, expandedIds]);
 
   const selectedKeySet = useMemo(() => new Set(selectedKeys), [selectedKeys]);
 
@@ -394,12 +450,18 @@ export default function MailList({ onOpen, onLoadMore, onArchive, onDelete, onTo
       toggleSelectedKey(row.keys[0], true);
       return;
     }
+    if (row.count > 1 && row.threadId && !row.nested) {
+      setExpandedIds(ids => ids.includes(row.threadId!) ? ids : [...ids, row.threadId!]);
+    }
     onOpen(row.keys[row.keys.length - 1]);
   }, [rows, setSelectedKeys, toggleSelectedKey, onOpen]);
 
   // Keyboard activation (Enter/Space) has no mouse event to inspect; treat
   // it like a plain click.
   const handleActivate = useCallback((row: Row) => {
+    if (row.count > 1 && row.threadId && !row.nested) {
+      setExpandedIds(ids => ids.includes(row.threadId!) ? ids : [...ids, row.threadId!]);
+    }
     onOpen(row.keys[row.keys.length - 1]);
   }, [onOpen]);
 
@@ -433,7 +495,9 @@ export default function MailList({ onOpen, onLoadMore, onArchive, onDelete, onTo
         {virtualItems.map(item => {
           const row = rows[item.index];
           if (!row) return null;
-          const isActive = row.keys.includes(selectedKey) || row.keys.some(k => selectedKeySet.has(k));
+          const isActive = row.nested || !row.expanded
+            ? row.keys.includes(selectedKey) || row.keys.some(k => selectedKeySet.has(k))
+            : false;
           return (
             <div
               key={item.key}
@@ -459,6 +523,7 @@ export default function MailList({ onOpen, onLoadMore, onArchive, onDelete, onTo
                 onDelete={onDelete}
                 onToggleFlag={onToggleFlag}
                 onOpenFull={onOpenFull}
+                onToggleExpand={toggleExpand}
               />
             </div>
           );

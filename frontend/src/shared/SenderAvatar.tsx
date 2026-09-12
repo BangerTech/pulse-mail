@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { iconCandidatesForEmail, rememberFailedIcon } from './senderIcon';
+import { iconCandidatesForEmail, isPlaceholderFavicon, rememberFailedIcon } from './senderIcon';
+import './sender-avatar.css';
 
 const COLORS = ['#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#007AFF', '#5856D6', '#AF52DE', '#FF2D55'];
 
@@ -34,9 +35,21 @@ export default function SenderAvatar({
 }) {
   const urls = allowRemote ? iconCandidatesForEmail(address) : [];
   const [index, setIndex] = useState(0);
+  const [ready, setReady] = useState(false);
   const src = urls[index] || '';
 
-  useEffect(() => { setIndex(0); }, [address, allowRemote]);
+  useEffect(() => {
+    setIndex(0);
+    setReady(false);
+  }, [address, allowRemote]);
+
+  useEffect(() => { setReady(false); }, [src]);
+
+  const reject = () => {
+    if (src) rememberFailedIcon(src);
+    setReady(false);
+    setIndex(i => i + 1);
+  };
 
   const showIcon = Boolean(src);
 
@@ -48,14 +61,18 @@ export default function SenderAvatar({
       aria-hidden
     >
       {showIcon ? (
-        <img
-          src={src}
-          alt=""
-          onError={() => {
-            rememberFailedIcon(src);
-            setIndex(i => i + 1);
-          }}
-        />
+        <span className="sender-icon-clip">
+          <img
+            src={src}
+            alt=""
+            className={ready ? 'is-ready' : ''}
+            onLoad={(e) => {
+              if (isPlaceholderFavicon(e.currentTarget)) reject();
+              else setReady(true);
+            }}
+            onError={reject}
+          />
+        </span>
       ) : initials(name, address)}
       {children}
     </div>

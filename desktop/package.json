@@ -1,6 +1,6 @@
 {
   "name": "pulse-mail-desktop",
-  "version": "1.4.7",
+  "version": "1.4.11",
   "private": true,
   "scripts": {
     "tauri": "tauri",

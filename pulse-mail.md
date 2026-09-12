@@ -2,7 +2,7 @@
 
 ## Version
 
-Aktuelle Version: **1.4.7** — Quelle ist `frontend/package.json`, Anzeige unter Einstellungen → Info (`__APP_VERSION__` / `__APP_BUILD__` aus dem Vite-Build). Fallback in `frontend/src/shared/version.ts`. Backend `package.json` und `desktop/` halten dieselbe Versionsnummer.
+Aktuelle Version: **1.4.11** — Quelle ist `frontend/package.json`, Anzeige unter Einstellungen → Info (`__APP_VERSION__` / `__APP_BUILD__` aus dem Vite-Build). Fallback in `frontend/src/shared/version.ts`. Backend `package.json` und `desktop/` halten dieselbe Versionsnummer.
 
 **Bei jeder inhaltlichen Änderung** (nicht nur beim nächsten Commit):
 
@@ -11,6 +11,22 @@ Aktuelle Version: **1.4.7** — Quelle ist `frontend/package.json`, Anzeige unte
 3. Commit mit der neuen Versionsnummer
 
 ### Changelog
+
+#### 1.4.11 (2026-09-12)
+- Neues App-Logo (Kreis, Herz/W + Brief): Login, Favicons, Apple-Touch-Icon und Windows-App-Icons.
+
+#### 1.4.10 (2026-09-12)
+- Doppelklick-Fenster ist verschiebbar (Titelleiste) und an den Rändern skalierbar. Größe/Position bleibt in `localStorage` (`pulse:readerWindow`).
+- Hinweis „Doppelklick oder hier klicken, um die Mail vollständig zu öffnen“ entfernt.
+
+#### 1.4.9 (2026-09-12)
+- Konversationen: Zahl (z. B. 6) klappt die einzelnen Mails in der Liste auf; im Lesen erscheint die ganze Kette zum Umschalten.
+- Newsletter wie heyOBI wurden fälschlich zu einem Thread, weil `References` eine gemeinsame Reply-Adresse ohne `<>` enthielt. `extractMessageIds` nimmt solche Wortsalate nicht mehr als Message-ID.
+
+#### 1.4.8 (2026-09-12)
+- Absender-Icons bleiben im Kreis (innerer Clip, kein Überstand durch `width:100%` + Padding).
+- Fehlt ein Favicon, zeigt Google sonst eine Weltkugel (16×16, HTTP 200). Die wird verworfen, dann Initiale. DuckDuckGo-Fallback entfernt, der ebenfalls eine Kugel lieferte.
+- Suche matcht Begriffe als Wörter (heyOBI, `obi.de`), nicht als Teil von `mobile`. Kurze Suchen (< 4 Zeichen) nur in Betreff/Absender/Empfänger, nicht im Mailtext. Treffer nach Absender/Betreff sortiert.
 
 #### 1.4.7 (2026-09-12)
 - Einstellungen und Erscheinungsbild stehen oben rechts neben der Suche (Zahnrad, Sonne/Mond/System), nicht mehr unten in der Sidebar.
@@ -71,7 +87,7 @@ Aktuelle Version: **1.4.7** — Quelle ist `frontend/package.json`, Anzeige unte
 
 Pake wird nicht mehr unterstützt. Die App liegt in `desktop/` (Tauri 2 + WebView2).
 
-1. Nach dem Build: **Releases** → `Pulse Mail 1.4.7` → `Pulse Mail_1.4.7_x64-setup.exe`
+1. Nach dem Build: **Releases** → `Pulse Mail 1.4.11` → `Pulse Mail_1.4.11_x64-setup.exe`
 2. Fallback: **Actions → Windows App** → Artifact `pulse-mail-windows` (nur mit GitHub-Login, 90 Tage)
 3. Installieren, starten, Server-URL eintragen (z. B. `http://192.168.2.83:8080`)
 4. Es erscheint der normale Pulse-Mail-Login
@@ -265,8 +281,8 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 
 ### Mail-Aktionen
 - Im Ordner **Gesendet** (`\\Sent`, Sent, Sent Items) zeigt die Liste den Empfänger (`An …`), nicht das eigene Konto.
-- Konversations-Threading über Message-ID / In-Reply-To / References, plus Betreff bei Antworten (Re:, AW:, Odp. …)
-- Ein/aus unter Einstellungen → Darstellung → Konversationen
+- Konversations-Threading über Message-ID / In-Reply-To / References (nur echte `<id@host>`), plus Betreff bei Antworten (Re:, AW:, Odp. …). Newsletter-`References` ohne Klammern werden nicht gruppiert.
+- Ein/aus unter Einstellungen → Darstellung → Konversationen. Die Zahl in der Liste klappt die Mails der Konversation auf; im Lesen sind alle Nachrichten der Kette anwählbar.
 - Allen antworten, Weiterleiten, Archivieren, Favorit, als ungelesen markieren
 - Löschen sucht den Papierkorb über IMAP Special-Use (`\Trash`) inkl. Papierkorb / INBOX.Trash
 - Mehrfachauswahl: Cmd/Ctrl-Klick und Shift-Klick, Schnellaktionen beim Hover
@@ -276,7 +292,7 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - **PDF-Vorschau:** Klick auf einen PDF-Anhang öffnet ihn in der App (`frontend/src/shared/PdfPreview.tsx`), nicht in einem neuen Tab. Download über das Icon in der Vorschau-Leiste.
 
 ### Suche
-- Cache-Suche (`GET /api/mail/search`): Betreff, Absender, Empfänger (An/CC), Snippet, Textkörper. Nur bereits synchronisierte Mails, Limit 200.
+- Cache-Suche (`GET /api/mail/search`): Wortgrenzen, nicht `%obi%` mitten in `mobile`. Kurze Tokens (< 4) nur Betreff/Absender/Empfänger; längere zusätzlich Snippet und Text. Limit 200, Absender/Betreff vor Datum.
 - Standard: aktuelles Postfach. In **Alle Eingänge** oder mit Filter: alle Accounts.
 - Filter: Absender, Anhang, Zeitraum, Ordner. `/` fokussiert das Suchfeld.
 
@@ -290,13 +306,13 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 
 ### Darstellung
 - Vorschaufenster rechts oder unten (verschiebbar)
-- Einzelklick zeigt rechts nur eine Vorschau; Doppelklick öffnet die Mail in einem eigenen Fenster
-- Mail-Header mit Avatar und Absenderkarte. Firmen-Absender zeigen das Favicon der Domain (`SenderAvatar`, Google/DuckDuckGo); Gmail/Outlook & Co. bleiben bei der Initiale. Antworten, Allen antworten und Weiterleiten als Icons über dem Betreff.
+- Einzelklick zeigt rechts nur eine Vorschau; Doppelklick öffnet ein eigenes Fenster (`ReaderWindow`), das sich verschieben und skalieren lässt
+- Mail-Header mit Avatar und Absenderkarte. Firmen-Absender zeigen das Favicon der Domain (`SenderAvatar`, Google `sz=64`); 16×16-Platzhalter (Weltkugel) und fehlende Icons fallen auf die Initiale zurück. Gmail/Outlook & Co. bleiben bei der Initiale. Antworten, Allen antworten und Weiterleiten als Icons über dem Betreff.
 - Kompakte oder komfortable Listenansicht
 - Schriftart und -größe für das Verfassen
 - Externe Bilder laden oder blockieren (Einstellung `loadRemoteImages`, Standard: laden)
 - Löschen bestätigen (`confirmDelete`), Ungelesen-Zahl im Fenstertitel (`showTabUnread`)
-- Logo und Favicon unter `frontend/public/`
+- Logo und Favicon unter `frontend/public/` (`logo.png`, `favicon.ico`, `favicon-16.png`, `favicon-32.png`, `apple-touch-icon.png`). Windows-Icons in `desktop/src-tauri/icons/`.
 
 ### Hinweise (eigener Einstellungs-Reiter)
 - System-Hinweis (`notifyDesktop`) und Ton (`notifySound`), Lautstärke (`notifyVolume`)
@@ -305,8 +321,8 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Statische Datei `frontend/public/notify.wav`. Der Player wird beim Gesten-Klick nur entsperrt, spielt den Ding aber nicht nach — sonst hörte man ihn erst beim Öffnen der neuen Mail.
 
 ### Info (eigener Einstellungs-Reiter)
-- Version aus `frontend/package.json` (aktuell **1.4.7**), Build-Zeitpunkt aus dem Vite-Build (`__APP_VERSION__`, `__APP_BUILD__`)
-- Hinweis-Berechtigung und Tonkanal-Status. Titelzeile der Einstellungen zeigt `v1.4.7`
+- Version aus `frontend/package.json` (aktuell **1.4.11**), Build-Zeitpunkt aus dem Vite-Build (`__APP_VERSION__`, `__APP_BUILD__`)
+- Hinweis-Berechtigung und Tonkanal-Status. Titelzeile der Einstellungen zeigt `v1.4.11`
 - Profilbild setzen/entfernen (siehe App-Benutzer)
 
 ### MIME / Anzeige
@@ -423,8 +439,9 @@ frontend/src/shared/               Von App und Prototyp gemeinsam genutzt
 ├── useMailFrame.ts                iframe-Höhe (body.scrollHeight)
 ├── plain-text.ts                  format=flowed, Zitate, Links
 ├── imageAllowlist.ts              Absenderdomain in localStorage
-├── senderIcon.ts                  Favicon-URLs zur Absenderdomain
-├── SenderAvatar.tsx               Favicon oder Initiale
+├── senderIcon.ts                  Favicon-URLs zur Absenderdomain, 16×16-Platzhalter erkennen
+├── SenderAvatar.tsx               Favicon im Kreis oder Initiale
+├── sender-avatar.css              Clip für runde Absender-Icons
 ├── notifySound.ts                 HTMLAudio `/notify.wav`, Unlock spielt keinen Ding
 ├── version.ts                     App-Version und Build-Zeit
 ├── notifyMail.ts                  Windows-Toast, Sound, Taskbar-Flash, Permission nur per Klick

@@ -10,6 +10,7 @@ import LoginScreen from './components/LoginScreen';
 import Sidebar from './components/Sidebar';
 import MailList from './components/MailList';
 import MailContent from './components/MailContent';
+import ReaderWindow from './components/ReaderWindow';
 import Toolbar from './components/Toolbar';
 import ComposeModal from './components/ComposeModal';
 import SettingsModal from './components/SettingsModal';
@@ -1027,29 +1028,26 @@ export default function App() {
             onArchive={handleArchive}
             onDelete={handleDelete}
             onToggleFlag={handleToggleFlag}
+            onOpenMessage={openMessage}
           />
         </div>
       </div>
 
       {!mobile && readingFull && selectedMessage && (
-        <div className="reader-overlay" onMouseDown={() => setReadingFull(false)}>
-          <div
-            className="reader-window"
-            onMouseDown={e => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label={selectedMessage.subject || 'Nachricht'}
-            ref={overlayTrapRef}
-          >
-            <MailContent
-              variant="full"
-              onClose={() => setReadingFull(false)}
-              onArchive={handleArchive}
-              onDelete={handleDelete}
-              onToggleFlag={handleToggleFlag}
-            />
-          </div>
-        </div>
+        <ReaderWindow
+          title={selectedMessage.subject || 'Nachricht'}
+          onClose={() => setReadingFull(false)}
+          trapRef={overlayTrapRef}
+        >
+          <MailContent
+            variant="full"
+            onClose={() => setReadingFull(false)}
+            onArchive={handleArchive}
+            onDelete={handleDelete}
+            onToggleFlag={handleToggleFlag}
+            onOpenMessage={openMessage}
+          />
+        </ReaderWindow>
       )}
 
       {mobile && !reading && !composing && (

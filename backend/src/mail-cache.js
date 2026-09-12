@@ -209,6 +209,51 @@ export function pruneFolder(db, accountId, folder, liveUids) {
   removeMessages(db, accountId, folder, stale);
 }
 
+const SEARCH_IDENTITY = ['subject', 'from_name', 'from_address', 'to_address', 'cc_address'];
+const SEARCH_BODY = ['snippet', 'body_text'];
+const TOKEN_BEFORE = [' ', '@', '.', '-', '/', '+', '>', '<', '(', '[', '{', '"', "'", ':', '=', '\n', '\t'];
+
+function escapeLike(value) {
+  return String(value).replace(/([\\%_])/g, '\\$1');
+}
+
+function searchTokens(query) {
+  return String(query || '').trim().split(/\s+/).filter(Boolean);
+}
+
+function tokenMatchSql(columns, token, params) {
+  const escaped = escapeLike(token);
+  const parts = [];
+  const add = (pattern) => {
+    for (const col of columns) {
+      parts.push(`${col} LIKE ? ESCAPE '\\'`);
+      params.push(pattern);
+    }
+  };
+  add(`${escaped}%`);
+  add(`%${escaped}`);
+  for (const edge of TOKEN_BEFORE) add(`%${edge}${escaped}%`);
+  return `(${parts.join(' OR ')})`;
+}
+
+function fieldHasToken(value, token) {
+  if (value == null) return false;
+  const text = String(value).toLowerCase();
+  const needle = token.toLowerCase();
+  if (text.startsWith(needle) || text.endsWith(needle)) return true;
+  return TOKEN_BEFORE.some(edge => text.includes(edge + needle));
+}
+
+function searchScore(row, tokens) {
+  let score = 0;
+  for (const token of tokens) {
+    if (fieldHasToken(row.from_name, token) || fieldHasToken(row.from_address, token)) score += 8;
+    if (fieldHasToken(row.subject, token)) score += 5;
+    if (fieldHasToken(row.to_address, token) || fieldHasToken(row.cc_address, token)) score += 3;
+  }
+  return score;
+}
+
 export function searchCache(db, { accountId, accountIds, query, folder, from, hasAttachments, since, before, limit = 100 }) {
   const where = [];
   const params = [];
@@ -221,15 +266,16 @@ export function searchCache(db, { accountId, accountIds, query, folder, from, ha
   }
   if (folder) { where.push('folder = ?'); params.push(folder); }
 
-  if (query) {
-    where.push('(subject LIKE ? OR from_name LIKE ? OR from_address LIKE ? OR to_address LIKE ? OR cc_address LIKE ? OR snippet LIKE ? OR body_text LIKE ?)');
-    const like = `%${query}%`;
-    params.push(like, like, like, like, like, like, like);
+  const tokens = searchTokens(query);
+  for (const token of tokens) {
+    const columns = token.length < 4 ? SEARCH_IDENTITY : SEARCH_IDENTITY.concat(SEARCH_BODY);
+    where.push(tokenMatchSql(columns, token, params));
   }
 
   if (from) {
-    where.push('(from_address LIKE ? OR from_name LIKE ?)');
-    params.push(`%${from}%`, `%${from}%`);
+    where.push('(from_address LIKE ? ESCAPE \'\\\' OR from_name LIKE ? ESCAPE \'\\\')');
+    const like = `%${escapeLike(from)}%`;
+    params.push(like, like);
   }
 
   if (hasAttachments) where.push('has_attachments = 1');
@@ -242,9 +288,16 @@ export function searchCache(db, { accountId, accountIds, query, folder, from, ha
     ORDER BY date DESC
     LIMIT ?
   `;
-  params.push(limit);
+  params.push(Math.max(Number(limit) * 3, 200));
 
-  return db.prepare(sql).all(...params).map(row => ({
+  const rows = db.prepare(sql).all(...params);
+  rows.sort((a, b) => {
+    const diff = searchScore(b, tokens) - searchScore(a, tokens);
+    if (diff) return diff;
+    return String(b.date || '').localeCompare(String(a.date || ''));
+  });
+
+  return rows.slice(0, limit).map(row => ({
     ...rowToMessage(row),
     accountId: row.account_id,
     folder: row.folder

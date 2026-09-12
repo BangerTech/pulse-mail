@@ -21,6 +21,7 @@ interface MailContentProps {
   variant?: 'preview' | 'full';
   onExpand?: () => void;
   onClose?: () => void;
+  onOpenMessage?: (key: string) => void;
 }
 
 function looksLikeHtml(value: string) {
@@ -63,7 +64,7 @@ function formatHeaderDate(dateStr?: string, detailed = false) {
 }
 
 function MailContentInner({
-  onArchive, onDelete, onToggleFlag, variant = 'preview', onExpand, onClose
+  onArchive, onDelete, onToggleFlag, variant = 'preview', onExpand, onClose, onOpenMessage
 }: MailContentProps) {
   const selectedMessage = useStore(s => s.selectedMessage);
   const messageBody = useStore(s => s.messageBody);
@@ -74,6 +75,8 @@ function MailContentInner({
   const loadRemoteImages = useStore(s => s.loadRemoteImages);
   const openCompose = useStore(s => s.openCompose);
   const accounts = useStore(s => s.accounts);
+  const threadingEnabled = useStore(s => s.threadingEnabled);
+  const threads = useStore(s => s.threads);
 
   const isDark = theme === 'dark' ||
     (theme === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -281,6 +284,36 @@ function MailContentInner({
         </div>
       </div>
 
+      {threadingEnabled && onOpenMessage && (() => {
+        const currentKey = msgKey(selectedMessage.accountId, selectedMessage.uid);
+        const thread = threads.find(t => t.count > 1 && (
+          t.messages?.some(m => msgKey(m.accountId ?? t.accountId, m.uid) === currentKey)
+          || msgKey(t.accountId, t.uid) === currentKey
+        ));
+        if (!thread?.messages || thread.messages.length < 2) return null;
+        return (
+          <div className="mailcontent-thread" role="list">
+            <div className="mailcontent-thread-label">{thread.messages.length} Nachrichten in dieser Konversation</div>
+            {thread.messages.map(m => {
+              const key = msgKey(m.accountId ?? thread.accountId, m.uid);
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  role="listitem"
+                  className={`mailcontent-thread-item ${key === currentKey ? 'active' : ''}`}
+                  onClick={() => onOpenMessage(key)}
+                >
+                  <span className="mailcontent-thread-from">{m.from?.name || m.from?.address || 'Unbekannt'}</span>
+                  <span className="mailcontent-thread-subject">{m.subject || '(Kein Betreff)'}</span>
+                  <span className="mailcontent-thread-date">{formatHeaderDate(m.date)}</span>
+                </button>
+              );
+            })}
+          </div>
+        );
+      })()}
+
       {fileAttachments.length > 0 && (
         <div className="mailcontent-attachments">
           {fileAttachments.map(att => {
@@ -346,12 +379,6 @@ function MailContentInner({
           />
         )}
       </div>
-
-      {variant === 'preview' && onExpand && (
-        <button className="mailcontent-open-hint" onClick={onExpand}>
-          Doppelklick oder hier klicken, um die Mail vollständig zu öffnen
-        </button>
-      )}
 
       {imageAttachments.length > 0 && (
         <div className="mailcontent-images">

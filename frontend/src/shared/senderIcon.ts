@@ -23,10 +23,17 @@ export function iconCandidatesForEmail(address?: string): string[] {
   const urls: string[] = [];
   for (const host of hosts) {
     if (PERSONAL_DOMAINS.has(host) || failed.has(host)) continue;
+    // Google's missing-favicon placeholder is 16×16 even with sz=64.
+    // DuckDuckGo's fallback is a globe (also HTTP 200), so we skip it.
     urls.push(`https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`);
-    urls.push(`https://icons.duckduckgo.com/ip3/${encodeURIComponent(host)}.ico`);
   }
   return urls;
+}
+
+export function isPlaceholderFavicon(img: HTMLImageElement) {
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  return !w || !h || w <= 16 || h <= 16;
 }
 
 export function rememberFailedIcon(src: string) {

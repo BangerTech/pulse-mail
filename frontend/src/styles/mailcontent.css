@@ -124,19 +124,11 @@
   font-size: 15px;
   font-weight: 600;
   flex-shrink: 0;
-  overflow: hidden;
+  position: relative;
 }
 
 .mailcontent-avatar.has-icon {
-  background: #fff;
-}
-
-.mailcontent-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
-  padding: 6px;
+  background: transparent;
 }
 
 .mailcontent-person-body {
@@ -232,20 +224,6 @@
   background: var(--accent-color);
 }
 
-.mailcontent-open-hint {
-  flex-shrink: 0;
-  padding: 10px 16px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  background: var(--surface-secondary);
-  border-top: 0.5px solid var(--border-color);
-  text-align: center;
-}
-
-.mailcontent-open-hint:hover {
-  color: var(--accent-color);
-}
-
 .mailcontent.full {
   background: var(--bg-elevated);
 }
@@ -256,19 +234,52 @@
   z-index: 900;
   background: rgba(15, 18, 28, 0.42);
   backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 28px;
 }
 
 .reader-window {
-  width: min(980px, 100%);
-  height: min(860px, 100%);
+  position: absolute;
   background: var(--bg-elevated);
-  border-radius: 20px;
+  border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 30px 80px rgba(20, 24, 40, 0.28);
+  display: flex;
+  flex-direction: column;
+  min-width: 520px;
+  min-height: 400px;
+}
+
+.reader-window.is-busy .reader-window-body {
+  pointer-events: none;
+}
+
+.reader-window-bar {
+  flex-shrink: 0;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  cursor: grab;
+  user-select: none;
+  border-bottom: 0.5px solid var(--border-color);
+  background: var(--surface-secondary);
+}
+
+.reader-window-bar:active {
+  cursor: grabbing;
+}
+
+.reader-window-bar span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reader-window-body {
+  flex: 1;
+  min-height: 0;
   display: flex;
 }
 
@@ -276,6 +287,45 @@
   width: 100%;
   height: 100%;
 }
+
+.reader-window-resize {
+  position: absolute;
+  z-index: 2;
+}
+
+.reader-window-resize.n,
+.reader-window-resize.s {
+  left: 10px;
+  right: 10px;
+  height: 8px;
+  cursor: ns-resize;
+}
+
+.reader-window-resize.e,
+.reader-window-resize.w {
+  top: 10px;
+  bottom: 10px;
+  width: 8px;
+  cursor: ew-resize;
+}
+
+.reader-window-resize.n { top: 0; }
+.reader-window-resize.s { bottom: 0; }
+.reader-window-resize.e { right: 0; }
+.reader-window-resize.w { left: 0; }
+
+.reader-window-resize.ne,
+.reader-window-resize.nw,
+.reader-window-resize.se,
+.reader-window-resize.sw {
+  width: 14px;
+  height: 14px;
+}
+
+.reader-window-resize.ne { top: 0; right: 0; cursor: nesw-resize; }
+.reader-window-resize.nw { top: 0; left: 0; cursor: nwse-resize; }
+.reader-window-resize.se { bottom: 0; right: 0; cursor: nwse-resize; }
+.reader-window-resize.sw { bottom: 0; left: 0; cursor: nesw-resize; }
 
 .mailcontent.empty {
   align-items: center;
@@ -305,6 +355,60 @@
   background: var(--surface-tertiary);
   border-radius: 4px;
   padding: 2px 5px;
+}
+
+.mailcontent-thread {
+  margin: 0 28px;
+  padding: 10px 0 12px;
+  border-bottom: 0.5px solid var(--border-color);
+}
+
+.mailcontent-thread-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+
+.mailcontent-thread-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.6fr) auto;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.mailcontent-thread-item:hover {
+  background: var(--row-hover);
+  color: var(--text-primary);
+}
+
+.mailcontent-thread-item.active {
+  background: var(--accent-soft);
+  color: var(--accent-color);
+}
+
+.mailcontent-thread-from,
+.mailcontent-thread-subject {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mailcontent-thread-from {
+  font-weight: 600;
+}
+
+.mailcontent-thread-date {
+  color: var(--text-tertiary);
+  white-space: nowrap;
 }
 
 .mailcontent-attachments {
@@ -464,10 +568,6 @@
     border-radius: 0;
     border: none;
     box-shadow: none;
-  }
-
-  .mailcontent-open-hint {
-    display: none;
   }
 
   .mailcontent-header {

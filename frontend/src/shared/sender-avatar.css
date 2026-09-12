@@ -1,0 +1,24 @@
+.sender-icon-clip {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #fff;
+}
+
+.sender-icon-clip img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 18%;
+  box-sizing: border-box;
+  display: block;
+}
+
+.sender-icon-clip img.is-ready {
+  opacity: 1;
+}
+
+.sender-icon-clip img:not(.is-ready) {
+  opacity: 0;
+}

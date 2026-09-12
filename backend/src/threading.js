@@ -51,8 +51,12 @@ export function extractMessageIds(value) {
     }
     return [...new Set(ids)];
   }
-  for (const part of text.split(/\s+/)) {
-    const id = normalizeMessageId(part);
+  // Only a lone unbracketed id. Word salad like
+  // "suite34@reply.nl.obi.de heyobi https://..." is newsletter junk,
+  // not In-Reply-To — matching the email would glue every campaign together.
+  const trimmed = text.trim();
+  if (/^\S+@\S+$/.test(trimmed)) {
+    const id = normalizeMessageId(trimmed);
     if (id.includes('@')) ids.push(id);
   }
   return [...new Set(ids)];

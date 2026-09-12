@@ -140,16 +140,8 @@
 }
 
 .maillist-avatar.has-icon {
-  background: #fff;
+  background: transparent;
   color: transparent;
-}
-
-.maillist-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
-  padding: 4px;
 }
 
 .maillist-account-dot {
@@ -194,13 +186,34 @@
 }
 
 .maillist-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
   font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
   background: var(--surface-tertiary);
-  padding: 0 6px;
+  padding: 0 6px 0 3px;
   border-radius: 9px;
   flex-shrink: 0;
+  border: 0;
+  cursor: pointer;
+  line-height: 18px;
+}
+
+.maillist-count:hover {
+  color: var(--text-primary);
+  background: var(--hover-bg);
+}
+
+.maillist-item.nested {
+  padding-left: 52px;
+}
+
+.maillist-item.nested .maillist-avatar {
+  width: 28px;
+  height: 28px;
+  font-size: 11px;
 }
 
 .maillist-date {
