@@ -585,4 +585,16 @@
     min-width: 0;
     flex: 1;
   }
+
+  .settings-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 0 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .settings-tabs button {
+    flex-shrink: 0;
+    padding: 10px 12px;
+  }
 }

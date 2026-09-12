@@ -296,9 +296,19 @@
   padding-top: 0;
 }
 
-.mobile-toolbar .toolbar-left,
+.mobile-toolbar .toolbar-left {
+  width: auto !important;
+  flex: 0 0 auto;
+}
+
 .mobile-toolbar .toolbar-right {
   width: auto !important;
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: flex-end;
+}
+
+.mobile-toolbar:has(.toolbar-title) .toolbar-right {
   flex: 0 0 auto;
 }
 
@@ -315,7 +325,10 @@
 }
 
 .mobile-toolbar .search-bar {
-  width: min(46vw, 180px);
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  max-width: none;
 }
 
 .mobile-toolbar .search-bar input {

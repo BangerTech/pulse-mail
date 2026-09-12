@@ -2,7 +2,7 @@
 
 ## Version
 
-Aktuelle Version: **1.4.11** — Quelle ist `frontend/package.json`, Anzeige unter Einstellungen → Info (`__APP_VERSION__` / `__APP_BUILD__` aus dem Vite-Build). Fallback in `frontend/src/shared/version.ts`. Backend `package.json` und `desktop/` halten dieselbe Versionsnummer.
+Aktuelle Version: **1.4.12** — Quelle ist `frontend/package.json`, Anzeige unter Einstellungen → Info (`__APP_VERSION__` / `__APP_BUILD__` aus dem Vite-Build). Fallback in `frontend/src/shared/version.ts`. Backend `package.json` und `desktop/` halten dieselbe Versionsnummer.
 
 **Bei jeder inhaltlichen Änderung** (nicht nur beim nächsten Commit):
 
@@ -11,6 +11,10 @@ Aktuelle Version: **1.4.11** — Quelle ist `frontend/package.json`, Anzeige unt
 3. Commit mit der neuen Versionsnummer
 
 ### Changelog
+
+#### 1.4.12 (2026-09-12)
+- Windows-Build: überzähliges Komma in `desktop/src-tauri/Cargo.toml` entfernt (`version = "1.4.11"`).
+- Mobil: Toolbar nicht mehr überfüllt (Suche statt Titel, Einstellungen/Theme nur im Benutzermenü), Markieren in der Leseansicht, Platz für den Neue-Mail-Button, Konversation und Einstellungs-Tabs passen auf schmale Screens.
 
 #### 1.4.11 (2026-09-12)
 - Neues App-Logo (Kreis, Herz/W + Brief): Login, Favicons, Apple-Touch-Icon und Windows-App-Icons.
@@ -87,7 +91,7 @@ Aktuelle Version: **1.4.11** — Quelle ist `frontend/package.json`, Anzeige unt
 
 Pake wird nicht mehr unterstützt. Die App liegt in `desktop/` (Tauri 2 + WebView2).
 
-1. Nach dem Build: **Releases** → `Pulse Mail 1.4.11` → `Pulse Mail_1.4.11_x64-setup.exe`
+1. Nach dem Build: **Releases** → `Pulse Mail 1.4.12` → `Pulse Mail_1.4.12_x64-setup.exe`
 2. Fallback: **Actions → Windows App** → Artifact `pulse-mail-windows` (nur mit GitHub-Login, 90 Tage)
 3. Installieren, starten, Server-URL eintragen (z. B. `http://192.168.2.83:8080`)
 4. Es erscheint der normale Pulse-Mail-Login
@@ -321,8 +325,8 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Statische Datei `frontend/public/notify.wav`. Der Player wird beim Gesten-Klick nur entsperrt, spielt den Ding aber nicht nach — sonst hörte man ihn erst beim Öffnen der neuen Mail.
 
 ### Info (eigener Einstellungs-Reiter)
-- Version aus `frontend/package.json` (aktuell **1.4.11**), Build-Zeitpunkt aus dem Vite-Build (`__APP_VERSION__`, `__APP_BUILD__`)
-- Hinweis-Berechtigung und Tonkanal-Status. Titelzeile der Einstellungen zeigt `v1.4.11`
+- Version aus `frontend/package.json` (aktuell **1.4.12**), Build-Zeitpunkt aus dem Vite-Build (`__APP_VERSION__`, `__APP_BUILD__`)
+- Hinweis-Berechtigung und Tonkanal-Status. Titelzeile der Einstellungen zeigt `v1.4.12`
 - Profilbild setzen/entfernen (siehe App-Benutzer)
 
 ### MIME / Anzeige

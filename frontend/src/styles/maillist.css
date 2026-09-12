@@ -279,6 +279,12 @@
   transition: opacity 0.12s ease;
 }
 
+@media (max-width: 859px) {
+  .maillist {
+    padding-bottom: 88px;
+  }
+}
+
 @media (hover: hover) and (pointer: fine) {
   .maillist-item:hover .maillist-actions {
     opacity: 1;

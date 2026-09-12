@@ -115,15 +115,26 @@ function ToolbarInner({
           )}
         </div>
 
-        <div className="toolbar-title">
-          {reading ? (selectedMessage?.subject || 'Nachricht') : (folderTitle || 'Posteingang')}
-        </div>
+        {reading && (
+          <div className="toolbar-title">
+            {selectedMessage?.subject || 'Nachricht'}
+          </div>
+        )}
 
         <div className="toolbar-right">
           {reading ? (
             <>
               <button className="toolbar-btn" onClick={() => selectedMessage && openCompose('reply', selectedMessage)} title="Antworten" aria-label="Antworten">
                 <Icon name="reply" />
+              </button>
+              <button
+                className={`toolbar-btn ${isFlagged ? 'flagged' : ''}`}
+                onClick={onToggleFlag}
+                title="Markieren"
+                aria-label="Markieren"
+                aria-pressed={!!isFlagged}
+              >
+                <Icon name="flag" />
               </button>
               <button className="toolbar-btn" onClick={onArchive} title="Archivieren" aria-label="Archivieren">
                 <Icon name="archive" />
@@ -138,12 +149,16 @@ function ToolbarInner({
                 <Icon name="search" className="search-icon" size={14} />
                 <input
                   type="search"
-                  placeholder="Suchen"
+                  placeholder={folderTitle || 'Suchen'}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
+                {searchQuery && (
+                  <button className="search-clear" onClick={() => setSearchQuery('')} title="Suche zurücksetzen" aria-label="Suche zurücksetzen">
+                    <Icon name="close" size={12} />
+                  </button>
+                )}
               </div>
-              {appButtons}
               <button
                 className={`toolbar-btn ${refreshing ? 'spinning' : ''}`}
                 onClick={onRefresh}

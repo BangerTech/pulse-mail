@@ -594,4 +594,16 @@
   .mail-text {
     padding: 16px;
   }
+
+  .mailcontent-thread {
+    margin: 0 16px;
+  }
+
+  .mailcontent-thread-item {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .mailcontent-thread-subject {
+    grid-column: 1 / -1;
+  }
 }
