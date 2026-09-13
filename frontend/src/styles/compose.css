@@ -1,20 +1,20 @@
 .compose-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 18, 28, 0.45);
+  background: var(--bg-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2000;
-  backdrop-filter: blur(10px);
+  z-index: var(--z-compose);
+  backdrop-filter: blur(var(--overlay-blur));
 }
 
 .compose-modal {
   width: min(760px, calc(100vw - 48px));
   max-height: 86vh;
   background: var(--bg-elevated);
-  border-radius: 20px;
-  box-shadow: 0 30px 80px rgba(20, 24, 40, 0.28);
+  border-radius: var(--modal-radius);
+  box-shadow: var(--shadow-modal);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -22,7 +22,7 @@
 }
 
 .compose-modal.is-drop-target {
-  box-shadow: 0 30px 80px rgba(20, 24, 40, 0.28), inset 0 0 0 2px var(--accent-color);
+  box-shadow: var(--shadow-modal), inset 0 0 0 2px var(--accent-color);
 }
 
 .compose-file-input {
@@ -88,6 +88,15 @@
   gap: 8px;
   padding: 10px 0;
   border-bottom: 0.5px solid var(--border-color);
+  transition: background 0.12s ease;
+}
+
+.compose-field:focus-within {
+  background: var(--accent-softer);
+  margin: 0 -8px;
+  padding-left: 8px;
+  padding-right: 8px;
+  border-radius: 6px;
 }
 
 .compose-field:last-child {
@@ -257,7 +266,7 @@
   gap: 6px;
   padding: 5px 10px;
   background: var(--bg-elevated);
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 12px;
   box-shadow: var(--shadow-chip);
   color: var(--text-primary);
@@ -308,15 +317,15 @@
   padding: 10px 22px;
   background: var(--accent-color);
   color: var(--text-inverse);
-  border-radius: 999px;
+  border-radius: var(--btn-radius);
   font-size: 14px;
   font-weight: 600;
-  box-shadow: 0 8px 18px rgba(0, 122, 255, 0.28);
+  box-shadow: var(--shadow-primary);
   transition: opacity 0.15s ease, transform 0.1s ease;
 }
 
 .send-btn:hover:not(:disabled) {
-  opacity: 0.9;
+  opacity: 0.92;
 }
 
 .send-btn:active:not(:disabled) {

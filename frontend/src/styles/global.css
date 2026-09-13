@@ -6,7 +6,7 @@
   --bg-maillist: #ffffff;
   --bg-content: #f7f8fc;
   --bg-toolbar: rgba(255, 255, 255, 0.8);
-  --bg-overlay: rgba(0, 0, 0, 0.25);
+  --bg-overlay: rgba(0, 0, 0, 0.32);
   --bg-elevated: #ffffff;
   --surface-secondary: #f5f5f7;
   --surface-tertiary: rgba(0, 0, 0, 0.04);
@@ -22,19 +22,36 @@
   --accent-color: #007AFF;
   --accent-soft: rgba(0, 122, 255, 0.12);
   --accent-softer: rgba(0, 122, 255, 0.06);
-  --selection-bg: #007AFF;
-  --selection-text: #ffffff;
+  --selection-bg: var(--accent-soft);
+  --selection-text: var(--accent-color);
   --hover-bg: rgba(0, 0, 0, 0.03);
   --row-hover: rgba(0, 0, 0, 0.04);
   --unread-dot: #007AFF;
   --destructive: #FF3B30;
+  --success: #34C759;
   --flagged: #FF9500;
+  --folder-sent: #AF52DE;
+  --folder-draft: #FF9500;
+  --folder-archive: #34C759;
+  --folder-junk: #FF9500;
+  --folder-muted: #8E8E93;
 
   --shadow-modal: 0 24px 80px rgba(0, 0, 0, 0.25), 0 0 0 0.5px rgba(0, 0, 0, 0.08);
   --shadow-chip: 0 0.5px 2px rgba(0, 0, 0, 0.08);
+  --shadow-primary: 0 8px 18px color-mix(in srgb, var(--accent-color) 28%, transparent);
   --scrollbar-thumb: rgba(0, 0, 0, 0.12);
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.2);
   --focus-ring: color-mix(in srgb, var(--accent-color) 55%, transparent);
+
+  --overlay-blur: 8px;
+  --modal-radius: 16px;
+  --btn-radius: 8px;
+  --z-reader: 1000;
+  --z-settings: 1100;
+  --z-compose: 1200;
+  --z-palette: 1200;
+  --z-pdf: 1300;
+  --z-login: 2000;
 }
 
 :root[data-theme='dark'] {
@@ -42,7 +59,7 @@
   --bg-maillist: #141416;
   --bg-content: #141416;
   --bg-toolbar: rgba(28, 28, 30, 0.8);
-  --bg-overlay: rgba(0, 0, 0, 0.5);
+  --bg-overlay: rgba(0, 0, 0, 0.55);
   --bg-elevated: #232326;
   --surface-secondary: #1c1c1e;
   --surface-tertiary: rgba(255, 255, 255, 0.06);
@@ -58,16 +75,23 @@
   --accent-color: #0A84FF;
   --accent-soft: rgba(10, 132, 255, 0.2);
   --accent-softer: rgba(10, 132, 255, 0.1);
-  --selection-bg: #0A84FF;
-  --selection-text: #ffffff;
+  --selection-bg: var(--accent-soft);
+  --selection-text: var(--accent-color);
   --hover-bg: rgba(255, 255, 255, 0.05);
   --row-hover: rgba(255, 255, 255, 0.06);
   --unread-dot: #0A84FF;
   --destructive: #FF453A;
+  --success: #30D158;
   --flagged: #FF9F0A;
+  --folder-sent: #BF5AF2;
+  --folder-draft: #FF9F0A;
+  --folder-archive: #30D158;
+  --folder-junk: #FF9F0A;
+  --folder-muted: #98989D;
 
   --shadow-modal: 0 24px 80px rgba(0, 0, 0, 0.6), 0 0 0 0.5px rgba(255, 255, 255, 0.1);
   --shadow-chip: 0 0.5px 2px rgba(0, 0, 0, 0.4);
+  --shadow-primary: 0 8px 18px color-mix(in srgb, var(--accent-color) 35%, transparent);
   --scrollbar-thumb: rgba(255, 255, 255, 0.16);
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.26);
   --focus-ring: color-mix(in srgb, var(--accent-color) 70%, transparent);

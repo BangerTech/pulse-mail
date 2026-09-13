@@ -11,6 +11,7 @@ import { isSenderAllowed, allowSender } from '../shared/imageAllowlist';
 import { PdfPreview } from '../shared/PdfPreview';
 import { isPdfAttachment } from '../shared/pdf';
 import SenderAvatar from '../shared/SenderAvatar';
+import { authedUrl } from '../api';
 import '../shared/shared.css';
 import '../styles/mailcontent.css';
 
@@ -143,7 +144,7 @@ function MailContentInner({
       attachmentUrl: (att) => {
         const name = encodeURIComponent(att.filename || 'inline');
         const cid = (att.cid || '').replace(/^<|>$/g, '').trim().toLowerCase();
-        return `/api/mail/${accountId}/attachment/${selectedMessage.uid}/${name}?folder=${encodeURIComponent(folder)}&cid=${encodeURIComponent(cid)}&inline=1`;
+        return authedUrl(`/api/mail/${accountId}/attachment/${selectedMessage.uid}/${name}?folder=${encodeURIComponent(folder)}&cid=${encodeURIComponent(cid)}&inline=1`);
       },
     });
   }, [htmlSource, selectedMessage, selectedAccount, selectedFolder, composeFont, isDark, variant, blockRemote]);
@@ -176,7 +177,7 @@ function MailContentInner({
   const isFlagged = selectedMessage.flags?.includes('\\Flagged');
 
   function attachmentUrl(filename: string, inline = false) {
-    return `/api/mail/${mailAccountId}/attachment/${selectedMessage!.uid}/${encodeURIComponent(filename)}?folder=${encodeURIComponent(mailFolder)}${inline ? '&inline=1' : ''}`;
+    return authedUrl(`/api/mail/${mailAccountId}/attachment/${selectedMessage!.uid}/${encodeURIComponent(filename)}?folder=${encodeURIComponent(mailFolder)}${inline ? '&inline=1' : ''}`);
   }
 
   function downloadAttachment(filename: string) {
@@ -198,11 +199,6 @@ function MailContentInner({
     <div className={`mailcontent ${variant}`}>
       <div className="mailcontent-header">
         <div className="mailcontent-toolbar">
-          {variant === 'full' && onClose && (
-            <button className="action-btn" onClick={onClose} title="Schließen" aria-label="Schließen">
-              <Icon name="close" />
-            </button>
-          )}
           <div className="mailcontent-toolbar-group">
             <button className="action-btn" onClick={() => openCompose('reply', selectedMessage)} title="Antworten (R)" aria-label="Antworten">
               <Icon name="reply" />

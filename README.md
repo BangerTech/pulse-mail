@@ -9,7 +9,7 @@
   IMAP/SMTP, eigener Login, mehrere Postfächer, lokale SQLite-Cache.
 </p>
 
-Aktuelle Version: **1.4.13** · Doku: [pulse-mail.md](./pulse-mail.md)
+Aktuelle Version: **1.4.16** · Doku: [pulse-mail.md](./pulse-mail.md)
 
 ## Windows-App
 

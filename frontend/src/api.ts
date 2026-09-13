@@ -13,9 +13,16 @@ export function clearToken() {
   try { localStorage.removeItem(TOKEN_KEY); } catch {}
 }
 
-function authHeaders(): Record<string, string> {
+export function authHeaders(): Record<string, string> {
   const token = getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+/** For img/iframe/window.open — those cannot send Authorization. Backend accepts ?token=. */
+export function authedUrl(path: string) {
+  const token = getToken();
+  if (!token) return path;
+  return `${path}${path.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
 }
 
 async function request(path: string, options?: RequestInit) {

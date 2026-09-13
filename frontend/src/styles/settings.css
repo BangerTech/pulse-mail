@@ -5,16 +5,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
-  backdrop-filter: blur(4px);
+  z-index: var(--z-settings);
+  backdrop-filter: blur(var(--overlay-blur));
 }
 
 .settings-modal {
   width: 640px;
   max-height: 72vh;
   background: var(--bg-elevated);
-  border-radius: 12px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.25), 0 0 0 0.5px rgba(0, 0, 0, 0.08);
+  border-radius: var(--modal-radius);
+  box-shadow: var(--shadow-modal);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -38,19 +38,19 @@
   right: 12px;
   top: 50%;
   transform: translateY(-50%);
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  font-size: 12px;
   color: var(--text-tertiary);
-  transition: all 0.15s ease;
+  background: var(--surface-tertiary);
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .settings-close:hover {
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--hover-bg);
   color: var(--text-primary);
 }
 
@@ -63,10 +63,13 @@
 
 .settings-tabs {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
   padding: 0 20px;
   border-bottom: 0.5px solid var(--border-color);
   gap: 4px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
 }
 
 .settings-tabs button {
@@ -77,6 +80,7 @@
   margin-bottom: -0.5px;
   font-weight: 500;
   transition: all 0.15s ease;
+  flex-shrink: 0;
 }
 
 .settings-tabs button:hover {
@@ -121,7 +125,7 @@
 
 .account-item:hover,
 .signature-item:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--row-hover);
 }
 
 .account-dot {
@@ -241,7 +245,7 @@
 .signature-badge {
   font-size: 11px;
   color: var(--accent-color);
-  background: rgba(0, 122, 255, 0.1);
+  background: var(--accent-soft);
   padding: 2px 8px;
   border-radius: 4px;
   width: fit-content;
@@ -259,7 +263,7 @@
 }
 
 .add-btn:hover {
-  background: rgba(0, 122, 255, 0.06);
+  background: var(--accent-softer);
 }
 
 .add-form,
@@ -286,7 +290,7 @@
 .add-form input:focus,
 .sig-name-input:focus {
   border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.12);
+  box-shadow: 0 0 0 2px var(--focus-ring);
 }
 
 .sig-options {
@@ -343,7 +347,7 @@
 }
 
 .sig-editor-toolbar button.active {
-  background: rgba(0, 122, 255, 0.1);
+  background: var(--accent-soft);
   color: var(--accent-color);
 }
 
@@ -428,15 +432,16 @@
 .save-btn {
   padding: 8px 16px;
   background: var(--accent-color);
-  color: white;
-  border-radius: 8px;
+  color: var(--text-inverse);
+  border-radius: var(--btn-radius);
   font-size: 13px;
-  font-weight: 500;
-  transition: all 0.15s ease;
+  font-weight: 600;
+  box-shadow: var(--shadow-primary);
+  transition: opacity 0.15s ease, transform 0.1s ease;
 }
 
 .save-btn:hover {
-  opacity: 0.9;
+  opacity: 0.92;
 }
 
 .save-btn:active {
@@ -482,7 +487,7 @@
 
 .appearance-select:focus {
   border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.12);
+  box-shadow: 0 0 0 2px var(--focus-ring);
   outline: none;
 }
 
@@ -587,14 +592,10 @@
   }
 
   .settings-tabs {
-    flex-wrap: nowrap;
-    overflow-x: auto;
     padding: 0 12px;
-    -webkit-overflow-scrolling: touch;
   }
 
   .settings-tabs button {
-    flex-shrink: 0;
     padding: 10px 12px;
   }
 }

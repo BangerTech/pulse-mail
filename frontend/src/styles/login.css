@@ -8,7 +8,7 @@
   justify-content: center;
   background: var(--bg-content);
   padding: 24px;
-  z-index: 2000;
+  z-index: var(--z-login);
 }
 
 .login-card {
@@ -16,7 +16,7 @@
   max-width: 380px;
   background: var(--bg-elevated);
   border: 0.5px solid var(--border-color);
-  border-radius: 16px;
+  border-radius: var(--modal-radius);
   box-shadow: var(--shadow-modal);
   padding: 28px 26px 24px;
   display: flex;
@@ -56,7 +56,7 @@
 .login-card input {
   padding: 9px 12px;
   border: 0.5px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--btn-radius);
   background: var(--bg-content);
   color: var(--text-primary);
   font-size: 14px;
@@ -65,21 +65,32 @@
 .login-error {
   margin: 0;
   font-size: 13px;
-  color: #FF3B30;
+  color: var(--destructive);
 }
 
 .login-card button {
   margin-top: 6px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--btn-radius);
   padding: 10px 14px;
   background: var(--accent-color);
-  color: #fff;
+  color: var(--text-inverse);
   font-weight: 600;
   cursor: pointer;
+  box-shadow: var(--shadow-primary);
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+
+.login-card button:hover:not(:disabled) {
+  opacity: 0.92;
+}
+
+.login-card button:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 .login-card button:disabled {
   opacity: 0.6;
   cursor: default;
+  box-shadow: none;
 }

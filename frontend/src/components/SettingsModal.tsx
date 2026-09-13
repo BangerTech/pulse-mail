@@ -16,6 +16,7 @@ import FontFamily from '@tiptap/extension-font-family';
 import Color from '@tiptap/extension-color';
 import { ResizableImage } from './ResizableImage';
 import { FontSize } from '../extensions/FontSize';
+import { Icon } from './Icon';
 import '../styles/settings.css';
 
 type Tab = 'accounts' | 'users' | 'signatures' | 'appearance' | 'alerts' | 'info';
@@ -73,7 +74,13 @@ export default function SettingsModal() {
   });
 
   return (
-    <div className="settings-overlay" role="presentation">
+    <div
+      className="settings-overlay"
+      role="presentation"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) setShowSettings(false);
+      }}
+    >
       <div
         className="settings-modal"
         role="dialog"
@@ -88,7 +95,7 @@ export default function SettingsModal() {
             onClick={() => setShowSettings(false)}
             aria-label="Einstellungen schließen"
           >
-            ✕
+            <Icon name="close" size={12} />
           </button>
         </div>
         <div className="settings-tabs">
@@ -295,7 +302,7 @@ function AlertsTab() {
             <label>Berechtigung</label>
             <button
               type="button"
-              className="remote-images-bar-btn"
+              className="save-btn"
               onClick={async () => setNotifyPermission(await requestNotifyPermission())}
             >
               Zulassen
@@ -361,7 +368,7 @@ function AlertsTab() {
           <label>Probe</label>
           <button
             type="button"
-            className="remote-images-bar-btn"
+            className="save-btn"
             onClick={() => {
               setNotifyVolume(notifyVolume / 100);
               playNewMailSound();
@@ -430,13 +437,13 @@ function InfoTab() {
                   }
                 }}
               />
-              <button type="button" className="remote-images-bar-btn" onClick={() => fileRef.current?.click()}>
+              <button type="button" className="save-btn" onClick={() => fileRef.current?.click()}>
                 Bild wählen
               </button>
               {appUser.avatarUrl && (
                 <button
                   type="button"
-                  className="remote-images-bar-btn subtle"
+                  className="cancel-btn"
                   onClick={async () => {
                     try {
                       setAppUser(await api.removeAvatar());
@@ -465,7 +472,7 @@ function InfoTab() {
         </div>
         <div className="appearance-row">
           <label />
-          <button type="button" className="remote-images-bar-btn" onClick={saveProfile}>Profil speichern</button>
+          <button type="button" className="save-btn" onClick={saveProfile}>Profil speichern</button>
         </div>
         {saved && <p className="appearance-hint">{saved}</p>}
       </div>
@@ -550,7 +557,7 @@ function UsersTab() {
           </select>
         </div>
         {error && <p className="appearance-hint">{error}</p>}
-        <button type="button" className="remote-images-bar-btn" onClick={add}>Benutzer anlegen</button>
+        <button type="button" className="save-btn" onClick={add}>Benutzer anlegen</button>
       </div>
     </div>
   );

@@ -78,7 +78,8 @@
 
 .search-filter-input:focus {
   border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px var(--accent-softer);
+  box-shadow: 0 0 0 2px var(--focus-ring);
+  outline: none;
 }
 
 .search-list {
@@ -87,19 +88,27 @@
 }
 
 .search-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   padding: 40px 20px;
   text-align: center;
   color: var(--text-tertiary);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .search-item {
-  padding: 11px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px 11px 6px;
   border-bottom: 0.5px solid var(--border-color);
   cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+  text-align: left;
+  background: var(--bg-maillist);
   transition: background 0.1s ease;
 }
 
@@ -114,24 +123,31 @@
 .search-item.active .search-item-from,
 .search-item.active .search-item-subject,
 .search-item.active .search-item-snippet,
-.search-item.active .search-item-date {
+.search-item.active .search-item-date,
+.search-item.active .maillist-attachment {
   color: var(--selection-text);
+}
+
+.search-item.active .search-item-from {
+  font-weight: 600;
 }
 
 .search-item.active .search-tag {
-  background: rgba(255, 255, 255, 0.22);
+  background: color-mix(in srgb, var(--accent-color) 18%, transparent);
   color: var(--selection-text);
 }
 
-.search-item-top {
+.search-item-body {
+  flex: 1;
+  min-width: 0;
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .search-item-from {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 400;
   color: var(--text-primary);
   flex: 1;
   min-width: 0;
@@ -140,10 +156,20 @@
   text-overflow: ellipsis;
 }
 
+.search-item.unread .search-item-from {
+  font-weight: 600;
+}
+
 .search-item-date {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-tertiary);
+  white-space: nowrap;
   flex-shrink: 0;
+}
+
+.search-item.unread .search-item-date {
+  color: var(--accent-color);
+  font-weight: 500;
 }
 
 .search-item-subject {
@@ -152,11 +178,18 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.search-item.unread .search-item-subject {
+  font-weight: 500;
 }
 
 .search-item-snippet {
   font-size: 12px;
   color: var(--text-secondary);
+  line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
@@ -168,7 +201,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  margin-top: 3px;
+  margin-top: 2px;
   color: var(--text-tertiary);
 }
 
@@ -183,4 +216,24 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 130px;
+}
+
+.search-results.compact .search-item {
+  padding: 7px 14px 7px 6px;
+  gap: 8px;
+}
+
+.search-results.compact .maillist-avatar {
+  width: 26px;
+  height: 26px;
+  font-size: 11px;
+}
+
+.search-results.compact .maillist-indicator {
+  padding-top: 9px;
+}
+
+.search-results.compact .search-item-snippet,
+.search-results.compact .search-item-tags {
+  display: none;
 }

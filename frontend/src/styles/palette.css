@@ -2,19 +2,19 @@
   position: fixed;
   inset: 0;
   background: var(--bg-overlay);
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(var(--overlay-blur));
   display: flex;
   align-items: flex-start;
   justify-content: center;
   padding-top: 14vh;
-  z-index: 2000;
+  z-index: var(--z-palette);
 }
 
 .palette {
   width: 560px;
   max-width: calc(100vw - 40px);
   background: var(--bg-elevated);
-  border-radius: 14px;
+  border-radius: var(--modal-radius);
   box-shadow: var(--shadow-modal);
   overflow: hidden;
   display: flex;
@@ -86,8 +86,8 @@
 }
 
 .palette-item.active {
-  background: var(--accent-color);
-  color: var(--text-inverse);
+  background: var(--selection-bg);
+  color: var(--selection-text);
 }
 
 .palette-item-icon {
@@ -113,12 +113,12 @@
 }
 
 .palette-item.active .palette-item-hint {
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--text-secondary);
 }
 
 .palette-item.active .palette-item-shortcut {
-  background: rgba(255, 255, 255, 0.2);
-  color: var(--text-inverse);
+  background: var(--surface-tertiary);
+  color: var(--selection-text);
 }
 
 .palette-item-hint + .palette-item-shortcut {

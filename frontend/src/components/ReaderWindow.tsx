@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode, type PointerEvent as ReactPointerEvent } from 'react';
+import { Icon } from './Icon';
 
 const STORAGE_KEY = 'pulse:readerWindow';
 const MARGIN = 16;
@@ -147,7 +148,12 @@ export default function ReaderWindow({
   };
 
   return (
-    <div className="reader-overlay" onMouseDown={onClose}>
+    <div
+      className="reader-overlay"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
         className={`reader-window ${busy ? 'is-busy' : ''}`}
         style={{ top: box.y, left: box.x, width: box.w, height: box.h }}
@@ -159,6 +165,16 @@ export default function ReaderWindow({
       >
         <div className="reader-window-bar" onPointerDown={startMove}>
           <span>{title || 'Nachricht'}</span>
+          <button
+            type="button"
+            className="reader-window-close"
+            aria-label="Schließen"
+            title="Schließen"
+            onPointerDown={e => e.stopPropagation()}
+            onClick={onClose}
+          >
+            <Icon name="close" size={13} />
+          </button>
         </div>
         <div className="reader-window-body">{children}</div>
         {EDGES.map(edge => (

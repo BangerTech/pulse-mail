@@ -487,7 +487,7 @@ export default function ComposeModal() {
             className={editor?.isActive('link') ? 'active' : ''}
             title="Link"
           >
-            <Icon name="command" size={15} />
+            <Icon name="link" size={15} />
           </button>
 
           <span className="toolbar-divider" />
@@ -503,7 +503,7 @@ export default function ComposeModal() {
             }}
             title="Bild einfügen"
           >
-            <Icon name="envelope" size={15} />
+            <Icon name="image" size={15} />
           </button>
 
           <span className="toolbar-spacer" />

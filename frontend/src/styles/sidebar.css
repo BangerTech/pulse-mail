@@ -110,13 +110,34 @@
   opacity: 1;
 }
 
-.sidebar-item-icon.tile.inbox { background: rgba(0, 122, 255, 0.14); color: #007AFF; }
-.sidebar-item-icon.tile.sent { background: rgba(175, 82, 222, 0.14); color: #AF52DE; }
-.sidebar-item-icon.tile.draft { background: rgba(255, 149, 0, 0.16); color: #FF9500; }
-.sidebar-item-icon.tile.archive { background: rgba(52, 199, 89, 0.14); color: #34C759; }
-.sidebar-item-icon.tile.trash { background: rgba(255, 59, 48, 0.14); color: #FF3B30; }
-.sidebar-item-icon.tile.junk { background: rgba(255, 149, 0, 0.14); color: #FF9500; }
-.sidebar-item-icon.tile.folder { background: rgba(142, 142, 147, 0.16); color: #8E8E93; }
+.sidebar-item-icon.tile.inbox {
+  background: color-mix(in srgb, var(--accent-color) 14%, transparent);
+  color: var(--accent-color);
+}
+.sidebar-item-icon.tile.sent {
+  background: color-mix(in srgb, var(--folder-sent) 14%, transparent);
+  color: var(--folder-sent);
+}
+.sidebar-item-icon.tile.draft {
+  background: color-mix(in srgb, var(--folder-draft) 16%, transparent);
+  color: var(--folder-draft);
+}
+.sidebar-item-icon.tile.archive {
+  background: color-mix(in srgb, var(--folder-archive) 14%, transparent);
+  color: var(--folder-archive);
+}
+.sidebar-item-icon.tile.trash {
+  background: color-mix(in srgb, var(--destructive) 14%, transparent);
+  color: var(--destructive);
+}
+.sidebar-item-icon.tile.junk {
+  background: color-mix(in srgb, var(--folder-junk) 14%, transparent);
+  color: var(--folder-junk);
+}
+.sidebar-item-icon.tile.folder {
+  background: color-mix(in srgb, var(--folder-muted) 16%, transparent);
+  color: var(--folder-muted);
+}
 
 .sidebar-item.active .sidebar-item-icon.tile {
   background: var(--accent-color);

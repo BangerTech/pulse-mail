@@ -7,17 +7,34 @@
 
 .maillist-state {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 10px;
   height: 100%;
   color: var(--text-tertiary);
   font-size: 14px;
+  padding: 24px;
+  text-align: center;
+}
+
+.maillist-state-icon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--surface-tertiary);
+  color: var(--text-tertiary);
 }
 
 .maillist-state.small {
   height: auto;
   padding: 16px;
   font-size: 12px;
+  flex-direction: row;
+  gap: 8px;
 }
 
 .maillist-swipe {
@@ -38,20 +55,20 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #fff;
+  color: var(--text-inverse);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 
 .maillist-swipe-action.archive {
-  background: #34C759;
+  background: var(--success);
   justify-content: flex-start;
   padding-left: 22px;
 }
 
 .maillist-swipe-action.delete {
-  background: #FF3B30;
+  background: var(--destructive);
   justify-content: flex-end;
   padding-right: 22px;
 }
@@ -101,12 +118,17 @@
   color: var(--selection-text);
 }
 
+.maillist-item.active .maillist-from {
+  font-weight: 600;
+}
+
 .maillist-item.active .maillist-count {
-  background: rgba(255, 255, 255, 0.25);
+  background: color-mix(in srgb, var(--accent-color) 18%, transparent);
+  color: var(--selection-text);
 }
 
 .maillist-item.active .maillist-unread-dot {
-  background: var(--selection-text);
+  background: var(--unread-dot);
 }
 
 .maillist-indicator {
@@ -165,7 +187,7 @@
 
 .maillist-row {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 6px;
   min-width: 0;
 }
@@ -216,11 +238,21 @@
   font-size: 11px;
 }
 
+.maillist-meta {
+  position: relative;
+  flex-shrink: 0;
+  min-width: 88px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .maillist-date {
   font-size: 12px;
   color: var(--text-tertiary);
   white-space: nowrap;
-  flex-shrink: 0;
+  transition: opacity 0.12s ease;
 }
 
 .maillist-item.unread .maillist-date {
@@ -265,15 +297,11 @@
 
 .maillist-actions {
   position: absolute;
-  right: 10px;
+  right: 0;
   top: 50%;
   transform: translateY(-50%);
   display: flex;
   gap: 2px;
-  padding: 3px;
-  border-radius: 8px;
-  background: var(--bg-elevated);
-  box-shadow: var(--shadow-chip);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.12s ease;
@@ -286,7 +314,14 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .maillist-item:hover .maillist-actions {
+  .maillist-item:hover .maillist-date,
+  .maillist-item:focus-within .maillist-date {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .maillist-item:hover .maillist-actions,
+  .maillist-item:focus-within .maillist-actions {
     opacity: 1;
     pointer-events: auto;
   }

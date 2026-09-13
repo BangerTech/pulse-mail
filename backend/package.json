@@ -1,6 +1,6 @@
 {
   "name": "pulse-mail-backend",
-  "version": "1.4.13",
+  "version": "1.4.16",
   "type": "module",
   "scripts": {
     "start": "node src/index.js",

@@ -259,7 +259,36 @@ const MailRow = memo(function MailRow({
                 {row.count}
               </button>
             )}
-            <span className="maillist-date">{formatDate(row.date)}</span>
+            <span className="maillist-meta">
+              <span className="maillist-date">{formatDate(row.date)}</span>
+              <div className="maillist-actions" onClick={(e) => e.stopPropagation()}>
+                <button
+                  className="maillist-action"
+                  onClick={() => onArchive(row.keys)}
+                  title="Archivieren"
+                  aria-label="Archivieren"
+                >
+                  <Icon name="archive" size={15} />
+                </button>
+                <button
+                  className="maillist-action"
+                  onClick={() => onToggleFlag(row.keys, !row.flagged)}
+                  title={row.flagged ? 'Markierung entfernen' : 'Markieren'}
+                  aria-label={row.flagged ? 'Markierung entfernen' : 'Markieren'}
+                  aria-pressed={row.flagged}
+                >
+                  <Icon name="flag" size={15} filled={row.flagged} />
+                </button>
+                <button
+                  className="maillist-action destructive"
+                  onClick={() => onDelete(row.keys)}
+                  title="Löschen"
+                  aria-label="Löschen"
+                >
+                  <Icon name="trash" size={15} />
+                </button>
+              </div>
+            </span>
           </div>
 
           <div className="maillist-row">
@@ -269,34 +298,6 @@ const MailRow = memo(function MailRow({
           </div>
 
           {row.snippet && <div className="maillist-snippet">{row.snippet}</div>}
-        </div>
-
-        <div className="maillist-actions" onClick={(e) => e.stopPropagation()}>
-          <button
-            className="maillist-action"
-            onClick={() => onArchive(row.keys)}
-            title="Archivieren"
-            aria-label="Archivieren"
-          >
-            <Icon name="archive" size={15} />
-          </button>
-          <button
-            className="maillist-action"
-            onClick={() => onToggleFlag(row.keys, !row.flagged)}
-            title={row.flagged ? 'Markierung entfernen' : 'Markieren'}
-            aria-label={row.flagged ? 'Markierung entfernen' : 'Markieren'}
-            aria-pressed={row.flagged}
-          >
-            <Icon name="flag" size={15} filled={row.flagged} />
-          </button>
-          <button
-            className="maillist-action destructive"
-            onClick={() => onDelete(row.keys)}
-            title="Löschen"
-            aria-label="Löschen"
-          >
-            <Icon name="trash" size={15} />
-          </button>
         </div>
       </div>
     </div>
@@ -468,7 +469,12 @@ export default function MailList({ onOpen, onLoadMore, onArchive, onDelete, onTo
   if (loading && !rows.length) {
     return (
       <div className="maillist">
-        <div className="maillist-state">Laden...</div>
+        <div className="maillist-state">
+          <span className="maillist-state-icon" aria-hidden>
+            <Icon name="refresh" size={20} />
+          </span>
+          Laden...
+        </div>
       </div>
     );
   }
@@ -476,7 +482,12 @@ export default function MailList({ onOpen, onLoadMore, onArchive, onDelete, onTo
   if (!rows.length) {
     return (
       <div className="maillist">
-        <div className="maillist-state">Keine E-Mails</div>
+        <div className="maillist-state">
+          <span className="maillist-state-icon" aria-hidden>
+            <Icon name="inbox" size={20} />
+          </span>
+          Keine E-Mails
+        </div>
       </div>
     );
   }

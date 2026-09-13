@@ -4,6 +4,7 @@ import { Icon } from './Icon';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { onActivateKey } from '../shared/keyboard';
+import SenderAvatar from '../shared/SenderAvatar';
 import '../styles/search.css';
 
 export interface SearchOptions {
@@ -21,12 +22,21 @@ interface SearchResultsProps {
   onOpen: (accountId: number, folder: string, uid: number) => void;
 }
 
+function formatDate(value?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return format(date, 'd. MMM.', { locale: de });
+}
+
 export default function SearchResults({ options, onOptionsChange, onOpen }: SearchResultsProps) {
   const searchResults = useStore(s => s.searchResults);
   const searching = useStore(s => s.searching);
   const selectedUid = useStore(s => s.selectedMessage?.uid);
   const folders = useStore(s => s.folders);
   const unifiedView = useStore(s => s.unifiedView);
+  const density = useStore(s => s.density);
+  const loadRemoteImages = useStore(s => s.loadRemoteImages);
   const [showFilters, setShowFilters] = useState(false);
 
   const folderLabel = (path: string) => {
@@ -44,7 +54,7 @@ export default function SearchResults({ options, onOptionsChange, onOpen }: Sear
     (options.folder ? 1 : 0);
 
   return (
-    <div className="search-results">
+    <div className={`search-results ${density}`}>
       <div className="search-header">
         <div className="search-summary">
           {searching ? 'Suche läuft...' : `${searchResults.length} Treffer`}
@@ -128,37 +138,62 @@ export default function SearchResults({ options, onOptionsChange, onOpen }: Sear
 
       <div className="search-list">
         {!searching && searchResults.length === 0 && (
-          <div className="search-empty">Keine Treffer</div>
+          <div className="search-empty">
+            <span className="maillist-state-icon" aria-hidden>
+              <Icon name="search" size={20} />
+            </span>
+            Keine Treffer
+          </div>
         )}
 
-        {searchResults.map(result => (
-          <div
-            key={`${result.accountId}-${result.folder}-${result.uid}`}
-            className={`search-item ${selectedUid === result.uid ? 'active' : ''}`}
-            onClick={() => onOpen(result.accountId, result.folder, result.uid)}
-            onKeyDown={(e) => onActivateKey(e, () => onOpen(result.accountId, result.folder, result.uid))}
-            role="button"
-            tabIndex={0}
-          >
-            <div className="search-item-top">
-              <span className="search-item-from">
-                {result.from?.name || result.from?.address || 'Unbekannt'}
-              </span>
-              <span className="search-item-date">
-                {result.date ? format(new Date(result.date), 'd. MMM yy', { locale: de }) : ''}
-              </span>
+        {searchResults.map(result => {
+          const unread = Array.isArray(result.flags)
+            ? !result.flags.includes('\\Seen')
+            : !!result.unread;
+          return (
+            <div
+              key={`${result.accountId}-${result.folder}-${result.uid}`}
+              className={`search-item ${selectedUid === result.uid ? 'active' : ''} ${unread ? 'unread' : ''}`}
+              onClick={() => onOpen(result.accountId, result.folder, result.uid)}
+              onKeyDown={(e) => onActivateKey(e, () => onOpen(result.accountId, result.folder, result.uid))}
+              role="button"
+              tabIndex={0}
+            >
+              <div className="maillist-indicator">
+                {unread && <span className="maillist-unread-dot" />}
+              </div>
+
+              <SenderAvatar
+                className="maillist-avatar"
+                name={result.from?.name}
+                address={result.from?.address}
+                allowRemote={loadRemoteImages}
+              />
+
+              <div className="search-item-body">
+                <div className="maillist-row">
+                  <span className="search-item-from">
+                    {result.from?.name || result.from?.address || 'Unbekannt'}
+                  </span>
+                  <span className="search-item-date">{formatDate(result.date)}</span>
+                </div>
+                <div className="maillist-row">
+                  <span className="search-item-subject">{result.subject || '(Kein Betreff)'}</span>
+                  {result.hasAttachments && <Icon name="attachment" size={12} className="maillist-attachment" />}
+                </div>
+                {result.snippet && density !== 'compact' && (
+                  <div className="search-item-snippet">{result.snippet}</div>
+                )}
+                <div className="search-item-tags">
+                  <span className="search-tag">{folderLabel(result.folder)}</span>
+                  {result.account && (
+                    <span className="search-tag account">{result.account.email}</span>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="search-item-subject">{result.subject || '(Kein Betreff)'}</div>
-            {result.snippet && <div className="search-item-snippet">{result.snippet}</div>}
-            <div className="search-item-tags">
-              <span className="search-tag">{folderLabel(result.folder)}</span>
-              {result.account && (
-                <span className="search-tag account">{result.account.email}</span>
-              )}
-              {result.hasAttachments && <Icon name="attachment" size={12} />}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

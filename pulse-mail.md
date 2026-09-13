@@ -2,7 +2,7 @@
 
 ## Version
 
-Aktuelle Version: **1.4.13** — Quelle ist `frontend/package.json`, Anzeige unter Einstellungen → Info (`__APP_VERSION__` / `__APP_BUILD__` aus dem Vite-Build). Fallback in `frontend/src/shared/version.ts`. Backend `package.json` und `desktop/` halten dieselbe Versionsnummer.
+Aktuelle Version: **1.4.16** — Quelle ist `frontend/package.json`, Anzeige unter Einstellungen → Info (`__APP_VERSION__` / `__APP_BUILD__` aus dem Vite-Build). Fallback in `frontend/src/shared/version.ts`. Backend `package.json` und `desktop/` halten dieselbe Versionsnummer.
 
 **Bei jeder inhaltlichen Änderung** (nicht nur beim nächsten Commit):
 
@@ -11,6 +11,17 @@ Aktuelle Version: **1.4.13** — Quelle ist `frontend/package.json`, Anzeige unt
 3. Commit mit der neuen Versionsnummer
 
 ### Changelog
+
+#### 1.4.16 (2026-09-13)
+- PDF-Vorschau und Anhänge: iframe/`<img>` schicken keinen Bearer-Header. Vorschau lädt per `fetch` mit Session und zeigt ein Blob; Download und Inline-Bilder hängen `?token=` an (wie der WebSocket). Statt `{"error":"Nicht angemeldet"}` im Viewer kommt bei Fehlern eine klare Meldung.
+
+#### 1.4.15 (2026-09-13)
+- UI-Konsolidierung: gemeinsame Overlay-/Modal-Tokens (Backdrop, Blur, Radius, z-index); Lesefenster mit Schließen in der Titelleiste und ohne doppelten Betreff; Suchtreffer wie Listenzeilen (Avatar, Ungelesen, Dichte).
+- Weiche Auswahl wie in der Sidebar; Ordner-Kacheln themefähig; einheitlicher Fokus-Ring und Primary-Button; Compose-Icons für Link/Bild.
+- Settings-Tabs scrollbar, Leere-Zustände mit Icon, Listen-Aktionen auch bei Tastatur-Fokus, Dark-Hover und Banner vereinheitlicht.
+
+#### 1.4.14 (2026-09-13)
+- Listen-Hover: Schnellaktionen sitzen im Datums-Slot. Die Konversationszahl bleibt sichtbar; das Datum blendet nur beim Hover aus (Apple-Mail-Muster).
 
 #### 1.4.13 (2026-09-12)
 - README aktualisiert: Windows-App (Releases, Setup-URL, kein Pake), aktuelles Logo, Login/Docker-Hinweise.
@@ -225,7 +236,7 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - `GET /api/mail/unified/unread` - Ungelesen-Summe aller Posteingänge
 - `GET /api/mail/:accountId/messages` - Mails auflisten (`folder`, `limit`, `offset`), liefert `messages` und `threads`
 - `GET /api/mail/:accountId/message/:uid` - Mail-Detail (Cache zuerst, sonst IMAP nur Body-Parts)
-- `GET /api/mail/:accountId/attachment/:uid/:filename` - Anhang; `?inline=1` liefert `Content-Disposition: inline` (PDF-Vorschau). Dateien mit `.pdf` oder `%PDF-`-Signatur bekommen `application/pdf`.
+- `GET /api/mail/:accountId/attachment/:uid/:filename` - Anhang; `?inline=1` liefert `Content-Disposition: inline` (PDF-Vorschau). Dateien mit `.pdf` oder `%PDF-`-Signatur bekommen `application/pdf`. Auth wie überall: `Authorization: Bearer` oder `?token=` (für iframe/img).
 - `GET /api/mail/:accountId/unread-counts` - Ungelesen-Zähler pro Ordner
 - `POST /api/mail/:accountId/send` - Mail senden (multipart/form-data)
 - `POST /api/mail/:accountId/draft` - Entwurf im IMAP-Drafts-Ordner speichern
@@ -292,7 +303,7 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Ein/aus unter Einstellungen → Darstellung → Konversationen. Die Zahl in der Liste klappt die Mails der Konversation auf; im Lesen sind alle Nachrichten der Kette anwählbar.
 - Allen antworten, Weiterleiten, Archivieren, Favorit, als ungelesen markieren
 - Löschen sucht den Papierkorb über IMAP Special-Use (`\Trash`) inkl. Papierkorb / INBOX.Trash
-- Mehrfachauswahl: Cmd/Ctrl-Klick und Shift-Klick, Schnellaktionen beim Hover
+- Mehrfachauswahl: Cmd/Ctrl-Klick und Shift-Klick. Hover-Aktionen (Archiv / Markieren / Löschen) tauschen das Datum, die Konversationszahl bleibt frei.
 - Nachladen beim Scrollen
 - Entwürfe: Button oder automatisch beim Schließen des Editors, wenn Inhalt vorhanden ist
 - Anhänge im Composer: Büroklammer oder Dateien auf das Fenster ziehen. Der Editor schluckt Drops nicht mehr; der Dateidialog schließt den Composer nicht (Overlay-Klick nach dem Picker wird ignoriert). File-Inputs sind visuell versteckt statt `hidden`, damit Chromium/Linux `change` auslöst.
@@ -328,8 +339,8 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Statische Datei `frontend/public/notify.wav`. Der Player wird beim Gesten-Klick nur entsperrt, spielt den Ding aber nicht nach — sonst hörte man ihn erst beim Öffnen der neuen Mail.
 
 ### Info (eigener Einstellungs-Reiter)
-- Version aus `frontend/package.json` (aktuell **1.4.13**), Build-Zeitpunkt aus dem Vite-Build (`__APP_VERSION__`, `__APP_BUILD__`)
-- Hinweis-Berechtigung und Tonkanal-Status. Titelzeile der Einstellungen zeigt `v1.4.13`
+- Version aus `frontend/package.json` (aktuell **1.4.16**), Build-Zeitpunkt aus dem Vite-Build (`__APP_VERSION__`, `__APP_BUILD__`)
+- Hinweis-Berechtigung und Tonkanal-Status. Titelzeile der Einstellungen zeigt `v1.4.16`
 - Profilbild setzen/entfernen (siehe App-Benutzer)
 
 ### MIME / Anzeige
