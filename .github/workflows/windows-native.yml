@@ -44,14 +44,16 @@ jobs:
       - name: Test Core
         run: dotnet test src/PulseMail.Core.Tests/PulseMail.Core.Tests.csproj --configuration Release --no-restore
 
-      # Publish via VS MSBuild so Appx/PRI tasks resolve from Visual Studio, not the .NET SDK tree
+      # Publish via VS MSBuild so Appx/PRI tasks resolve from Visual Studio, not the .NET SDK tree.
+      # Do NOT pass /p:TargetFramework or /restore here — global TFM overrides break
+      # PulseMail.Core (net8.0) project.assets.json (NETSDK1005).
       - name: Publish unpackaged
         shell: pwsh
         run: |
           $out = Join-Path $env:GITHUB_WORKSPACE "artifacts\PulseMail-native"
           New-Item -ItemType Directory -Force -Path $out | Out-Null
+          dotnet restore src\PulseMail.App\PulseMail.App.csproj -r win-x64
           msbuild src\PulseMail.App\PulseMail.App.csproj `
-            /restore `
             /t:Publish `
             /p:Configuration=Release `
             /p:Platform=x64 `
@@ -61,7 +63,6 @@ jobs:
             /p:WindowsPackageType=None `
             /p:WindowsAppSDKSelfContained=true `
             /p:PublishDir="$out\\" `
-            /p:TargetFramework=net8.0-windows10.0.19041.0 `
             /v:m
 
       - name: Verify publish output
