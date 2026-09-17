@@ -88,7 +88,7 @@ public sealed class PulseIcon : UserControl
         }
         catch { }
 
-        var path = new Path
+        var path = new Microsoft.UI.Xaml.Shapes.Path
         {
             Data = geometry,
             Stroke = stroke,
