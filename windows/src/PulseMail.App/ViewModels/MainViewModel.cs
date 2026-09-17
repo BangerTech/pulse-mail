@@ -195,7 +195,7 @@ public partial class MainViewModel : ObservableObject
         var folder = SelectedFolder?.FullName ?? "INBOX";
         if (SelectedFolder?.IsUnified == true) accountId = null;
 
-        var rows = _mail.Db.GetMessages(accountId, folder, 100, 0);
+        var rows = _mail.Db.GetMessages(accountId, folder, 300, 0);
         var pending = accountId is not null
             ? _mail.Db.GetPendingKeys(accountId.Value, folder)
             : new HashSet<string>();
@@ -205,6 +205,9 @@ public partial class MainViewModel : ObservableObject
         if (ConversationsEnabled)
         {
             ThreadingHelper.AssignThreadIds(visible);
+            foreach (var m in visible)
+                _mail.Db.UpdateThreadId(m.AccountId, m.Folder, m.Uid, m.ThreadId);
+
             var groups = visible
                 .GroupBy(m => m.ThreadId ?? m.Key)
                 .Select(g =>
@@ -221,6 +224,7 @@ public partial class MainViewModel : ObservableObject
                     };
                 })
                 .OrderByDescending(i => i.Message.Date)
+                .Take(120)
                 .ToList();
             foreach (var g in groups) Messages.Add(g);
         }
@@ -272,7 +276,7 @@ public partial class MainViewModel : ObservableObject
         await RefreshMessagesAsync();
         if (SelectedAccount is not null)
         {
-            try { await _mail.Imap.FetchRecentAsync(SelectedAccount.Account.Id, folder.FullName, 50); }
+            try { await _mail.Imap.FetchRecentAsync(SelectedAccount.Account.Id, folder.FullName, 120); }
             catch { }
             await RefreshMessagesAsync();
         }
@@ -280,7 +284,7 @@ public partial class MainViewModel : ObservableObject
         {
             foreach (var a in Accounts)
             {
-                try { await _mail.Imap.FetchRecentAsync(a.Account.Id, "INBOX", 30); } catch { }
+                try { await _mail.Imap.FetchRecentAsync(a.Account.Id, "INBOX", 80); } catch { }
             }
             await RefreshMessagesAsync();
         }

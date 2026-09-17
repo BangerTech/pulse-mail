@@ -130,10 +130,22 @@ public static partial class ThreadingHelper
         foreach (var group in bySubject.Values)
         {
             if (group.Count < 2) continue;
+            // Same as backend: prefer reply-cue groups; also merge identical
+            // subject+from (campaign threads that omit References).
+            var sameFrom = group
+                .GroupBy(m => (m.FromAddress ?? "").Trim().ToLowerInvariant())
+                .Where(g => g.Key.Length > 0 && g.Count() >= 2);
+            foreach (var fromGroup in sameFrom)
+            {
+                var root = SelfKey(fromGroup.First());
+                foreach (var m in fromGroup.Skip(1))
+                    uf.Union(root, SelfKey(m));
+            }
+
             if (!group.Any(HasReplyCue)) continue;
-            var root = SelfKey(group[0]);
+            var replyRoot = SelfKey(group[0]);
             for (var i = 1; i < group.Count; i++)
-                uf.Union(root, SelfKey(group[i]));
+                uf.Union(replyRoot, SelfKey(group[i]));
         }
 
         foreach (var msg in messages)

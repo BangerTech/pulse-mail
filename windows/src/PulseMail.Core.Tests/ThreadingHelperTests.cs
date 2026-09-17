@@ -35,13 +35,13 @@ public class ThreadingHelperTests
     }
 
     [Fact]
-    public void AssignThreadIds_UnionsReplyChain()
+    public void AssignThreadIds_GroupsSameSubjectAndFrom()
     {
         var msgs = new List<CachedMessage>
         {
-            new() { AccountId = 1, Folder = "INBOX", Uid = 1, MessageId = "<a@x>", Subject = "Hi", FromAddress = "a@x" },
-            new() { AccountId = 1, Folder = "INBOX", Uid = 2, MessageId = "<b@x>", InReplyTo = "<a@x>", Subject = "Re: Hi", FromAddress = "b@x" },
-            new() { AccountId = 1, Folder = "INBOX", Uid = 3, MessageId = "<c@x>", Subject = "Other", FromAddress = "c@x" },
+            new() { AccountId = 1, Folder = "INBOX", Uid = 1, MessageId = "<1@x>", Subject = "Miles Angebot", FromAddress = "miles@lh.com", Date = DateTime.UtcNow.AddHours(-2) },
+            new() { AccountId = 1, Folder = "INBOX", Uid = 2, MessageId = "<2@x>", Subject = "Miles Angebot", FromAddress = "miles@lh.com", Date = DateTime.UtcNow.AddHours(-1) },
+            new() { AccountId = 1, Folder = "INBOX", Uid = 3, MessageId = "<3@x>", Subject = "Andere Mail", FromAddress = "miles@lh.com", Date = DateTime.UtcNow },
         };
         ThreadingHelper.AssignThreadIds(msgs);
         Assert.Equal(msgs[0].ThreadId, msgs[1].ThreadId);

@@ -16,7 +16,7 @@
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSdkUndockedRegFreeWinRTInitialize>true</WindowsAppSdkUndockedRegFreeWinRTInitialize>
     <DefineConstants>DISABLE_XAML_GENERATED_MAIN</DefineConstants>
-    <Version>1.0.4</Version>
+    <Version>1.0.5</Version>
     <ApplicationTitle>Pulse Mail</ApplicationTitle>
     <ApplicationId>de.bangertech.pulsemail.winui</ApplicationId>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>

@@ -206,9 +206,12 @@ public sealed class ImapMailService : IAsyncDisposable
         if (f.Count == 0) return;
         var start = Math.Max(0, f.Count - count);
 
+        // Envelope alone is not enough — References must be requested explicitly
+        // or AssignThreadIds cannot merge reply chains (Docker app parity).
         var summaries = await f.FetchAsync(start, -1,
             MessageSummaryItems.UniqueId | MessageSummaryItems.Envelope | MessageSummaryItems.Flags |
-            MessageSummaryItems.BodyStructure | MessageSummaryItems.Headers,
+            MessageSummaryItems.BodyStructure | MessageSummaryItems.References,
+            new[] { HeaderId.References, HeaderId.InReplyTo, HeaderId.MessageId },
             ct);
 
         foreach (var s in summaries)
@@ -472,7 +475,14 @@ public sealed class ImapMailService : IAsyncDisposable
         var messageId = env?.MessageId;
         var inReplyTo = env?.InReplyTo;
         string? references = null;
-        try { references = s.Headers?["References"]; } catch { }
+        try
+        {
+            if (s.References is { Count: > 0 })
+                references = string.Join(' ', s.References.Select(r => r.StartsWith('<') ? r : $"<{r}>"));
+            else if (s.Headers is not null)
+                references = s.Headers[HeaderId.References];
+        }
+        catch { }
 
         var subject = env?.Subject;
         var threadId = ThreadingHelper.ComputeThreadId(messageId, inReplyTo, references, subject, from?.Address);
@@ -513,6 +523,16 @@ public sealed class ImapMailService : IAsyncDisposable
             var plain = msg.TextBody ?? StripTags(msg.HtmlBody ?? "");
             cached.Snippet = plain.Length > 200 ? plain[..200] : plain;
         }
+
+        if (!string.IsNullOrEmpty(msg.MessageId))
+            cached.MessageId = msg.MessageId;
+        if (!string.IsNullOrEmpty(msg.InReplyTo))
+            cached.InReplyTo = msg.InReplyTo;
+        if (msg.References is { Count: > 0 })
+            cached.ReferencesHeader = string.Join(' ', msg.References);
+        cached.ThreadId = ThreadingHelper.ComputeThreadId(
+            cached.MessageId, cached.InReplyTo, cached.ReferencesHeader, cached.Subject, cached.FromAddress);
+
         var atts = new List<AttachmentMeta>();
         foreach (var part in msg.BodyParts.OfType<MimePart>())
         {

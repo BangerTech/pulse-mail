@@ -367,32 +367,74 @@ public sealed partial class MainPage : Page
 
     private void SidebarSplitter_Pressed(object sender, PointerRoutedEventArgs e)
     {
-        _draggingSplitter = true; _dragTarget = 0;
+        _draggingSplitter = true;
+        _dragTarget = 0;
         _dragStartX = e.GetCurrentPoint(MainLayout).Position.X;
-        _dragStartWidth = SidebarCol.ActualWidth;
-        ((UIElement)sender).CapturePointer(e.Pointer);
+        _dragStartWidth = SidebarCol.ActualWidth > 1 ? SidebarCol.ActualWidth : SidebarCol.Width.Value;
+        MainLayout.CapturePointer(e.Pointer);
+        SidebarSplitter.Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["PulseAccentSoft"];
+        e.Handled = true;
     }
 
     private void ListSplitter_Pressed(object sender, PointerRoutedEventArgs e)
     {
-        _draggingSplitter = true; _dragTarget = 1;
+        _draggingSplitter = true;
+        _dragTarget = 1;
         _dragStartX = e.GetCurrentPoint(MainLayout).Position.X;
-        _dragStartWidth = ListCol.ActualWidth;
-        ((UIElement)sender).CapturePointer(e.Pointer);
+        _dragStartWidth = ListCol.ActualWidth > 1 ? ListCol.ActualWidth : ListCol.Width.Value;
+        MainLayout.CapturePointer(e.Pointer);
+        ListSplitter.Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["PulseAccentSoft"];
+        e.Handled = true;
     }
 
-    private void Splitter_Moved(object sender, PointerRoutedEventArgs e)
+    private void Layout_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
         if (!_draggingSplitter) return;
         var x = e.GetCurrentPoint(MainLayout).Position.X;
-        var w = Math.Max(160, Math.Min(480, _dragStartWidth + (x - _dragStartX)));
-        if (_dragTarget == 0) SidebarCol.Width = new GridLength(w);
-        else ListCol.Width = new GridLength(w);
+        var delta = x - _dragStartX;
+        if (_dragTarget == 0)
+        {
+            var w = Math.Clamp(_dragStartWidth + delta, 160, 420);
+            SidebarCol.Width = new GridLength(w);
+        }
+        else
+        {
+            var w = Math.Clamp(_dragStartWidth + delta, 220, 560);
+            ListCol.Width = new GridLength(w);
+        }
+        e.Handled = true;
     }
 
-    private void Splitter_Released(object sender, PointerRoutedEventArgs e)
+    private void Layout_PointerReleased(object sender, PointerRoutedEventArgs e) => EndSplitterDrag(e.Pointer);
+
+    private void Layout_PointerCaptureLost(object sender, PointerRoutedEventArgs e) => EndSplitterDrag(e.Pointer);
+
+    private void EndSplitterDrag(Microsoft.UI.Xaml.Input.Pointer pointer)
     {
+        if (!_draggingSplitter) return;
         _draggingSplitter = false;
-        ((UIElement)sender).ReleasePointerCapture(e.Pointer);
+        try { MainLayout.ReleasePointerCapture(pointer); } catch { }
+        SidebarSplitter.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0, 0, 0, 0));
+        ListSplitter.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0, 0, 0, 0));
     }
+
+    private void Splitter_PointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        if (_draggingSplitter) return;
+        if (sender is Border b)
+            b.Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["PulseAccentSoft"];
+        ProtectedCursor = Microsoft.UI.Input.InputSystemCursor.Create(Microsoft.UI.Input.InputSystemCursorShape.SizeWestEast);
+    }
+
+    private void Splitter_PointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        if (_draggingSplitter) return;
+        if (sender is Border b)
+            b.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0, 0, 0, 0));
+        ProtectedCursor = null;
+    }
+
+    // legacy no-ops kept so old wiring does not break if referenced
+    private void Splitter_Moved(object sender, PointerRoutedEventArgs e) => Layout_PointerMoved(sender, e);
+    private void Splitter_Released(object sender, PointerRoutedEventArgs e) => Layout_PointerReleased(sender, e);
 }

@@ -408,6 +408,19 @@ public sealed class MailDatabase : IDisposable
         }
     }
 
+    public void UpdateThreadId(int accountId, string folder, uint uid, string? threadId)
+    {
+        lock (_lock)
+        {
+            using var cmd = Cmd("UPDATE mail_cache SET thread_id=$tid WHERE account_id=$aid AND folder=$folder AND uid=$uid");
+            cmd.Parameters.AddWithValue("$tid", (object?)threadId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$aid", accountId);
+            cmd.Parameters.AddWithValue("$folder", folder);
+            cmd.Parameters.AddWithValue("$uid", (long)uid);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
     public void UpdateFlags(int accountId, string folder, uint uid, string flagsJson)
     {
         lock (_lock)

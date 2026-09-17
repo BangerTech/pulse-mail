@@ -12,7 +12,7 @@
       <RowDefinition Height="*"/>
     </Grid.RowDefinitions>
 
-    <!-- Toolbar — matches .toolbar -->
+    <!-- Toolbar -->
     <Border Grid.Row="0" Background="{ThemeResource PulseBgToolbar}"
             BorderBrush="{ThemeResource PulseBorder}" BorderThickness="0,0,0,1" Padding="8,0,12,0">
       <Grid>
@@ -22,41 +22,31 @@
           <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
 
-        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-          <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.ToggleSidebarCommand}" ToolTipService.ToolTip="Seitenleiste ([)">
-            <FontIcon Glyph="&#xE700;" FontSize="14" Foreground="{ThemeResource PulseTextSecondary}"/>
-          </Button>
-          <Button Command="{x:Bind ViewModel.NewMailCommand}" Style="{StaticResource AccentButtonStyle}"
-                  Height="32" Padding="12,0" CornerRadius="8" FontSize="13" FontWeight="SemiBold"
-                  ToolTipService.ToolTip="Neue E-Mail (N)">
-            <StackPanel Orientation="Horizontal" Spacing="6">
-              <FontIcon Glyph="&#xE70F;" FontSize="13"/>
-              <TextBlock Text="Neue E-Mail" VerticalAlignment="Center"/>
-            </StackPanel>
-          </Button>
-        </StackPanel>
+        <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.ToggleSidebarCommand}" ToolTipService.ToolTip="Seitenleiste ([)">
+          <controls:PulseIcon Icon="sidebar" IconSize="16" StrokeBrush="{ThemeResource PulseTextSecondary}"/>
+        </Button>
 
         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="2" VerticalAlignment="Center">
           <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.ArchiveSelectedCommand}" ToolTipService.ToolTip="Archivieren (E)">
-            <FontIcon Glyph="&#xE7B8;" FontSize="14" Foreground="{ThemeResource PulseTextSecondary}"/>
+            <controls:PulseIcon Icon="archive" IconSize="16" StrokeBrush="{ThemeResource PulseTextSecondary}"/>
           </Button>
           <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.DeleteSelectedCommand}" ToolTipService.ToolTip="Löschen (#)">
-            <FontIcon Glyph="&#xE74D;" FontSize="14" Foreground="{ThemeResource PulseDestructive}"/>
+            <controls:PulseIcon Icon="trash" IconSize="16" StrokeBrush="{ThemeResource PulseDestructive}"/>
           </Button>
           <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.ReplyCommand}" ToolTipService.ToolTip="Antworten (R)">
-            <FontIcon Glyph="&#xE97A;" FontSize="14" Foreground="{ThemeResource PulseTextSecondary}"/>
+            <controls:PulseIcon Icon="reply" IconSize="16" StrokeBrush="{ThemeResource PulseTextSecondary}"/>
           </Button>
           <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.ReplyAllCommand}" ToolTipService.ToolTip="Allen antworten (A)">
-            <FontIcon Glyph="&#xE8C2;" FontSize="14" Foreground="{ThemeResource PulseTextSecondary}"/>
+            <controls:PulseIcon Icon="replyAll" IconSize="16" StrokeBrush="{ThemeResource PulseTextSecondary}"/>
           </Button>
           <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.ForwardCommand}" ToolTipService.ToolTip="Weiterleiten (F)">
-            <FontIcon Glyph="&#xE72A;" FontSize="14" Foreground="{ThemeResource PulseTextSecondary}"/>
+            <controls:PulseIcon Icon="forward" IconSize="16" StrokeBrush="{ThemeResource PulseTextSecondary}"/>
           </Button>
           <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.ToggleFlagCommand}" ToolTipService.ToolTip="Markieren (L)">
-            <FontIcon Glyph="&#xE735;" FontSize="14" Foreground="{ThemeResource PulseFlagged}"/>
+            <controls:PulseIcon Icon="flag" IconSize="16" StrokeBrush="{ThemeResource PulseFlagged}"/>
           </Button>
           <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.ToggleSeenCommand}" ToolTipService.ToolTip="Gelesen (U)">
-            <FontIcon Glyph="&#xE8BD;" FontSize="14" Foreground="{ThemeResource PulseTextSecondary}"/>
+            <controls:PulseIcon Icon="envelope" IconSize="16" StrokeBrush="{ThemeResource PulseTextSecondary}"/>
           </Button>
         </StackPanel>
 
@@ -66,49 +56,64 @@
                           QuerySubmitted="Search_QuerySubmitted"
                           x:Name="SearchBox"/>
           <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.OpenSettingsCommand}" ToolTipService.ToolTip="Einstellungen (,)">
-            <FontIcon Glyph="&#xE713;" FontSize="14" Foreground="{ThemeResource PulseTextSecondary}"/>
+            <controls:PulseIcon Icon="settings" IconSize="16" StrokeBrush="{ThemeResource PulseTextSecondary}"/>
           </Button>
           <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.CycleThemeCommand}" ToolTipService.ToolTip="Theme (T)">
-            <FontIcon Glyph="&#xE706;" FontSize="14" Foreground="{ThemeResource PulseTextSecondary}"/>
+            <controls:PulseIcon Icon="sun" IconSize="16" StrokeBrush="{ThemeResource PulseTextSecondary}"/>
           </Button>
           <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.OpenPaletteCommand}" ToolTipService.ToolTip="Befehle (Ctrl+K)">
-            <FontIcon Glyph="&#xE773;" FontSize="14" Foreground="{ThemeResource PulseTextSecondary}"/>
+            <controls:PulseIcon Icon="command" IconSize="16" StrokeBrush="{ThemeResource PulseTextSecondary}"/>
           </Button>
           <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.RefreshMessagesCommand}" ToolTipService.ToolTip="Aktualisieren (.)">
-            <FontIcon Glyph="&#xE72C;" FontSize="14" Foreground="{ThemeResource PulseTextSecondary}"/>
+            <controls:PulseIcon Icon="refresh" IconSize="16" StrokeBrush="{ThemeResource PulseTextSecondary}"/>
           </Button>
         </StackPanel>
       </Grid>
     </Border>
 
-    <Grid Grid.Row="1" x:Name="MainLayout" Background="{ThemeResource PulseBgContent}">
+    <Grid Grid.Row="1" x:Name="MainLayout" Background="{ThemeResource PulseBgContent}"
+          PointerMoved="Layout_PointerMoved" PointerReleased="Layout_PointerReleased" PointerCaptureLost="Layout_PointerCaptureLost">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition x:Name="SidebarCol" Width="220"/>
-        <ColumnDefinition Width="5"/>
-        <ColumnDefinition x:Name="ListCol" Width="340"/>
-        <ColumnDefinition Width="5"/>
-        <ColumnDefinition Width="*"/>
+        <ColumnDefinition x:Name="SidebarCol" Width="240" MinWidth="160"/>
+        <ColumnDefinition x:Name="SidebarSplitCol" Width="6"/>
+        <ColumnDefinition x:Name="ListCol" Width="360" MinWidth="220"/>
+        <ColumnDefinition x:Name="ListSplitCol" Width="6"/>
+        <ColumnDefinition Width="*" MinWidth="280"/>
       </Grid.ColumnDefinitions>
 
       <!-- Sidebar -->
       <Border Grid.Column="0" Background="{ThemeResource PulseBgSidebar}" Padding="10,10,10,8"
               BorderBrush="{ThemeResource PulseBorder}" BorderThickness="0,0,1,0">
-        <ScrollViewer>
-          <StackPanel Spacing="2">
-            <Button Style="{StaticResource PulseSidebarButton}" Click="UnifiedInbox_Click">
-              <Grid>
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="Auto"/>
-                  <ColumnDefinition Width="*"/>
-                  <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <FontIcon Glyph="&#xE715;" FontSize="14" Foreground="{ThemeResource PulseAccent}" Margin="0,0,10,0"/>
-                <TextBlock Grid.Column="1" Text="Alle Eingänge" FontSize="13" FontWeight="SemiBold"
-                           Foreground="{ThemeResource PulseTextPrimary}" TextTrimming="CharacterEllipsis"/>
-                <TextBlock Grid.Column="2" Text="{x:Bind ViewModel.TotalUnread, Mode=OneWay}" FontSize="12"
-                           Foreground="{ThemeResource PulseTextSecondary}" Margin="8,0,0,0"/>
-              </Grid>
-            </Button>
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+          <Button Command="{x:Bind ViewModel.NewMailCommand}" Style="{StaticResource AccentButtonStyle}"
+                  Height="36" HorizontalAlignment="Stretch" Margin="0,0,0,10"
+                  CornerRadius="10" FontSize="13" FontWeight="SemiBold"
+                  ToolTipService.ToolTip="Neue E-Mail (N)">
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+              <controls:PulseIcon Icon="compose" IconSize="15" StrokeBrush="White"/>
+              <TextBlock Text="Neue E-Mail" VerticalAlignment="Center" Foreground="White"/>
+            </StackPanel>
+          </Button>
+          <ScrollViewer Grid.Row="1">
+            <StackPanel Spacing="2">
+              <Button Style="{StaticResource PulseSidebarButton}" Click="UnifiedInbox_Click">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                  </Grid.ColumnDefinitions>
+                  <controls:PulseIcon Icon="inbox" IconSize="15" StrokeBrush="{ThemeResource PulseAccent}" Margin="0,0,10,0"/>
+                  <TextBlock Grid.Column="1" Text="Alle Eingänge" FontSize="13" FontWeight="SemiBold"
+                             Foreground="{ThemeResource PulseTextPrimary}" TextTrimming="CharacterEllipsis"/>
+                  <TextBlock Grid.Column="2" Text="{x:Bind ViewModel.TotalUnread, Mode=OneWay}" FontSize="12"
+                             Foreground="{ThemeResource PulseTextSecondary}" Margin="8,0,0,0"/>
+                </Grid>
+              </Button>
 
             <ItemsControl ItemsSource="{x:Bind ViewModel.Accounts, Mode=OneWay}">
               <ItemsControl.ItemTemplate>
@@ -154,10 +159,13 @@
             </ItemsControl>
           </StackPanel>
         </ScrollViewer>
+        </Grid>
       </Border>
 
-      <Border Grid.Column="1" Background="Transparent" PointerPressed="SidebarSplitter_Pressed"
-              PointerMoved="Splitter_Moved" PointerReleased="Splitter_Released"/>
+      <Border x:Name="SidebarSplitter" Grid.Column="1" Background="Transparent"
+              PointerPressed="SidebarSplitter_Pressed"
+              PointerEntered="Splitter_PointerEntered" PointerExited="Splitter_PointerExited"
+              ToolTipService.ToolTip="Ziehen zum Anpassen"/>
 
       <!-- Mail list -->
       <Border Grid.Column="2" Background="{ThemeResource PulseBgMailList}"
@@ -221,7 +229,10 @@
                   <Border Background="{x:Bind BadgeBackground, Mode=OneWay}" CornerRadius="8" Padding="6,1"
                           HorizontalAlignment="Right"
                           Visibility="{x:Bind ThreadCount, Converter={StaticResource ThreadCountVisibilityConverter}}">
-                    <TextBlock Text="{x:Bind ThreadCount}" Foreground="{x:Bind BadgeForeground, Mode=OneWay}" FontSize="11" FontWeight="SemiBold"/>
+                    <StackPanel Orientation="Horizontal" Spacing="2">
+                      <controls:PulseIcon Icon="chevronRight" IconSize="10" StrokeBrush="{x:Bind BadgeForeground, Mode=OneWay}"/>
+                      <TextBlock Text="{x:Bind ThreadCount}" Foreground="{x:Bind BadgeForeground, Mode=OneWay}" FontSize="11" FontWeight="SemiBold"/>
+                    </StackPanel>
                   </Border>
                 </StackPanel>
               </Grid>
@@ -230,8 +241,10 @@
         </ListView>
       </Border>
 
-      <Border Grid.Column="3" Background="Transparent" PointerPressed="ListSplitter_Pressed"
-              PointerMoved="Splitter_Moved" PointerReleased="Splitter_Released"/>
+      <Border x:Name="ListSplitter" Grid.Column="3" Background="Transparent"
+              PointerPressed="ListSplitter_Pressed"
+              PointerEntered="Splitter_PointerEntered" PointerExited="Splitter_PointerExited"
+              ToolTipService.ToolTip="Ziehen zum Anpassen"/>
 
       <!-- Reading pane -->
       <Grid Grid.Column="4" x:Name="ReadingPane" Background="{ThemeResource PulseBgContent}">
@@ -245,23 +258,23 @@
           <StackPanel Padding="20,12,20,8" Spacing="10">
             <StackPanel Orientation="Horizontal" Spacing="2">
               <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.ReplyCommand}" ToolTipService.ToolTip="Antworten (R)">
-                <FontIcon Glyph="&#xE97A;" FontSize="14" Foreground="{ThemeResource PulseTextSecondary}"/>
+                <controls:PulseIcon Icon="reply" IconSize="16" StrokeBrush="{ThemeResource PulseTextSecondary}"/>
               </Button>
               <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.ReplyAllCommand}" ToolTipService.ToolTip="Allen antworten (A)">
-                <FontIcon Glyph="&#xE8C2;" FontSize="14" Foreground="{ThemeResource PulseTextSecondary}"/>
+                <controls:PulseIcon Icon="replyAll" IconSize="16" StrokeBrush="{ThemeResource PulseTextSecondary}"/>
               </Button>
               <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.ForwardCommand}" ToolTipService.ToolTip="Weiterleiten (F)">
-                <FontIcon Glyph="&#xE72A;" FontSize="14" Foreground="{ThemeResource PulseTextSecondary}"/>
+                <controls:PulseIcon Icon="forward" IconSize="16" StrokeBrush="{ThemeResource PulseTextSecondary}"/>
               </Button>
               <Border Width="1" Background="{ThemeResource PulseBorder}" Margin="6,4"/>
               <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.ArchiveSelectedCommand}" ToolTipService.ToolTip="Archivieren (E)">
-                <FontIcon Glyph="&#xE7B8;" FontSize="14" Foreground="{ThemeResource PulseTextSecondary}"/>
+                <controls:PulseIcon Icon="archive" IconSize="16" StrokeBrush="{ThemeResource PulseTextSecondary}"/>
               </Button>
               <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.ToggleFlagCommand}" ToolTipService.ToolTip="Markieren (L)">
-                <FontIcon Glyph="&#xE735;" FontSize="14" Foreground="{ThemeResource PulseFlagged}"/>
+                <controls:PulseIcon Icon="flag" IconSize="16" StrokeBrush="{ThemeResource PulseFlagged}"/>
               </Button>
               <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.DeleteSelectedCommand}" ToolTipService.ToolTip="Löschen">
-                <FontIcon Glyph="&#xE74D;" FontSize="14" Foreground="{ThemeResource PulseDestructive}"/>
+                <controls:PulseIcon Icon="trash" IconSize="16" StrokeBrush="{ThemeResource PulseDestructive}"/>
               </Button>
             </StackPanel>
 

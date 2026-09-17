@@ -93,7 +93,7 @@ jobs:
         shell: pwsh
         working-directory: ${{ github.workspace }}
         run: |
-          Compress-Archive -Path artifacts/PulseMail-native/* -DestinationPath artifacts/PulseMail-Native-1.0.4-win-x64.zip -Force
+          Compress-Archive -Path artifacts/PulseMail-native/* -DestinationPath artifacts/PulseMail-Native-1.0.5-win-x64.zip -Force
 
       - name: Install Inno Setup
         shell: pwsh
@@ -111,28 +111,28 @@ jobs:
         with:
           name: pulse-mail-native-windows
           path: |
-            artifacts/PulseMail-Native-1.0.4-Setup.exe
-            artifacts/PulseMail-Native-1.0.4-win-x64.zip
+            artifacts/PulseMail-Native-1.0.5-Setup.exe
+            artifacts/PulseMail-Native-1.0.5-win-x64.zip
           if-no-files-found: error
 
       - name: Release
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: native-v1.0.4
-          name: Pulse Mail Native 1.0.4
+          tag_name: native-v1.0.5
+          name: Pulse Mail Native 1.0.5
           body: |
             Eigenständige WinUI-3-App (kein Docker, kein Server).
 
-            **Installer:** `PulseMail-Native-1.0.4-Setup.exe`
+            **Installer:** `PulseMail-Native-1.0.5-Setup.exe`
             Installiert nach `%LOCALAPPDATA%\Programs\PulseMail` (kein Admin nötig).
 
             **Falls die App nicht startet:** siehe `%LOCALAPPDATA%\PulseMail\startup.log`
 
             Beim ersten Start Postfach hinzufügen (IMAP oder OAuth).
           files: |
-            artifacts/PulseMail-Native-1.0.4-Setup.exe
-            artifacts/PulseMail-Native-1.0.4-win-x64.zip
+            artifacts/PulseMail-Native-1.0.5-Setup.exe
+            artifacts/PulseMail-Native-1.0.5-win-x64.zip
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
