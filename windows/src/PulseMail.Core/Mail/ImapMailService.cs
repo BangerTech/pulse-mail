@@ -281,6 +281,7 @@ public sealed class ImapMailService : IAsyncDisposable
             if (att is not MimePart part) continue;
             var name = part.FileName ?? part.ContentDisposition?.FileName ?? "";
             if (!string.Equals(name, filename, StringComparison.OrdinalIgnoreCase)) continue;
+            if (part.Content is null) continue;
             using var ms = new MemoryStream();
             await part.Content.DecodeToAsync(ms, ct);
             return ms.ToArray();
@@ -290,6 +291,7 @@ public sealed class ImapMailService : IAsyncDisposable
         {
             var name = part.FileName ?? "";
             if (!string.Equals(name, filename, StringComparison.OrdinalIgnoreCase)) continue;
+            if (part.Content is null) continue;
             using var ms = new MemoryStream();
             await part.Content.DecodeToAsync(ms, ct);
             return ms.ToArray();
@@ -306,7 +308,7 @@ public sealed class ImapMailService : IAsyncDisposable
         var msg = await f.GetMessageAsync(new UniqueId(uid), ct);
         foreach (var part in msg.BodyParts.OfType<MimePart>())
         {
-            if (part.ContentId is null) continue;
+            if (part.ContentId is null || part.Content is null) continue;
             using var ms = new MemoryStream();
             await part.Content.DecodeToAsync(ms, ct);
             var b64 = Convert.ToBase64String(ms.ToArray());

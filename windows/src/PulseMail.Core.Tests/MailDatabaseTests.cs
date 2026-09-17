@@ -59,8 +59,9 @@ public class MailDatabaseTests
             null,
             blockRemote: true,
             darkMode: false);
-        Assert.Contains("data-blocked-src", html);
-        Assert.DoesNotContain("src=\"https://tracker.example", html);
+        Assert.Contains("data-blocked-src=\"https://tracker.example/x.png\"", html);
+        Assert.Contains("src=\"\"", html);
+        Assert.DoesNotContain("src=\"https://tracker.example/x.png\"", html);
     }
 }
 
