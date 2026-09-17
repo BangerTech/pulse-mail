@@ -265,24 +265,24 @@ public sealed partial class MainWindow : Window
                     e.Handled = true;
                     break;
                 }
-            case VirtualKey.OemComma:
+            case Helpers.KeyMap.Comma:
                 ViewModel.OpenSettings(); e.Handled = true; break;
             case VirtualKey.T when !ctrl:
                 ViewModel.CycleTheme(); e.Handled = true; break;
-            case VirtualKey.OemOpenBrackets:
+            case Helpers.KeyMap.OpenBracket:
                 ViewModel.ToggleSidebar(); e.Handled = true; break;
             case VirtualKey.P when !ctrl:
                 ViewModel.TogglePreviewPane(); e.Handled = true; break;
-            case VirtualKey.OemBackslash:
+            case Helpers.KeyMap.Backslash:
                 ViewModel.ToggleConversations(); e.Handled = true; break;
-            case VirtualKey.OemPeriod:
+            case Helpers.KeyMap.Period:
             case VirtualKey.F5:
                 _ = ViewModel.RefreshMessagesAsync(); e.Handled = true; break;
             case VirtualKey.Divide:
-            case VirtualKey.Oem2 when !ctrl:
+            case Helpers.KeyMap.Oem2 when !ctrl:
                 SearchBox.Focus(FocusState.Programmatic); e.Handled = true; break;
             case VirtualKey.K when ctrl:
-            case VirtualKey.OemQuestion:
+            case VirtualKey.F1:
                 ViewModel.OpenPalette(); e.Handled = true; break;
             case VirtualKey.I when !ctrl:
                 _ = ViewModel.SelectFolderAsync(new FolderNavItem { Name = "Alle Eingänge", FullName = "INBOX", IsUnified = true });

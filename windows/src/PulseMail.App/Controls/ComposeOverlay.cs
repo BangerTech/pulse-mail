@@ -75,7 +75,8 @@ public sealed class ComposeOverlay : UserControl
             };
             toolbar.Children.Add(b);
         }
-        var attach = new Button { Content = new FontIcon { Glyph = "\uE723", FontSize = 14 }, ToolTipService.ToolTip = "Anhang" };
+        var attach = new Button { Content = new FontIcon { Glyph = "\uE723", FontSize = 14 } };
+        ToolTipService.SetToolTip(attach, "Anhang");
         attach.Click += Attach_Click;
         toolbar.Children.Add(attach);
 

@@ -46,7 +46,7 @@ public sealed class CommandPaletteOverlay : UserControl
         root.Children.Add(border);
         root.PointerPressed += (s, e) =>
         {
-            if (e.OriginalSource == root && _vm is not null)
+            if (ReferenceEquals(e.OriginalSource, root) && _vm is not null)
                 _vm.ClosePalette();
         };
         Content = root;

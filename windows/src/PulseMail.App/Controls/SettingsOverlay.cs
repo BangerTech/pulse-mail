@@ -61,7 +61,7 @@ public sealed class SettingsOverlay : UserControl
         root.Children.Add(border);
         root.PointerPressed += (s, e) =>
         {
-            if (e.OriginalSource == root) Closed?.Invoke(this, EventArgs.Empty);
+            if (ReferenceEquals(e.OriginalSource, root)) Closed?.Invoke(this, EventArgs.Empty);
         };
         Content = root;
         Visibility = Visibility.Collapsed;

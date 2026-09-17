@@ -464,6 +464,11 @@ public partial class MailListItem : ObservableObject
             return string.IsNullOrEmpty(label) ? "?" : label[..1].ToUpperInvariant();
         }
     }
+
+    public string DisplayDate =>
+        Message.Date is { } d
+            ? (d.Date == DateTime.UtcNow.Date ? d.ToLocalTime().ToString("HH:mm") : d.ToLocalTime().ToString("dd.MM.yy"))
+            : "";
 }
 
 public sealed class CommandItem
