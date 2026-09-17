@@ -6,13 +6,16 @@
     xmlns:controls="using:PulseMail.App.Controls"
     Title="Pulse Mail">
 
+  <!--
+    WinUI Window is not a FrameworkElement; x:Bind at Window scope fails to compile.
+    Use {Binding} against RootGrid.DataContext (= ViewModel). DataTemplates may still x:Bind.
+  -->
   <Grid x:Name="RootGrid" KeyDown="RootGrid_KeyDown">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
     </Grid.RowDefinitions>
 
-    <!-- Toolbar -->
     <Border Grid.Row="0" Padding="8,6" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
       <Grid>
         <Grid.ColumnDefinitions>
@@ -22,10 +25,10 @@
         </Grid.ColumnDefinitions>
 
         <StackPanel Orientation="Horizontal" Spacing="4">
-          <Button Command="{x:Bind ViewModel.ToggleSidebarCommand}" ToolTipService.ToolTip="Seitenleiste ([)">
+          <Button Command="{Binding ToggleSidebarCommand}" ToolTipService.ToolTip="Seitenleiste ([)">
             <FontIcon Glyph="&#xE700;" FontSize="14"/>
           </Button>
-          <Button Command="{x:Bind ViewModel.NewMailCommand}" Style="{StaticResource AccentButtonStyle}" ToolTipService.ToolTip="Neue E-Mail (N)">
+          <Button Command="{Binding NewMailCommand}" Style="{StaticResource AccentButtonStyle}" ToolTipService.ToolTip="Neue E-Mail (N)">
             <StackPanel Orientation="Horizontal" Spacing="6">
               <FontIcon Glyph="&#xE70F;" FontSize="14"/>
               <TextBlock Text="Neue E-Mail"/>
@@ -34,51 +37,50 @@
         </StackPanel>
 
         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
-          <Button Command="{x:Bind ViewModel.ArchiveSelectedCommand}" ToolTipService.ToolTip="Archivieren (E)">
+          <Button Command="{Binding ArchiveSelectedCommand}" ToolTipService.ToolTip="Archivieren (E)">
             <FontIcon Glyph="&#xE7B8;" FontSize="14"/>
           </Button>
-          <Button Command="{x:Bind ViewModel.DeleteSelectedCommand}" ToolTipService.ToolTip="Löschen (#)">
+          <Button Command="{Binding DeleteSelectedCommand}" ToolTipService.ToolTip="Löschen (#)">
             <FontIcon Glyph="&#xE74D;" FontSize="14"/>
           </Button>
-          <Button Command="{x:Bind ViewModel.ReplyCommand}" ToolTipService.ToolTip="Antworten (R)">
+          <Button Command="{Binding ReplyCommand}" ToolTipService.ToolTip="Antworten (R)">
             <FontIcon Glyph="&#xE97A;" FontSize="14"/>
           </Button>
-          <Button Command="{x:Bind ViewModel.ReplyAllCommand}" ToolTipService.ToolTip="Allen antworten (A)">
+          <Button Command="{Binding ReplyAllCommand}" ToolTipService.ToolTip="Allen antworten (A)">
             <FontIcon Glyph="&#xE8C2;" FontSize="14"/>
           </Button>
-          <Button Command="{x:Bind ViewModel.ForwardCommand}" ToolTipService.ToolTip="Weiterleiten (F)">
+          <Button Command="{Binding ForwardCommand}" ToolTipService.ToolTip="Weiterleiten (F)">
             <FontIcon Glyph="&#xE72A;" FontSize="14"/>
           </Button>
-          <Button Command="{x:Bind ViewModel.ToggleFlagCommand}" ToolTipService.ToolTip="Markieren (L)">
+          <Button Command="{Binding ToggleFlagCommand}" ToolTipService.ToolTip="Markieren (L)">
             <FontIcon Glyph="&#xE735;" FontSize="14"/>
           </Button>
-          <Button Command="{x:Bind ViewModel.ToggleSeenCommand}" ToolTipService.ToolTip="Gelesen (U)">
+          <Button Command="{Binding ToggleSeenCommand}" ToolTipService.ToolTip="Gelesen (U)">
             <FontIcon Glyph="&#xE8BD;" FontSize="14"/>
           </Button>
         </StackPanel>
 
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
           <AutoSuggestBox Width="200" PlaceholderText="Suchen (/)"
-                          Text="{x:Bind ViewModel.SearchText, Mode=TwoWay}"
+                          Text="{Binding SearchText, Mode=TwoWay}"
                           QuerySubmitted="Search_QuerySubmitted"
                           x:Name="SearchBox"/>
-          <Button Command="{x:Bind ViewModel.OpenSettingsCommand}" ToolTipService.ToolTip="Einstellungen (,)">
+          <Button Command="{Binding OpenSettingsCommand}" ToolTipService.ToolTip="Einstellungen (,)">
             <FontIcon Glyph="&#xE713;" FontSize="14"/>
           </Button>
-          <Button Command="{x:Bind ViewModel.CycleThemeCommand}" ToolTipService.ToolTip="Theme (T)">
+          <Button Command="{Binding CycleThemeCommand}" ToolTipService.ToolTip="Theme (T)">
             <FontIcon Glyph="&#xE706;" FontSize="14"/>
           </Button>
-          <Button Command="{x:Bind ViewModel.OpenPaletteCommand}" ToolTipService.ToolTip="Befehle (?)">
+          <Button Command="{Binding OpenPaletteCommand}" ToolTipService.ToolTip="Befehle (?)">
             <FontIcon Glyph="&#xE773;" FontSize="14"/>
           </Button>
-          <Button Command="{x:Bind ViewModel.RefreshMessagesCommand}" ToolTipService.ToolTip="Aktualisieren (.)">
+          <Button Command="{Binding RefreshMessagesCommand}" ToolTipService.ToolTip="Aktualisieren (.)">
             <FontIcon Glyph="&#xE72C;" FontSize="14"/>
           </Button>
         </StackPanel>
       </Grid>
     </Border>
 
-    <!-- Main 3-column layout -->
     <Grid Grid.Row="1" x:Name="MainLayout">
       <Grid.ColumnDefinitions>
         <ColumnDefinition x:Name="SidebarCol" Width="220"/>
@@ -88,7 +90,6 @@
         <ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
 
-      <!-- Sidebar -->
       <Border Grid.Column="0" Background="{ThemeResource LayerFillColorDefaultBrush}" Padding="8">
         <ScrollViewer>
           <StackPanel Spacing="4">
@@ -97,11 +98,11 @@
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <FontIcon Glyph="&#xE715;" FontSize="14"/>
                 <TextBlock Text="Alle Eingänge" FontWeight="SemiBold"/>
-                <TextBlock Text="{x:Bind ViewModel.TotalUnread, Mode=OneWay}" Opacity="0.6"/>
+                <TextBlock Text="{Binding TotalUnread}" Opacity="0.6"/>
               </StackPanel>
             </Button>
 
-            <ItemsControl ItemsSource="{x:Bind ViewModel.Accounts, Mode=OneWay}">
+            <ItemsControl ItemsSource="{Binding Accounts}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:AccountNavItem">
                   <StackPanel Margin="0,8,0,0">
@@ -146,11 +147,10 @@
 
       <Border Grid.Column="1" Background="Transparent" PointerPressed="SidebarSplitter_Pressed" PointerMoved="Splitter_Moved" PointerReleased="Splitter_Released"/>
 
-      <!-- Mail list -->
       <Border Grid.Column="2" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,1,0">
         <ListView x:Name="MailList"
-                  ItemsSource="{x:Bind ViewModel.Messages, Mode=OneWay}"
-                  SelectedItem="{x:Bind ViewModel.SelectedMessage, Mode=TwoWay}"
+                  ItemsSource="{Binding Messages}"
+                  SelectedItem="{Binding SelectedMessage, Mode=TwoWay}"
                   SelectionChanged="MailList_SelectionChanged"
                   DoubleTapped="MailList_DoubleTapped"
                   IsItemClickEnabled="True"
@@ -189,7 +189,6 @@
 
       <Border Grid.Column="3" Background="Transparent" PointerPressed="ListSplitter_Pressed" PointerMoved="Splitter_Moved" PointerReleased="Splitter_Released"/>
 
-      <!-- Reading pane -->
       <Grid Grid.Column="4" x:Name="ReadingPane">
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto"/>
@@ -198,13 +197,12 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Padding="20,16,20,8" Spacing="4"
-                    Visibility="{x:Bind ViewModel.ReadingMessage, Mode=OneWay, Converter={StaticResource NullToVisibilityConverter}}">
-          <TextBlock Text="{x:Bind ViewModel.ReadingSubject, Mode=OneWay}" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap"/>
-          <TextBlock Text="{x:Bind ViewModel.ReadingFromLine, Mode=OneWay}" Opacity="0.7"/>
-          <TextBlock Text="{x:Bind ViewModel.ReadingDateText, Mode=OneWay}" FontSize="12" Opacity="0.5"/>
+                    Visibility="{Binding ReadingMessage, Converter={StaticResource NullToVisibilityConverter}}">
+          <TextBlock Text="{Binding ReadingSubject}" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap"/>
+          <TextBlock Text="{Binding ReadingFromLine}" Opacity="0.7"/>
+          <TextBlock Text="{Binding ReadingDateText}" FontSize="12" Opacity="0.5"/>
 
-          <!-- Thread switcher -->
-          <ItemsControl ItemsSource="{x:Bind ViewModel.ThreadMessages, Mode=OneWay}" Margin="0,8,0,0">
+          <ItemsControl ItemsSource="{Binding ThreadMessages}" Margin="0,8,0,0">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
                 <StackPanel Orientation="Horizontal" Spacing="6"/>
@@ -220,7 +218,6 @@
 
         <controls:MailWebView x:Name="MailBodyView" Grid.Row="1" Margin="8"/>
 
-        <!-- Attachments + remote images bar -->
         <StackPanel Grid.Row="2" Margin="16,0,16,12" Spacing="8">
           <Button x:Name="LoadRemoteBtn" Content="Externe Bilder laden" Click="LoadRemote_Click" Visibility="Collapsed"/>
           <ItemsControl x:Name="AttachmentList"/>
@@ -228,18 +225,17 @@
 
         <TextBlock Grid.Row="1" Text="Keine Nachricht ausgewählt" HorizontalAlignment="Center" VerticalAlignment="Center"
                    Opacity="0.4" FontSize="16"
-                   Visibility="{x:Bind ViewModel.ReadingMessage, Mode=OneWay, Converter={StaticResource InverseNullToVisibilityConverter}}"/>
+                   Visibility="{Binding ReadingMessage, Converter={StaticResource InverseNullToVisibilityConverter}}"/>
       </Grid>
     </Grid>
 
-    <!-- Overlays -->
     <controls:AccountSetupOverlay x:Name="SetupOverlay" Grid.RowSpan="2"
-                                  Visibility="{x:Bind ViewModel.NeedsSetup, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                  Visibility="{Binding NeedsSetup, Converter={StaticResource BoolToVisibilityConverter}}"/>
     <controls:SettingsOverlay x:Name="SettingsOverlay" Grid.RowSpan="2"
-                              Visibility="{x:Bind ViewModel.SettingsOpen, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                              Visibility="{Binding SettingsOpen, Converter={StaticResource BoolToVisibilityConverter}}"/>
     <controls:ComposeOverlay x:Name="ComposeOverlay" Grid.RowSpan="2"
-                             Visibility="{x:Bind ViewModel.ComposeOpen, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                             Visibility="{Binding ComposeOpen, Converter={StaticResource BoolToVisibilityConverter}}"/>
     <controls:CommandPaletteOverlay x:Name="PaletteOverlay" Grid.RowSpan="2"
-                                    Visibility="{x:Bind ViewModel.PaletteOpen, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                    Visibility="{Binding PaletteOpen, Converter={StaticResource BoolToVisibilityConverter}}"/>
   </Grid>
 </Window>
