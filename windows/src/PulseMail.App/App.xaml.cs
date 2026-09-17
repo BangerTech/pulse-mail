@@ -105,7 +105,10 @@ internal static class CrashLog
 
     public static void ShowFatal(Exception ex)
     {
-        var msg = $"Pulse Mail konnte nicht starten.\n\n{ex.GetType().Name}: {ex.Message}\n\nLog: {LogPath}";
+        var detail = ex.Message;
+        for (var inner = ex.InnerException; inner is not null; inner = inner.InnerException)
+            detail += "\n→ " + inner.Message;
+        var msg = $"Pulse Mail konnte nicht starten.\n\n{ex.GetType().Name}: {detail}\n\nLog: {LogPath}";
         MessageBoxW(IntPtr.Zero, msg, "Pulse Mail", 0x00000010);
     }
 

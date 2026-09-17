@@ -15,7 +15,8 @@ Aktuelle Version: **1.5.0** — Quelle ist `frontend/package.json`, Anzeige unte
 #### 1.5.0 (2026-09-17)
 - **Native Windows-App (WinUI 3)** unter `windows/` für Kunden ohne Docker: direktes IMAP/OAuth, lokaler SQLite-Cache, Credential Manager, Produktions-Feature-Parität (Liste, Lesen, Composer, Suche, Signaturen, Shortcuts, Hinweise). Optik ist WinUI, nicht 1:1 die React-CSS-UI.
 - Docker, Web-App und Tauri-Server-Hülle (`desktop/`) bleiben unverändert und parallel nutzbar.
-- CI: `.github/workflows/windows-native.yml` — Inno-Setup-Wizard (`*-Setup.exe`) plus portable ZIP (`native-v1.0.1`).
+- CI: `.github/workflows/windows-native.yml` — Inno-Setup-Wizard (`*-Setup.exe`) plus portable ZIP.
+- Native **1.0.3**: `EnableMsixTooling=true`, damit `resources.pri`/XBF mitpublishen (Fix für `XamlParseException` beim Start).
 
 #### 1.4.16 (2026-09-13)
 - PDF-Vorschau und Anhänge: iframe/`<img>` schicken keinen Bearer-Header. Vorschau lädt per `fetch` mit Session und zeigt ein Blob; Download und Inline-Bilder hängen `?token=` an (wie der WebSocket). Statt `{"error":"Nicht angemeldet"}` im Viewer kommt bei Fehlern eine klare Meldung.

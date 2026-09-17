@@ -8,14 +8,15 @@
     <Platforms>x64</Platforms>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <UseWinUI>true</UseWinUI>
-    <EnableMsixTooling>false</EnableMsixTooling>
+    <!-- Required so MSBuild emits resources.pri / XBF; without it InitializeComponent throws XamlParseException. -->
+    <EnableMsixTooling>true</EnableMsixTooling>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSdkUndockedRegFreeWinRTInitialize>true</WindowsAppSdkUndockedRegFreeWinRTInitialize>
     <DefineConstants>DISABLE_XAML_GENERATED_MAIN</DefineConstants>
-    <Version>1.0.2</Version>
+    <Version>1.0.3</Version>
     <ApplicationTitle>Pulse Mail</ApplicationTitle>
     <ApplicationId>de.bangertech.pulsemail.winui</ApplicationId>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>

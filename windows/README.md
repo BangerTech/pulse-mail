@@ -2,7 +2,7 @@
 
 Eigenständige Windows-App für Kunden — **kein Docker, kein Server, kein Pulse-Login**.
 
-App-ID: `de.bangertech.pulsemail.winui` · Version **1.0.0**
+App-ID: `de.bangertech.pulsemail.winui` · Version **1.0.3**
 
 Die Tauri-Hülle unter `../desktop/` bleibt das Produkt „Fenster um deinen Docker-Server“.
 
@@ -29,10 +29,10 @@ GitHub Action **Windows Native App** baut:
 
 | Datei | Nutzen |
 |-------|--------|
-| `PulseMail-Native-1.0.2-Setup.exe` | **Inno-Setup-Wizard** (Sprache, Zielordner, Startmenü, Desktop-Icon, Starten) |
-| `PulseMail-Native-1.0.2-win-x64.zip` | Portable Variante ohne Installation |
+| `PulseMail-Native-1.0.3-Setup.exe` | **Inno-Setup-Wizard** (Sprache, Zielordner, Startmenü, Desktop-Icon, Starten) |
+| `PulseMail-Native-1.0.3-win-x64.zip` | Portable Variante ohne Installation |
 
-Release-Tag: `native-v1.0.2`.
+Release-Tag: `native-v1.0.3`.
 
 Bei Startproblemen: `%LOCALAPPDATA%\PulseMail\startup.log`
 

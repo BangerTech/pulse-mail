@@ -69,15 +69,31 @@ jobs:
         shell: pwsh
         working-directory: ${{ github.workspace }}
         run: |
-          $exe = "artifacts/PulseMail-native/PulseMail.App.exe"
+          $dir = "artifacts/PulseMail-native"
+          $exe = Join-Path $dir "PulseMail.App.exe"
           if (-not (Test-Path $exe)) { throw "Missing $exe" }
-          Get-ChildItem artifacts/PulseMail-native -Name | Select-Object -First 40
+          # WinUI unpackaged needs a PRI next to the EXE (resources.pri or PulseMail.App.pri)
+          $pri = @(Get-ChildItem $dir -Filter "*.pri" -File | Where-Object {
+            $_.Name -in @("resources.pri", "PulseMail.App.pri")
+          })
+          if ($pri.Count -eq 0) {
+            Get-ChildItem $dir -Name | Select-Object -First 60
+            throw "Missing resources.pri / PulseMail.App.pri — XAML will fail at runtime (XamlParseException)"
+          }
+          # Prefer resources.pri for WASDK 1.6 MRT lookup
+          $appPri = Join-Path $dir "PulseMail.App.pri"
+          $resPri = Join-Path $dir "resources.pri"
+          if ((Test-Path $appPri) -and -not (Test-Path $resPri)) {
+            Copy-Item $appPri $resPri
+          }
+          Write-Host "PRI OK:" ($pri | ForEach-Object Name)
+          Get-ChildItem $dir -Name | Select-Object -First 40
 
       - name: Zip portable
         shell: pwsh
         working-directory: ${{ github.workspace }}
         run: |
-          Compress-Archive -Path artifacts/PulseMail-native/* -DestinationPath artifacts/PulseMail-Native-1.0.2-win-x64.zip -Force
+          Compress-Archive -Path artifacts/PulseMail-native/* -DestinationPath artifacts/PulseMail-Native-1.0.3-win-x64.zip -Force
 
       - name: Install Inno Setup
         shell: pwsh
@@ -95,28 +111,28 @@ jobs:
         with:
           name: pulse-mail-native-windows
           path: |
-            artifacts/PulseMail-Native-1.0.2-Setup.exe
-            artifacts/PulseMail-Native-1.0.2-win-x64.zip
+            artifacts/PulseMail-Native-1.0.3-Setup.exe
+            artifacts/PulseMail-Native-1.0.3-win-x64.zip
           if-no-files-found: error
 
       - name: Release
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: native-v1.0.2
-          name: Pulse Mail Native 1.0.2
+          tag_name: native-v1.0.3
+          name: Pulse Mail Native 1.0.3
           body: |
             Eigenständige WinUI-3-App (kein Docker, kein Server).
 
-            **Installer:** `PulseMail-Native-1.0.2-Setup.exe`
+            **Installer:** `PulseMail-Native-1.0.3-Setup.exe`
             Installiert nach `%LOCALAPPDATA%\Programs\PulseMail` (kein Admin nötig).
 
             **Falls die App nicht startet:** siehe `%LOCALAPPDATA%\PulseMail\startup.log`
 
             Beim ersten Start Postfach hinzufügen (IMAP oder OAuth).
           files: |
-            artifacts/PulseMail-Native-1.0.2-Setup.exe
-            artifacts/PulseMail-Native-1.0.2-win-x64.zip
+            artifacts/PulseMail-Native-1.0.3-Setup.exe
+            artifacts/PulseMail-Native-1.0.3-win-x64.zip
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
