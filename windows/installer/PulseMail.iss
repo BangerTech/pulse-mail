@@ -21,7 +21,7 @@ AllowNoIcons=yes
 ; Output
 OutputDir=..\..\artifacts
 OutputBaseFilename=PulseMail-Native-{#MyAppVersion}-Setup
-SetupIconFile=src\PulseMail.App\Assets\app.ico
+SetupIconFile=..\src\PulseMail.App\Assets\app.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2
 SolidCompression=yes
@@ -31,9 +31,6 @@ PrivilegesRequiredOverridesAllowed=dialog
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 DisableProgramGroupPage=no
-InfoBeforeFile=
-LicenseFile=
-; Show typical wizard pages: welcome, dir, group, ready, install, finish
 DisableWelcomePage=no
 DisableDirPage=no
 DisableFinishedPage=no
