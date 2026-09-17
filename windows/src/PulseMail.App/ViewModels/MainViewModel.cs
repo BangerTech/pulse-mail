@@ -2,12 +2,18 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MailKit;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
+using PulseMail.App.Helpers;
 using PulseMail.App.Services;
 using PulseMail.Core;
 using PulseMail.Core.Models;
 using PulseMail.Core.Services;
+using PulseMail.Core.Threading;
 using System.Collections.ObjectModel;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text.Json;
+using Windows.Storage.Streams;
 
 namespace PulseMail.App.ViewModels;
 
@@ -44,8 +50,17 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private MailListItem? selectedMessage;
     [ObservableProperty] private CachedMessage? readingMessage;
     [ObservableProperty] private string readingSubject = "";
+    [ObservableProperty] private string readingFromName = "";
+    [ObservableProperty] private string readingFromEmail = "";
     [ObservableProperty] private string readingFromLine = "";
+    [ObservableProperty] private string readingToLine = "";
     [ObservableProperty] private string readingDateText = "";
+    [ObservableProperty] private string readingThreadLabel = "";
+    [ObservableProperty] private bool hasConversation;
+    [ObservableProperty] private ImageSource? readingAvatarImage;
+    [ObservableProperty] private string readingAvatarColor = "#007AFF";
+    [ObservableProperty] private string readingAvatarInitial = "?";
+    [ObservableProperty] private bool readingHasAvatar;
     [ObservableProperty] private string? readingHtml;
     [ObservableProperty] private string theme = "system";
     [ObservableProperty] private string density = "comfortable";
@@ -57,18 +72,77 @@ public partial class MainViewModel : ObservableObject
 
     public bool IsUnifiedInbox => SelectedAccount is null && (SelectedFolder?.FullName is "INBOX" or null);
 
+    partial void OnSelectedMessageChanged(MailListItem? oldValue, MailListItem? newValue)
+    {
+        if (oldValue is not null) oldValue.IsActive = false;
+        if (newValue is not null) newValue.IsActive = true;
+    }
+
     partial void OnReadingMessageChanged(CachedMessage? value)
     {
         if (value is null)
         {
             ReadingSubject = "";
+            ReadingFromName = "";
+            ReadingFromEmail = "";
             ReadingFromLine = "";
+            ReadingToLine = "";
             ReadingDateText = "";
+            ReadingThreadLabel = "";
+            HasConversation = false;
+            ReadingAvatarImage = null;
+            ReadingHasAvatar = false;
             return;
         }
         ReadingSubject = value.Subject ?? "(kein Betreff)";
-        ReadingFromLine = $"{value.DisplayName} <{value.FromAddress}>";
+        ReadingFromName = string.IsNullOrWhiteSpace(value.DisplayName) ? (value.FromAddress ?? "Unbekannt") : value.DisplayName;
+        ReadingFromEmail = value.FromAddress ?? "";
+        ReadingFromLine = string.IsNullOrEmpty(ReadingFromEmail)
+            ? ReadingFromName
+            : $"{ReadingFromName} <{ReadingFromEmail}>";
         ReadingDateText = value.Date is { } d ? d.ToLocalTime().ToString("g") : "";
+        ReadingAvatarColor = SenderAvatar.ColorHex(value.FromAddress);
+        ReadingAvatarInitial = string.IsNullOrEmpty(ReadingFromName) ? "?" : ReadingFromName.Trim()[..1].ToUpperInvariant();
+        ReadingHasAvatar = false;
+        ReadingAvatarImage = null;
+        _ = LoadReadingAvatarAsync(value.FromAddress);
+
+        try
+        {
+            var to = JsonSerializer.Deserialize<List<MailAddress>>(value.ToAddress ?? "[]") ?? new();
+            ReadingToLine = to.Count == 0
+                ? ""
+                : "An " + string.Join(", ", to.Select(a =>
+                    string.IsNullOrEmpty(a.Name) ? a.Address : a.Name));
+        }
+        catch { ReadingToLine = ""; }
+    }
+
+    private async Task LoadReadingAvatarAsync(string? email)
+    {
+        var bytes = await SenderAvatar.GetFaviconAsync(email);
+        if (bytes is null) return;
+        var bmp = await BytesToImageAsync(bytes);
+        if (bmp is null) return;
+        _dispatcher.TryEnqueue(() =>
+        {
+            ReadingAvatarImage = bmp;
+            ReadingHasAvatar = true;
+        });
+    }
+
+    private static async Task<BitmapImage?> BytesToImageAsync(byte[] bytes)
+    {
+        try
+        {
+            var stream = new InMemoryRandomAccessStream();
+            await stream.WriteAsync(bytes.AsBuffer());
+            stream.Seek(0);
+            var bmp = new BitmapImage();
+            await bmp.SetSourceAsync(stream);
+            return bmp;
+        }
+        catch { return null; }
     }
 
     public async Task LoadAsync()
@@ -126,19 +200,23 @@ public partial class MainViewModel : ObservableObject
             ? _mail.Db.GetPendingKeys(accountId.Value, folder)
             : new HashSet<string>();
 
+        var visible = rows.Where(m => !pending.Contains(m.Key)).ToList();
+
         if (ConversationsEnabled)
         {
-            var groups = rows
-                .Where(m => !pending.Contains(m.Key))
+            ThreadingHelper.AssignThreadIds(visible);
+            var groups = visible
                 .GroupBy(m => m.ThreadId ?? m.Key)
                 .Select(g =>
                 {
-                    var latest = g.OrderByDescending(x => x.Date).First();
+                    var ordered = g.OrderBy(x => x.Date).ToList();
+                    var latest = ordered.Last();
                     return new MailListItem
                     {
                         Message = latest,
-                        ThreadCount = g.Count(),
+                        ThreadCount = ordered.Count,
                         ThreadId = g.Key,
+                        ThreadMembers = ordered,
                         IsExpanded = false
                     };
                 })
@@ -148,12 +226,39 @@ public partial class MainViewModel : ObservableObject
         }
         else
         {
-            foreach (var m in rows.Where(m => !pending.Contains(m.Key)))
-                Messages.Add(new MailListItem { Message = m, ThreadCount = 1 });
+            foreach (var m in visible)
+                Messages.Add(new MailListItem { Message = m, ThreadCount = 1, ThreadMembers = new List<CachedMessage> { m } });
+        }
+
+        if (SelectedMessage is not null)
+        {
+            var key = SelectedMessage.Message.Key;
+            var match = Messages.FirstOrDefault(m =>
+                m.Message.Key == key || m.ThreadMembers.Any(t => t.Key == key));
+            foreach (var m in Messages) m.IsActive = m == match;
+            SelectedMessage = match;
         }
 
         UpdateUnread();
-        StatusText = $"{Messages.Count} Nachrichten";
+        StatusText = ConversationsEnabled
+            ? $"{Messages.Count} Konversationen"
+            : $"{Messages.Count} Nachrichten";
+        _ = PrefetchAvatarsAsync();
+    }
+
+    private async Task PrefetchAvatarsAsync()
+    {
+        var snapshot = Messages.ToList();
+        foreach (var item in snapshot)
+        {
+            try
+            {
+                var bytes = await SenderAvatar.GetFaviconAsync(item.AvatarEmail);
+                if (bytes is null || bytes.Length < 200) continue;
+                _dispatcher.TryEnqueue(() => item.SetAvatarBytes(bytes));
+            }
+            catch { }
+        }
     }
 
     [RelayCommand]
@@ -184,16 +289,23 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public async Task OpenMessageAsync(MailListItem item)
     {
-        SelectedMessage = item;
-        ReadingMessage = item.Message;
+        // Keep the list row selected even when drilling into a thread member
+        var listItem = Messages.FirstOrDefault(m =>
+                !string.IsNullOrEmpty(item.ThreadId) && m.ThreadId == item.ThreadId)
+            ?? Messages.FirstOrDefault(m => m.Message.Key == item.Message.Key)
+            ?? item;
+        SelectedMessage = listItem;
+
+        var target = item.Message;
+        ReadingMessage = target;
         try
         {
-            await _mail.Imap.FetchBodyAsync(item.Message.AccountId, item.Message.Folder, item.Message.Uid);
-            ReadingMessage = _mail.Db.GetMessage(item.Message.AccountId, item.Message.Folder, item.Message.Uid)
-                ?? item.Message;
+            await _mail.Imap.FetchBodyAsync(target.AccountId, target.Folder, target.Uid);
+            ReadingMessage = _mail.Db.GetMessage(target.AccountId, target.Folder, target.Uid)
+                ?? target;
 
             Dictionary<string, string>? cid = null;
-            try { cid = await _mail.Imap.GetCidMapAsync(item.Message.AccountId, item.Message.Folder, item.Message.Uid); }
+            try { cid = await _mail.Imap.GetCidMapAsync(target.AccountId, target.Folder, target.Uid); }
             catch { }
 
             var allow = _mail.Db.GetImageAllowlist();
@@ -209,23 +321,29 @@ public partial class MainViewModel : ObservableObject
                 }
                 catch { }
             }
-            // Prefer actual page theme when available via UISettings above.
             ReadingHtml = Core.Html.MailHtmlBuilder.BuildDocument(
                 ReadingMessage.BodyHtml, ReadingMessage.BodyText, cid, block, dark, allow);
 
             if (!ReadingMessage.IsSeen)
             {
-                _ = _mail.Imap.SetFlagsAsync(item.Message.AccountId, item.Message.Folder,
-                    new[] { item.Message.Uid }, MessageFlags.Seen, true);
+                _ = _mail.Imap.SetFlagsAsync(target.AccountId, target.Folder,
+                    new[] { target.Uid }, MessageFlags.Seen, true);
             }
 
-            if (ConversationsEnabled && !string.IsNullOrEmpty(item.ThreadId) && item.ThreadCount > 1)
+            if (ConversationsEnabled && listItem.ThreadMembers.Count > 1)
             {
                 ThreadMessages.Clear();
-                foreach (var m in _mail.Db.GetThreadMessages(item.Message.AccountId, item.Message.Folder, item.ThreadId!))
+                foreach (var m in listItem.ThreadMembers)
                     ThreadMessages.Add(m);
+                ReadingThreadLabel = $"{listItem.ThreadMembers.Count} Nachrichten in dieser Konversation";
+                HasConversation = true;
             }
-            else ThreadMessages.Clear();
+            else
+            {
+                ThreadMessages.Clear();
+                ReadingThreadLabel = "";
+                HasConversation = false;
+            }
         }
         catch (Exception ex)
         {
@@ -454,7 +572,12 @@ public partial class MailListItem : ObservableObject
     public CachedMessage Message { get; set; } = null!;
     public int ThreadCount { get; set; } = 1;
     public string? ThreadId { get; set; }
+    public List<CachedMessage> ThreadMembers { get; set; } = new();
     [ObservableProperty] private bool isExpanded;
+    [ObservableProperty] private bool isActive;
+    [ObservableProperty] private ImageSource? avatarImage;
+    [ObservableProperty] private bool hasAvatarImage;
+
     public bool ShowRecipient =>
         Message.Folder.Contains("Sent", StringComparison.OrdinalIgnoreCase) ||
         Message.Folder.Contains("Gesendet", StringComparison.OrdinalIgnoreCase);
@@ -463,7 +586,7 @@ public partial class MailListItem : ObservableObject
     {
         get
         {
-            if (!ShowRecipient) return Message.DisplayName;
+            if (!ShowRecipient) return string.IsNullOrWhiteSpace(Message.DisplayName) ? (Message.FromAddress ?? "") : Message.DisplayName;
             try
             {
                 var list = JsonSerializer.Deserialize<List<MailAddress>>(Message.ToAddress ?? "[]");
@@ -473,6 +596,14 @@ public partial class MailListItem : ObservableObject
             catch { return Message.ToAddress ?? ""; }
         }
     }
+
+    public string? AvatarEmail =>
+        ShowRecipient
+            ? (JsonSerializer.Deserialize<List<MailAddress>>(Message.ToAddress ?? "[]")?.FirstOrDefault()?.Address
+               ?? Message.FromAddress)
+            : Message.FromAddress;
+
+    public string AvatarColor => SenderAvatar.ColorHex(AvatarEmail ?? PrimaryLabel);
 
     public string AvatarInitial
     {
@@ -487,12 +618,74 @@ public partial class MailListItem : ObservableObject
         Message.Date is { } d
             ? (d.ToLocalTime().Date == DateTime.Now.Date
                 ? d.ToLocalTime().ToString("HH:mm")
-                : d.ToLocalTime().ToString("dd.MM.yy"))
+                : d.ToLocalTime().Date == DateTime.Now.Date.AddDays(-1)
+                    ? "Gestern"
+                    : d.ToLocalTime().ToString("dd.MM.yy"))
             : "";
 
     public bool IsUnread => !Message.IsSeen;
     public string SubjectText => string.IsNullOrWhiteSpace(Message.Subject) ? "(kein Betreff)" : Message.Subject!;
     public string SnippetText => Message.Snippet ?? "";
+
+    public Brush RowBackground => IsActive
+        ? ResolveBrush("PulseAccentSoft", 0x33, 0x0A, 0x84, 0xFF)
+        : new SolidColorBrush(Windows.UI.Color.FromArgb(0, 0, 0, 0));
+
+    public Brush PrimaryTextBrush => IsActive
+        ? ResolveBrush("PulseAccent", 0xFF, 0x0A, 0x84, 0xFF)
+        : ResolveBrush("PulseTextPrimary", 0xFF, 0xF5, 0xF5, 0xF7);
+
+    public Brush SecondaryTextBrush => IsActive
+        ? ResolveBrush("PulseAccent", 0xFF, 0x0A, 0x84, 0xFF)
+        : ResolveBrush("PulseTextSecondary", 0xFF, 0x98, 0x98, 0x9D);
+
+    public Brush TertiaryTextBrush => IsActive
+        ? ResolveBrush("PulseAccent", 0xFF, 0x0A, 0x84, 0xFF)
+        : ResolveBrush("PulseTextTertiary", 0xFF, 0x6E, 0x6E, 0x73);
+
+    public Brush BadgeBackground => IsActive
+        ? ResolveBrush("PulseAccentSoft", 0x33, 0x0A, 0x84, 0xFF)
+        : ResolveBrush("PulseAccent", 0xFF, 0x0A, 0x84, 0xFF);
+
+    public Brush BadgeForeground => IsActive
+        ? ResolveBrush("PulseAccent", 0xFF, 0x0A, 0x84, 0xFF)
+        : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255));
+
+    partial void OnIsActiveChanged(bool value)
+    {
+        OnPropertyChanged(nameof(RowBackground));
+        OnPropertyChanged(nameof(PrimaryTextBrush));
+        OnPropertyChanged(nameof(SecondaryTextBrush));
+        OnPropertyChanged(nameof(TertiaryTextBrush));
+        OnPropertyChanged(nameof(BadgeBackground));
+        OnPropertyChanged(nameof(BadgeForeground));
+    }
+
+    public async void SetAvatarBytes(byte[] bytes)
+    {
+        try
+        {
+            var stream = new InMemoryRandomAccessStream();
+            await stream.WriteAsync(bytes.AsBuffer());
+            stream.Seek(0);
+            var bmp = new BitmapImage();
+            await bmp.SetSourceAsync(stream);
+            AvatarImage = bmp;
+            HasAvatarImage = true;
+        }
+        catch { }
+    }
+
+    private static Brush ResolveBrush(string key, byte a, byte r, byte g, byte b)
+    {
+        try
+        {
+            if (Microsoft.UI.Xaml.Application.Current.Resources.TryGetValue(key, out var v) && v is Brush brush)
+                return brush;
+        }
+        catch { }
+        return new SolidColorBrush(Windows.UI.Color.FromArgb(a, r, g, b));
+    }
 }
 
 public sealed class CommandItem

@@ -106,21 +106,50 @@ public sealed partial class MainPage : Page
     private void RefreshAttachments()
     {
         AttachmentList.Items.Clear();
-        var meta = ViewModel.ReadingMessage?.AttachmentsMeta;
         LoadRemoteBtn.Visibility = (!ViewModel.LoadRemoteImages && ViewModel.ReadingMessage is not null)
             ? Visibility.Visible : Visibility.Collapsed;
 
+        var meta = ViewModel.ReadingMessage?.AttachmentsMeta;
         if (string.IsNullOrEmpty(meta)) return;
         try
         {
             var list = JsonSerializer.Deserialize<List<AttachmentMeta>>(meta) ?? new();
-            foreach (var a in list.Where(x => !x.IsInline))
+            foreach (var a in list.Where(x => !x.IsInline && !string.IsNullOrEmpty(x.Filename)))
             {
+                var isPdf = a.Filename.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) ||
+                            a.ContentType.Contains("pdf", StringComparison.OrdinalIgnoreCase);
+                var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+                panel.Children.Add(new FontIcon
+                {
+                    Glyph = isPdf ? "\uEA90" : "\uE896",
+                    FontSize = 14,
+                    Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["PulseTextSecondary"]
+                });
+                panel.Children.Add(new TextBlock
+                {
+                    Text = a.Filename,
+                    FontSize = 12,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    MaxWidth = 220,
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                });
+                panel.Children.Add(new TextBlock
+                {
+                    Text = FormatSize(a.Size),
+                    FontSize = 11,
+                    Opacity = 0.65,
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+
                 var btn = new Button
                 {
-                    Content = $"{a.Filename} ({FormatSize(a.Size)})",
-                    Margin = new Thickness(0, 0, 8, 0),
-                    Tag = a
+                    Content = panel,
+                    Padding = new Thickness(10, 6, 10, 6),
+                    CornerRadius = new CornerRadius(8),
+                    Tag = a,
+                    Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["PulseBgElevated"],
+                    BorderBrush = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["PulseBorder"],
+                    BorderThickness = new Thickness(1)
                 };
                 btn.Click += Attachment_Click;
                 AttachmentList.Items.Add(btn);
@@ -215,7 +244,16 @@ public sealed partial class MainPage : Page
     private async void ThreadMessage_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not FrameworkElement { Tag: CachedMessage msg }) return;
-        var item = new MailListItem { Message = msg, ThreadCount = 1, ThreadId = msg.ThreadId };
+        var parent = ViewModel.SelectedMessage;
+        var item = new MailListItem
+        {
+            Message = msg,
+            ThreadCount = parent?.ThreadCount ?? 1,
+            ThreadId = msg.ThreadId ?? parent?.ThreadId,
+            ThreadMembers = parent?.ThreadMembers?.Count > 0
+                ? parent.ThreadMembers
+                : new List<CachedMessage> { msg }
+        };
         await ViewModel.OpenMessageAsync(item);
     }
 

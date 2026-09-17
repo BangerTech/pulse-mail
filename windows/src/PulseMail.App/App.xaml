@@ -98,6 +98,8 @@
         <Setter Property="Padding" Value="0"/>
         <Setter Property="MinHeight" Value="0"/>
         <Setter Property="Margin" Value="0"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
       </Style>
 
       <x:Double x:Key="SidebarWidth">220</x:Double>
@@ -106,6 +108,7 @@
       <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
       <converters:InverseNullToVisibilityConverter x:Key="InverseNullToVisibilityConverter"/>
       <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+      <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
       <converters:StringToColorBrushConverter x:Key="StringToColorBrushConverter"/>
       <converters:ThreadCountVisibilityConverter x:Key="ThreadCountVisibilityConverter"/>
       <converters:UnreadDotVisibilityConverter x:Key="UnreadDotVisibilityConverter"/>

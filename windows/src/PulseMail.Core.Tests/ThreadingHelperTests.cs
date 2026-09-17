@@ -1,3 +1,4 @@
+using PulseMail.Core.Models;
 using PulseMail.Core.Threading;
 using Xunit;
 
@@ -11,7 +12,7 @@ public class ThreadingHelperTests
         var header = "something without brackets id@newsletter.example and <real@host.example>";
         var ids = ThreadingHelper.ExtractMessageIds(header);
         Assert.Single(ids);
-        Assert.Equal("<real@host.example>", ids[0]);
+        Assert.Equal("real@host.example", ids[0]);
     }
 
     [Fact]
@@ -30,6 +31,20 @@ public class ThreadingHelperTests
             "<a@x> <b@x>",
             "Re: Hi",
             "me@x");
-        Assert.Equal("<a@x>", tid);
+        Assert.Equal("a@x", tid);
+    }
+
+    [Fact]
+    public void AssignThreadIds_UnionsReplyChain()
+    {
+        var msgs = new List<CachedMessage>
+        {
+            new() { AccountId = 1, Folder = "INBOX", Uid = 1, MessageId = "<a@x>", Subject = "Hi", FromAddress = "a@x" },
+            new() { AccountId = 1, Folder = "INBOX", Uid = 2, MessageId = "<b@x>", InReplyTo = "<a@x>", Subject = "Re: Hi", FromAddress = "b@x" },
+            new() { AccountId = 1, Folder = "INBOX", Uid = 3, MessageId = "<c@x>", Subject = "Other", FromAddress = "c@x" },
+        };
+        ThreadingHelper.AssignThreadIds(msgs);
+        Assert.Equal(msgs[0].ThreadId, msgs[1].ThreadId);
+        Assert.NotEqual(msgs[0].ThreadId, msgs[2].ThreadId);
     }
 }

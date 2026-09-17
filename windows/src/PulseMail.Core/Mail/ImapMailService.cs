@@ -522,7 +522,7 @@ public sealed class ImapMailService : IAsyncDisposable
                 {
                     Filename = part.FileName ?? "attachment",
                     ContentType = part.ContentType.MimeType,
-                    Size = part.ContentDisposition?.Size ?? 0,
+                    Size = MeasurePartSize(part),
                     ContentId = part.ContentId,
                     IsInline = part.ContentDisposition?.IsAttachment == false
                 });
@@ -531,6 +531,21 @@ public sealed class ImapMailService : IAsyncDisposable
         cached.AttachmentsMeta = JsonSerializer.Serialize(atts);
         cached.HasAttachments = atts.Any(a => !a.IsInline);
         try { cached.RawHeaders = msg.Headers.ToString(); } catch { }
+    }
+
+    private static long MeasurePartSize(MimePart part)
+    {
+        if (part.ContentDisposition?.Size is > 0 size) return size;
+        var cl = part.Headers[HeaderId.ContentLength];
+        if (long.TryParse(cl, out var parsed) && parsed > 0) return parsed;
+        try
+        {
+            if (part.Content is null) return 0;
+            using var ms = new MemoryStream();
+            part.Content.DecodeTo(ms);
+            return ms.Length;
+        }
+        catch { return 0; }
     }
 
     private static string StripTags(string html) =>

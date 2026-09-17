@@ -73,6 +73,13 @@ public sealed class CachedMessage
         string.IsNullOrWhiteSpace(FromName) ? (FromAddress ?? "") : FromName!;
 
     public string Key => $"{AccountId}:{Folder}:{Uid}";
+
+    public string DateLabel =>
+        Date is { } d
+            ? (d.ToLocalTime().Date == DateTime.Now.Date
+                ? d.ToLocalTime().ToString("HH:mm")
+                : d.ToLocalTime().ToString("g"))
+            : "";
 }
 
 public sealed class FolderInfo

@@ -170,48 +170,58 @@
                   IsItemClickEnabled="True"
                   ItemClick="MailList_ItemClick"
                   Background="{ThemeResource PulseBgMailList}"
-                  ItemContainerStyle="{StaticResource PulseMailRow}">
+                  ItemContainerStyle="{StaticResource PulseMailRow}"
+                  SelectionMode="Single">
           <ListView.ItemTemplate>
             <DataTemplate x:DataType="vm:MailListItem">
               <Grid Padding="6,11,14,11" ColumnSpacing="10"
-                    Background="{ThemeResource PulseBgMailList}"
+                    Background="{x:Bind RowBackground, Mode=OneWay}"
                     BorderBrush="{ThemeResource PulseBorder}" BorderThickness="0,0,0,1">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="10"/>
-                  <ColumnDefinition Width="32"/>
+                  <ColumnDefinition Width="36"/>
                   <ColumnDefinition Width="*"/>
                   <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <Ellipse Width="8" Height="8" VerticalAlignment="Top" Margin="0,8,0,0"
+                <Ellipse Width="8" Height="8" VerticalAlignment="Top" Margin="0,10,0,0"
                          Fill="{ThemeResource PulseAccent}"
                          Visibility="{x:Bind IsUnread, Converter={StaticResource UnreadDotVisibilityConverter}}"/>
 
-                <Border Grid.Column="1" Width="32" Height="32" CornerRadius="16"
-                        Background="{ThemeResource PulseAccent}" VerticalAlignment="Top">
-                  <TextBlock Text="{x:Bind AvatarInitial}" FontSize="13" FontWeight="SemiBold"
-                             Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <Border Grid.Column="1" Width="36" Height="36" CornerRadius="18" VerticalAlignment="Top" Margin="0,2,0,0"
+                        Background="{x:Bind AvatarColor, Converter={StaticResource StringToColorBrushConverter}}">
+                  <Grid>
+                    <TextBlock Text="{x:Bind AvatarInitial}" FontSize="13" FontWeight="SemiBold"
+                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Visibility="{x:Bind HasAvatarImage, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                    <Ellipse Width="36" Height="36"
+                             Visibility="{x:Bind HasAvatarImage, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                      <Ellipse.Fill>
+                        <ImageBrush ImageSource="{x:Bind AvatarImage, Mode=OneWay}" Stretch="UniformToFill"/>
+                      </Ellipse.Fill>
+                    </Ellipse>
+                  </Grid>
                 </Border>
 
                 <StackPanel Grid.Column="2" Spacing="2">
                   <TextBlock Text="{x:Bind PrimaryLabel}" FontSize="13" TextTrimming="CharacterEllipsis"
-                             Foreground="{ThemeResource PulseTextPrimary}"
+                             Foreground="{x:Bind PrimaryTextBrush, Mode=OneWay}"
                              FontWeight="{x:Bind IsUnread, Converter={StaticResource BoolToFontWeightConverter}}"/>
                   <TextBlock Text="{x:Bind SubjectText}" FontSize="13" TextTrimming="CharacterEllipsis"
-                             Foreground="{ThemeResource PulseTextPrimary}"
+                             Foreground="{x:Bind PrimaryTextBrush, Mode=OneWay}"
                              FontWeight="{x:Bind IsUnread, Converter={StaticResource BoolToFontWeightConverter}}"/>
-                  <TextBlock Text="{x:Bind SnippetText}" FontSize="12" Opacity="1"
-                             Foreground="{ThemeResource PulseTextSecondary}"
+                  <TextBlock Text="{x:Bind SnippetText}" FontSize="12"
+                             Foreground="{x:Bind SecondaryTextBrush, Mode=OneWay}"
                              TextTrimming="CharacterEllipsis" MaxLines="1"/>
                 </StackPanel>
 
                 <StackPanel Grid.Column="3" Spacing="4" HorizontalAlignment="Right">
                   <TextBlock Text="{x:Bind DisplayDate}" FontSize="11"
-                             Foreground="{ThemeResource PulseTextTertiary}"/>
-                  <Border Background="{ThemeResource PulseAccent}" CornerRadius="8" Padding="6,1"
+                             Foreground="{x:Bind TertiaryTextBrush, Mode=OneWay}"/>
+                  <Border Background="{x:Bind BadgeBackground, Mode=OneWay}" CornerRadius="8" Padding="6,1"
                           HorizontalAlignment="Right"
                           Visibility="{x:Bind ThreadCount, Converter={StaticResource ThreadCountVisibilityConverter}}">
-                    <TextBlock Text="{x:Bind ThreadCount}" Foreground="White" FontSize="11"/>
+                    <TextBlock Text="{x:Bind ThreadCount}" Foreground="{x:Bind BadgeForeground, Mode=OneWay}" FontSize="11" FontWeight="SemiBold"/>
                   </Border>
                 </StackPanel>
               </Grid>
@@ -228,40 +238,116 @@
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto"/>
           <RowDefinition Height="*"/>
-          <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Padding="20,16,20,8" Spacing="4"
-                    Visibility="{x:Bind ViewModel.ReadingMessage, Mode=OneWay, Converter={StaticResource NullToVisibilityConverter}}">
-          <TextBlock Text="{x:Bind ViewModel.ReadingSubject, Mode=OneWay}" FontSize="22" FontWeight="SemiBold"
-                     Foreground="{ThemeResource PulseTextPrimary}" TextWrapping="Wrap"/>
-          <TextBlock Text="{x:Bind ViewModel.ReadingFromLine, Mode=OneWay}" FontSize="13"
-                     Foreground="{ThemeResource PulseTextSecondary}"/>
-          <TextBlock Text="{x:Bind ViewModel.ReadingDateText, Mode=OneWay}" FontSize="12"
-                     Foreground="{ThemeResource PulseTextTertiary}"/>
+        <ScrollViewer Grid.Row="0"
+                      Visibility="{x:Bind ViewModel.ReadingMessage, Mode=OneWay, Converter={StaticResource NullToVisibilityConverter}}">
+          <StackPanel Padding="20,12,20,8" Spacing="10">
+            <StackPanel Orientation="Horizontal" Spacing="2">
+              <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.ReplyCommand}" ToolTipService.ToolTip="Antworten (R)">
+                <FontIcon Glyph="&#xE97A;" FontSize="14" Foreground="{ThemeResource PulseTextSecondary}"/>
+              </Button>
+              <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.ReplyAllCommand}" ToolTipService.ToolTip="Allen antworten (A)">
+                <FontIcon Glyph="&#xE8C2;" FontSize="14" Foreground="{ThemeResource PulseTextSecondary}"/>
+              </Button>
+              <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.ForwardCommand}" ToolTipService.ToolTip="Weiterleiten (F)">
+                <FontIcon Glyph="&#xE72A;" FontSize="14" Foreground="{ThemeResource PulseTextSecondary}"/>
+              </Button>
+              <Border Width="1" Background="{ThemeResource PulseBorder}" Margin="6,4"/>
+              <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.ArchiveSelectedCommand}" ToolTipService.ToolTip="Archivieren (E)">
+                <FontIcon Glyph="&#xE7B8;" FontSize="14" Foreground="{ThemeResource PulseTextSecondary}"/>
+              </Button>
+              <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.ToggleFlagCommand}" ToolTipService.ToolTip="Markieren (L)">
+                <FontIcon Glyph="&#xE735;" FontSize="14" Foreground="{ThemeResource PulseFlagged}"/>
+              </Button>
+              <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.DeleteSelectedCommand}" ToolTipService.ToolTip="Löschen">
+                <FontIcon Glyph="&#xE74D;" FontSize="14" Foreground="{ThemeResource PulseDestructive}"/>
+              </Button>
+            </StackPanel>
 
-          <ItemsControl ItemsSource="{x:Bind ViewModel.ThreadMessages, Mode=OneWay}" Margin="0,8,0,0">
-            <ItemsControl.ItemsPanel>
-              <ItemsPanelTemplate>
-                <StackPanel Orientation="Horizontal" Spacing="6"/>
-              </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <Button Content="{Binding Date}" Click="ThreadMessage_Click" Tag="{Binding}"
-                        Padding="8,4" FontSize="11" CornerRadius="8"/>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </StackPanel>
+            <TextBlock Text="{x:Bind ViewModel.ReadingSubject, Mode=OneWay}" FontSize="22" FontWeight="SemiBold"
+                       Foreground="{ThemeResource PulseTextPrimary}" TextWrapping="Wrap"/>
 
-        <controls:MailWebView x:Name="MailBodyView" Grid.Row="1" Margin="8"/>
+            <Grid ColumnSpacing="12">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="40"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <Border Width="40" Height="40" CornerRadius="20"
+                      Background="{x:Bind ViewModel.ReadingAvatarColor, Mode=OneWay, Converter={StaticResource StringToColorBrushConverter}}">
+                <Grid>
+                  <TextBlock Text="{x:Bind ViewModel.ReadingAvatarInitial, Mode=OneWay}" FontSize="15" FontWeight="SemiBold"
+                             Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"
+                             Visibility="{x:Bind ViewModel.ReadingHasAvatar, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                  <Ellipse Width="40" Height="40"
+                           Visibility="{x:Bind ViewModel.ReadingHasAvatar, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Ellipse.Fill>
+                      <ImageBrush ImageSource="{x:Bind ViewModel.ReadingAvatarImage, Mode=OneWay}" Stretch="UniformToFill"/>
+                    </Ellipse.Fill>
+                  </Ellipse>
+                </Grid>
+              </Border>
+              <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                <Grid>
+                  <TextBlock Text="{x:Bind ViewModel.ReadingFromName, Mode=OneWay}" FontSize="14" FontWeight="SemiBold"
+                             Foreground="{ThemeResource PulseTextPrimary}" TextTrimming="CharacterEllipsis"/>
+                  <TextBlock Text="{x:Bind ViewModel.ReadingDateText, Mode=OneWay}" FontSize="12"
+                             Foreground="{ThemeResource PulseTextTertiary}" HorizontalAlignment="Right"/>
+                </Grid>
+                <TextBlock Text="{x:Bind ViewModel.ReadingFromEmail, Mode=OneWay}" FontSize="12"
+                           Foreground="{ThemeResource PulseTextSecondary}" TextTrimming="CharacterEllipsis"/>
+                <TextBlock Text="{x:Bind ViewModel.ReadingToLine, Mode=OneWay}" FontSize="12"
+                           Foreground="{ThemeResource PulseTextTertiary}" TextTrimming="CharacterEllipsis"/>
+              </StackPanel>
+            </Grid>
 
-        <StackPanel Grid.Row="2" Margin="16,0,16,12" Spacing="8">
-          <Button x:Name="LoadRemoteBtn" Content="Externe Bilder laden" Click="LoadRemote_Click"
-                  Visibility="Collapsed" CornerRadius="8"/>
-          <ItemsControl x:Name="AttachmentList"/>
-        </StackPanel>
+            <Border Background="{ThemeResource PulseBgElevated}" CornerRadius="10" Padding="10,8"
+                    BorderBrush="{ThemeResource PulseBorder}" BorderThickness="1"
+                    Visibility="{x:Bind ViewModel.HasConversation, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+              <StackPanel Spacing="4">
+                <TextBlock Text="{x:Bind ViewModel.ReadingThreadLabel, Mode=OneWay}" FontSize="12" FontWeight="SemiBold"
+                           Foreground="{ThemeResource PulseTextSecondary}"/>
+                <ItemsControl ItemsSource="{x:Bind ViewModel.ThreadMessages, Mode=OneWay}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Button Click="ThreadMessage_Click" Tag="{Binding}" HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Stretch" Padding="8,6" Margin="0,2,0,0"
+                              Background="Transparent" BorderThickness="0" CornerRadius="6">
+                        <Grid ColumnSpacing="8">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                          </Grid.ColumnDefinitions>
+                          <StackPanel>
+                            <TextBlock Text="{Binding DisplayName}" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{ThemeResource PulseTextPrimary}" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Text="{Binding Subject}" FontSize="12"
+                                       Foreground="{ThemeResource PulseTextSecondary}" TextTrimming="CharacterEllipsis"/>
+                          </StackPanel>
+                          <TextBlock Grid.Column="1" Text="{Binding DateLabel}" FontSize="11"
+                                     Foreground="{ThemeResource PulseTextTertiary}" VerticalAlignment="Center"/>
+                        </Grid>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+
+            <ItemsControl x:Name="AttachmentList">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Orientation="Horizontal" Spacing="8"/>
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+            </ItemsControl>
+
+            <Button x:Name="LoadRemoteBtn" Content="Externe Bilder laden" Click="LoadRemote_Click"
+                    Visibility="Collapsed" CornerRadius="8" HorizontalAlignment="Left"/>
+          </StackPanel>
+        </ScrollViewer>
+
+        <controls:MailWebView x:Name="MailBodyView" Grid.Row="1" Margin="8,0,8,8"/>
 
         <TextBlock Grid.Row="1" Text="Keine Nachricht ausgewählt"
                    HorizontalAlignment="Center" VerticalAlignment="Center"

@@ -16,6 +16,7 @@ Aktuelle Version: **1.5.0** — Quelle ist `frontend/package.json`, Anzeige unte
 - **Native Windows-App (WinUI 3)** unter `windows/` für Kunden ohne Docker: direktes IMAP/OAuth, lokaler SQLite-Cache, Credential Manager, Produktions-Feature-Parität (Liste, Lesen, Composer, Suche, Signaturen, Shortcuts, Hinweise). Optik ist WinUI, nicht 1:1 die React-CSS-UI.
 - Docker, Web-App und Tauri-Server-Hülle (`desktop/`) bleiben unverändert und parallel nutzbar.
 - CI: `.github/workflows/windows-native.yml` — Inno-Setup-Wizard (`*-Setup.exe`) plus portable ZIP.
+- Native **1.0.4**: Listen-Auswahl (blau), Absender-Favicons, Union-Find-Konversationen, Leseansicht inkl. Anhänge-Größen.
 - Native **1.0.3**: `EnableMsixTooling=true`, damit `resources.pri`/XBF mitpublishen (Fix für `XamlParseException` beim Start).
 
 #### 1.4.16 (2026-09-13)
