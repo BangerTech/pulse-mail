@@ -535,9 +535,12 @@ public sealed class ImapMailService : IAsyncDisposable
 
     private static long MeasurePartSize(MimePart part)
     {
-        if (part.ContentDisposition?.Size is > 0 size) return size;
+        var declared = part.ContentDisposition?.Size;
+        if (declared is long s && s > 0) return s;
+
         var cl = part.Headers[HeaderId.ContentLength];
         if (long.TryParse(cl, out var parsed) && parsed > 0) return parsed;
+
         try
         {
             if (part.Content is null) return 0;
@@ -545,7 +548,10 @@ public sealed class ImapMailService : IAsyncDisposable
             part.Content.DecodeTo(ms);
             return ms.Length;
         }
-        catch { return 0; }
+        catch
+        {
+            return 0;
+        }
     }
 
     private static string StripTags(string html) =>
