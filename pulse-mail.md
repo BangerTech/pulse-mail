@@ -2,7 +2,7 @@
 
 ## Version
 
-Aktuelle Version: **1.4.16** — Quelle ist `frontend/package.json`, Anzeige unter Einstellungen → Info (`__APP_VERSION__` / `__APP_BUILD__` aus dem Vite-Build). Fallback in `frontend/src/shared/version.ts`. Backend `package.json` und `desktop/` halten dieselbe Versionsnummer.
+Aktuelle Version: **1.5.0** — Quelle ist `frontend/package.json`, Anzeige unter Einstellungen → Info (`__APP_VERSION__` / `__APP_BUILD__` aus dem Vite-Build). Fallback in `frontend/src/shared/version.ts`. Backend `package.json` und `desktop/` halten dieselbe Versionsnummer. Die **native WinUI-App** unter `windows/` hat eine eigene Versionslinie ab **1.0.0**.
 
 **Bei jeder inhaltlichen Änderung** (nicht nur beim nächsten Commit):
 
@@ -11,6 +11,11 @@ Aktuelle Version: **1.4.16** — Quelle ist `frontend/package.json`, Anzeige unt
 3. Commit mit der neuen Versionsnummer
 
 ### Changelog
+
+#### 1.5.0 (2026-09-17)
+- **Native Windows-App (WinUI 3)** unter `windows/` für Kunden ohne Docker: direktes IMAP/OAuth, lokaler SQLite-Cache, Credential Manager, volle Produktions-UI-Parität (Liste, Lesen, Composer, Suche, Signaturen, Shortcuts, Hinweise).
+- Docker, Web-App und Tauri-Server-Hülle (`desktop/`) bleiben unverändert und parallel nutzbar.
+- CI: `.github/workflows/windows-native.yml` (ZIP-Release `native-v1.0.0`).
 
 #### 1.4.16 (2026-09-13)
 - PDF-Vorschau und Anhänge: iframe/`<img>` schicken keinen Bearer-Header. Vorschau lädt per `fetch` mit Session und zeigt ein Blob; Download und Inline-Bilder hängen `?token=` an (wie der WebSocket). Statt `{"error":"Nicht angemeldet"}` im Viewer kommt bei Fehlern eine klare Meldung.
@@ -99,13 +104,14 @@ Aktuelle Version: **1.4.16** — Quelle ist `frontend/package.json`, Anzeige unt
 - **Frontend:** React 19 + TypeScript + Vite, TipTap Editor, Zustand, `@tanstack/react-virtual`
 - **Backend:** Node.js + Express, imapflow (IMAP), nodemailer (SMTP), better-sqlite3
 - **Deployment:** Docker Compose (Frontend via Nginx, Backend als Node.js Container)
-- **Windows-App:** Tauri 2 unter `desktop/` — lädt die Server-URL in WebView2, baut den Installer per GitHub Action
+- **Windows-App (Server-Hülle):** Tauri 2 unter `desktop/` — lädt die Server-URL in WebView2
+- **Windows-App (Native):** WinUI 3 unter `windows/` — eigenständiger Client mit MailKit + SQLite, kein Server
 
-### Windows-App bauen und nutzen
+### Windows-App (Tauri-Server-Hülle) bauen und nutzen
 
-Pake wird nicht mehr unterstützt. Die App liegt in `desktop/` (Tauri 2 + WebView2).
+Pake wird nicht mehr unterstützt. Die Hülle liegt in `desktop/` (Tauri 2 + WebView2).
 
-1. Nach dem Build: **Releases** → `Pulse Mail 1.4.12` → `Pulse Mail_1.4.12_x64-setup.exe`
+1. Nach dem Build: **Releases** → `Pulse Mail …` → `Pulse Mail_*_x64-setup.exe`
 2. Fallback: **Actions → Windows App** → Artifact `pulse-mail-windows` (nur mit GitHub-Login, 90 Tage)
 3. Installieren, starten, Server-URL eintragen (z. B. `http://192.168.2.83:8080`)
 4. Es erscheint der normale Pulse-Mail-Login
@@ -117,7 +123,46 @@ Menü **Datei → Server ändern…** oder Start mit `--setup`. Feste URL: `--ur
 
 Lokal (auf einem Windows-Rechner mit Rust und Node): `cd desktop && npm install && npm run build`.
 
-## Datenbank Schema (SQLite)
+### Native Windows-App (WinUI) für Kunden
+
+Eigenständige App unter `windows/` — **kein Docker, kein Pulse-Login, keine Server-URL**.
+
+| | |
+|---|---|
+| Version | **1.0.0** (eigene Linie) |
+| App-ID | `de.bangertech.pulsemail.winui` |
+| Daten | `%LOCALAPPDATA%\PulseMail\mail.db` |
+| Secrets | Windows Credential Manager |
+| Build | Actions → **Windows Native App** → Artifact / Release `native-v1.0.0` |
+| Lokal | `cd windows && dotnet publish …` (siehe `windows/README.md`) |
+
+**Erster Start:** Postfach-Assistent (Gmail / Outlook / Custom IMAP) oder OAuth PKCE (Client-IDs unter Einstellungen → OAuth).
+
+**Stack:** `PulseMail.Core` (MailKit, Microsoft.Data.Sqlite, Threading, Suche, HTML-Builder, OAuth) + `PulseMail.App` (WinUI 3, WebView2 nur für HTML-Mails/Composer, Toasts, Taskbar-Flash).
+
+**Parität zur Produktions-Web-App:** Drei Spalten, Unified Inbox, Konversationen, Suche, Signaturen, PDF-Vorschau, Remote-Bilder, Shortcuts/Command-Palette, Hinweise/Ton, Theme/Dichte. Kein App-Benutzer-System, kein Prototyp.
+
+#### Native SQLite-Schema (`%LOCALAPPDATA%\PulseMail\mail.db`)
+
+Ohne `app_users` / `app_sessions` / `user_id`:
+
+**accounts** — `id`, `name`, `email`, `imap_host`, `imap_port`, `smtp_host`, `smtp_port`, `username`, `credential_key`, `color`, `auth_type` (`password` \| `oauth_google` \| `oauth_microsoft`), `oauth_refresh_key`, `created_at`
+
+**signatures** — wie Web, ohne `user_id`
+
+**mail_cache** — gleiche fachliche Spalten wie unten (inkl. Threading, Bodies, `raw_headers`, `extracted_pdf_text`)
+
+**folder_sync** — `account_id`, `folder`, `uid_validity`, `last_sync_at`
+
+**folder_cache** — Ordnerliste inkl. Special-Use und Ungelesen
+
+**settings** — Key/Value (`theme`, `density`, `loadRemoteImages`, `notifyDesktop`, `oauth.google.client_id`, …)
+
+**image_allowlist** — erlaubte Absenderdomains für Remote-Bilder
+
+**pending_ops** — laufende IMAP-Aktionen (move/delete/archive/flags), analog `backend/src/pending.js`
+
+## Datenbank Schema (SQLite) — Docker/Web
 
 Daten liegen lokal in `./data/mail.db` (nicht im Git-Repository).
 
@@ -339,8 +384,8 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Statische Datei `frontend/public/notify.wav`. Der Player wird beim Gesten-Klick nur entsperrt, spielt den Ding aber nicht nach — sonst hörte man ihn erst beim Öffnen der neuen Mail.
 
 ### Info (eigener Einstellungs-Reiter)
-- Version aus `frontend/package.json` (aktuell **1.4.16**), Build-Zeitpunkt aus dem Vite-Build (`__APP_VERSION__`, `__APP_BUILD__`)
-- Hinweis-Berechtigung und Tonkanal-Status. Titelzeile der Einstellungen zeigt `v1.4.16`
+- Version aus `frontend/package.json` (aktuell **1.5.0**), Build-Zeitpunkt aus dem Vite-Build (`__APP_VERSION__`, `__APP_BUILD__`)
+- Hinweis-Berechtigung und Tonkanal-Status. Titelzeile der Einstellungen zeigt `v1.5.0`
 - Profilbild setzen/entfernen (siehe App-Benutzer)
 
 ### MIME / Anzeige

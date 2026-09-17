@@ -9,36 +9,40 @@
   IMAP/SMTP, eigener Login, mehrere Postfächer, lokale SQLite-Cache.
 </p>
 
-Aktuelle Version: **1.4.16** · Doku: [pulse-mail.md](./pulse-mail.md)
+Aktuelle Version: **1.5.0** · Doku: [pulse-mail.md](./pulse-mail.md)
 
-## Windows-App
+## Zwei Windows-Apps
 
-Die offizielle Desktop-App ist ein Tauri-2-Fenster um deinen Pulse-Mail-Server (WebView2). Sie speichert keine Mails extra — Login und Postfächer sind dieselben wie im Browser.
+| | Server-Hülle (Tauri) | Native Kunden-App (WinUI) |
+|---|---|---|
+| Ordner | [`desktop/`](desktop/) | [`windows/`](windows/) |
+| Für wen | Du / Self-Host mit Docker | Andere Kunden ohne Server |
+| Braucht Docker? | Ja | Nein |
+| Login | Pulse-Benutzer → IMAP | Direkt Postfach (IMAP/OAuth) |
+| Daten | Auf dem Server | `%LOCALAPPDATA%\PulseMail\` |
+| App-ID | `de.bangertech.pulsemail` | `de.bangertech.pulsemail.winui` |
+| Build | Actions → **Windows App** | Actions → **Windows Native App** |
 
-1. Unter [Releases](https://github.com/BangerTech/pulse-mail/releases) die Datei `Pulse Mail_x.y.z_x64-setup.exe` laden und installieren
-2. Beim ersten Start die Server-URL eintragen, z. B. `http://192.168.2.83:8080`
+### Server-Hülle (bestehend)
+
+1. [Releases](https://github.com/BangerTech/pulse-mail/releases) → `Pulse Mail_x.y.z_x64-setup.exe`
+2. Server-URL eintragen, z. B. `http://192.168.2.83:8080`
 3. Mit dem Pulse-Mail-Benutzer anmelden
 
-Falls noch kein Release da ist: **Actions → Windows App** → Artifact `pulse-mail-windows` (nur mit GitHub-Login, 90 Tage).
+### Native Kunden-App (neu, v1.0.0)
 
-Pake nicht mehr nutzen. Die offizielle App hat einen eigenen Cache; nach Server-Updates reicht **Datei → Neu laden**.
+1. Release `native-v1.0.0` → ZIP entpacken → `PulseMail.App.exe`
+2. Postfach hinzufügen (Gmail / Outlook / Custom IMAP)
+3. Optional: OAuth Client-IDs unter Einstellungen → OAuth
 
-| | |
-|---|---|
-| Gespeicherte URL | `%APPDATA%\de.bangertech.pulsemail\config.json` |
-| Server ändern | Menü **Datei → Server ändern…**, Start mit `--setup`, oder `--url` / `PULSE_MAIL_URL` |
-| Neu laden | **Datei → Neu laden** |
-
-Die Hülle selbst (Icon, Badge, Hinweise) ändert sich nur mit einer neuen `.exe`. Die Mail-Oberfläche kommt vom Server nach einem Docker-Rebuild.
-
-Lokal unter Windows (Rust + Node): `cd desktop && npm install && npm run build`.
+Details: [windows/README.md](windows/README.md)
 
 ## Features
 
 - Drei-Spalten-Layout, Vorschau rechts oder unten
-- Mehrere IMAP-Konten, **Alle Eingänge**, eigene App-Benutzer
+- Mehrere IMAP-Konten, **Alle Eingänge**, eigene App-Benutzer (Web/Docker)
 - Ungelesen im Tab, als Badge und in der Windows-Taskbar
-- Neue-Mail-Ton und Desktop-Hinweis (in der Windows-App nativ)
+- Neue-Mail-Ton und Desktop-Hinweis
 - Konversationen, Suche im Cache, Signaturen, Anhänge, PDF-Vorschau
 - Dark Mode, Tastaturkürzel, Command-Palette
 - Mobile Ansicht (Drawer, Wischen, volle Leseansicht)
@@ -87,7 +91,7 @@ Nach Frontend- oder Backend-Änderungen:
 docker compose up -d --build
 ```
 
-Die Windows-App danach nur neu laden, keine neue `.exe` nötig.
+Die Tauri-Hülle danach nur neu laden, keine neue `.exe` nötig. Die native WinUI-App hat ihren eigenen Cache und Sync.
 
 ## Entwicklung
 
@@ -97,6 +101,8 @@ cd frontend && npm install --legacy-peer-deps && npm run dev
 ```
 
 Vite-Proxy: `/api` und `/ws` → `localhost:3001`.
+
+Native App (nur Windows): siehe [windows/README.md](windows/README.md).
 
 ## Weitere Doku
 

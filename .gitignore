@@ -16,3 +16,6 @@ backend/uploads/
 desktop/node_modules/
 desktop/src-tauri/target/
 desktop/src-tauri/gen/
+windows/**/bin/
+windows/**/obj/
+artifacts/
