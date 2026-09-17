@@ -199,12 +199,9 @@
 
         <StackPanel Grid.Row="0" Padding="20,16,20,8" Spacing="4"
                     Visibility="{x:Bind ViewModel.ReadingMessage, Mode=OneWay, Converter={StaticResource NullToVisibilityConverter}}">
-          <TextBlock Text="{x:Bind ViewModel.ReadingMessage.Subject, Mode=OneWay}" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap"/>
-          <TextBlock Opacity="0.7">
-            <Run Text="{x:Bind ViewModel.ReadingMessage.DisplayName, Mode=OneWay}"/>
-            <Run Text=" &lt;"/><Run Text="{x:Bind ViewModel.ReadingMessage.FromAddress, Mode=OneWay}"/><Run Text="&gt;"/>
-          </TextBlock>
-          <TextBlock Text="{x:Bind ViewModel.ReadingMessage.Date, Mode=OneWay}" FontSize="12" Opacity="0.5"/>
+          <TextBlock Text="{x:Bind ViewModel.ReadingSubject, Mode=OneWay}" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap"/>
+          <TextBlock Text="{x:Bind ViewModel.ReadingFromLine, Mode=OneWay}" Opacity="0.7"/>
+          <TextBlock Text="{x:Bind ViewModel.ReadingDateText, Mode=OneWay}" FontSize="12" Opacity="0.5"/>
 
           <!-- Thread switcher -->
           <ItemsControl ItemsSource="{x:Bind ViewModel.ThreadMessages, Mode=OneWay}" Margin="0,8,0,0">

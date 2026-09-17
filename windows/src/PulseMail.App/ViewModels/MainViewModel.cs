@@ -43,6 +43,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private FolderNavItem? selectedFolder;
     [ObservableProperty] private MailListItem? selectedMessage;
     [ObservableProperty] private CachedMessage? readingMessage;
+    [ObservableProperty] private string readingSubject = "";
+    [ObservableProperty] private string readingFromLine = "";
+    [ObservableProperty] private string readingDateText = "";
     [ObservableProperty] private string? readingHtml;
     [ObservableProperty] private string theme = "system";
     [ObservableProperty] private string density = "comfortable";
@@ -53,6 +56,20 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string windowTitle = "Pulse Mail";
 
     public bool IsUnifiedInbox => SelectedAccount is null && (SelectedFolder?.FullName is "INBOX" or null);
+
+    partial void OnReadingMessageChanged(CachedMessage? value)
+    {
+        if (value is null)
+        {
+            ReadingSubject = "";
+            ReadingFromLine = "";
+            ReadingDateText = "";
+            return;
+        }
+        ReadingSubject = value.Subject ?? "(kein Betreff)";
+        ReadingFromLine = $"{value.DisplayName} <{value.FromAddress}>";
+        ReadingDateText = value.Date is { } d ? d.ToLocalTime().ToString("g") : "";
+    }
 
     public async Task LoadAsync()
     {
