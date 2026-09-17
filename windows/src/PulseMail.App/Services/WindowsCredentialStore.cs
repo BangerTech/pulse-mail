@@ -33,3 +33,29 @@ public sealed class WindowsCredentialStore : ICredentialStore
         catch { /* already gone */ }
     }
 }
+
+/// <summary>
+/// Tries Windows Credential Manager, falls back to DPAPI files transparently.
+/// </summary>
+public sealed class HybridCredentialStore : ICredentialStore
+{
+    private readonly WindowsCredentialStore _win = new();
+    private readonly FileCredentialStore _file = new();
+
+    public void Save(string target, string username, string secret)
+    {
+        try { _win.Save(target, username, secret); }
+        catch { _file.Save(target, username, secret); return; }
+        // Also mirror to file as backup
+        try { _file.Save(target, username, secret); } catch { }
+    }
+
+    public string? Load(string target) =>
+        _win.Load(target) ?? _file.Load(target);
+
+    public void Delete(string target)
+    {
+        _win.Delete(target);
+        _file.Delete(target);
+    }
+}

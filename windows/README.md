@@ -29,10 +29,12 @@ GitHub Action **Windows Native App** baut:
 
 | Datei | Nutzen |
 |-------|--------|
-| `PulseMail-Native-1.0.1-Setup.exe` | **Inno-Setup-Wizard** (Sprache, Zielordner, Startmenü, Desktop-Icon, Starten) |
-| `PulseMail-Native-1.0.1-win-x64.zip` | Portable Variante ohne Installation |
+| `PulseMail-Native-1.0.2-Setup.exe` | **Inno-Setup-Wizard** (Sprache, Zielordner, Startmenü, Desktop-Icon, Starten) |
+| `PulseMail-Native-1.0.2-win-x64.zip` | Portable Variante ohne Installation |
 
-Release-Tag: `native-v1.0.1` (und folgende).
+Release-Tag: `native-v1.0.2`.
+
+Bei Startproblemen: `%LOCALAPPDATA%\PulseMail\startup.log`
 
 Lokal Installer bauen (nach `dotnet publish` nach `artifacts/PulseMail-native`):
 

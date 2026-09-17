@@ -25,9 +25,8 @@ public sealed class MailAppService : IAsyncDisposable
         Smtp = new SmtpMailService(Db, credentials, OAuth);
     }
 
-    public async Task InitializeAsync()
+    public void EnsureDefaults()
     {
-        // defaults
         if (Db.GetSetting("theme") is null) Db.SetSetting("theme", "system");
         if (Db.GetSetting("density") is null) Db.SetSetting("density", "comfortable");
         if (Db.GetSetting("loadRemoteImages") is null) Db.SetBoolSetting("loadRemoteImages", true);
@@ -35,9 +34,15 @@ public sealed class MailAppService : IAsyncDisposable
         if (Db.GetSetting("notifySound") is null) Db.SetBoolSetting("notifySound", true);
         if (Db.GetSetting("conversations") is null) Db.SetBoolSetting("conversations", true);
         if (Db.GetSetting("previewPane") is null) Db.SetSetting("previewPane", "right");
-
-        await Imap.StartAsync();
     }
+
+    public async Task InitializeAsync()
+    {
+        EnsureDefaults();
+        await StartImapAsync();
+    }
+
+    public Task StartImapAsync() => Imap.StartAsync();
 
     public bool HasAccounts => Db.GetAccounts().Count > 0;
 

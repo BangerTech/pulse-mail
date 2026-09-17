@@ -1,6 +1,6 @@
 ; Pulse Mail Native — Inno Setup wizard installer
 #define MyAppName "Pulse Mail"
-#define MyAppVersion "1.0.1"
+#define MyAppVersion "1.0.2"
 #define MyAppPublisher "BangerTech"
 #define MyAppURL "https://github.com/BangerTech/pulse-mail"
 #define MyAppExeName "PulseMail.App.exe"
@@ -15,10 +15,10 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
-DefaultDirName={autopf}\PulseMail
+; Per-user install — no admin required, reliable for WinUI unpackaged
+DefaultDirName={localappdata}\Programs\PulseMail
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
-; Output
 OutputDir=..\..\artifacts
 OutputBaseFilename=PulseMail-Native-{#MyAppVersion}-Setup
 SetupIconFile=..\src\PulseMail.App\Assets\app.ico
@@ -34,6 +34,7 @@ DisableProgramGroupPage=no
 DisableWelcomePage=no
 DisableDirPage=no
 DisableFinishedPage=no
+CloseApplications=force
 
 [Languages]
 Name: "german"; MessagesFile: "compiler:Languages\German.isl"
@@ -41,19 +42,18 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 6.1; Check: not IsAdminInstallMode
 
 [Files]
-; Published self-contained app folder from CI
 Source: "..\..\artifacts\PulseMail-native\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; WorkingDir: "{app}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
-Type: filesandordirs; Name: "{localappdata}\PulseMail"
+; Keep mail data by default — only remove app binaries via [Files]
+; Type: filesandordirs; Name: "{localappdata}\PulseMail"

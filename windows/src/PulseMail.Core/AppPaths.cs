@@ -4,7 +4,7 @@ public static class AppPaths
 {
     public const string AppId = "de.bangertech.pulsemail.winui";
     public const string ProductName = "Pulse Mail";
-    public const string Version = "1.0.1";
+    public const string Version = "1.0.2";
 
     public static string DataRoot
     {

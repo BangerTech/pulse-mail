@@ -11,21 +11,43 @@ public sealed partial class MainWindow : Window
 
     public MainWindow()
     {
-        InitializeComponent();
-        Title = "Pulse Mail";
-        ExtendsContentIntoTitleBar = false;
-
-        ViewModel = new MainViewModel(App.Mail, DispatcherQueue);
-        RootPage = new MainPage(ViewModel, this);
-        Content = RootPage;
-
-        var loaded = false;
-        Activated += async (_, _) =>
+        try
         {
-            if (loaded) return;
-            loaded = true;
-            NotificationService.EnsureRegistered();
-            await RootPage.InitializeAsync();
-        };
+            InitializeComponent();
+            Title = "Pulse Mail";
+            ExtendsContentIntoTitleBar = false;
+
+            ViewModel = new MainViewModel(App.Mail, DispatcherQueue);
+            RootPage = new MainPage(ViewModel, this);
+            Content = RootPage;
+
+            // Ensure a usable size on first run
+            try
+            {
+                AppWindow.Resize(new Windows.Graphics.SizeInt32(1440, 900));
+            }
+            catch { }
+
+            var loaded = false;
+            Activated += async (_, _) =>
+            {
+                if (loaded) return;
+                loaded = true;
+                try
+                {
+                    NotificationService.EnsureRegistered();
+                    await RootPage.InitializeAsync();
+                }
+                catch (Exception ex)
+                {
+                    CrashLog.Write("MainWindow Activated init failed", ex);
+                }
+            };
+        }
+        catch (Exception ex)
+        {
+            CrashLog.Write("MainWindow ctor failed", ex);
+            throw;
+        }
     }
 }
