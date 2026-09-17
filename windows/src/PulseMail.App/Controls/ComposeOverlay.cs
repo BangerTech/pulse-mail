@@ -97,7 +97,7 @@ public sealed class ComposeOverlay : UserControl
             Width = 720,
             Padding = new Thickness(24),
             Spacing = 4,
-            Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"]
+            Background = PulseMail.App.Helpers.ThemeBrushes.Elevated()
         };
         panel.Children.Add(header);
         panel.Children.Add(fields);
@@ -114,7 +114,7 @@ public sealed class ComposeOverlay : UserControl
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Center
         };
-        var root = new Grid { Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(160, 0, 0, 0)) };
+        var root = new Grid { Background = PulseMail.App.Helpers.ThemeBrushes.Overlay() };
         root.Children.Add(border);
         Content = root;
         Visibility = Visibility.Collapsed;

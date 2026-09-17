@@ -13,9 +13,9 @@ Aktuelle Version: **1.5.0** — Quelle ist `frontend/package.json`, Anzeige unte
 ### Changelog
 
 #### 1.5.0 (2026-09-17)
-- **Native Windows-App (WinUI 3)** unter `windows/` für Kunden ohne Docker: direktes IMAP/OAuth, lokaler SQLite-Cache, Credential Manager, volle Produktions-UI-Parität (Liste, Lesen, Composer, Suche, Signaturen, Shortcuts, Hinweise).
+- **Native Windows-App (WinUI 3)** unter `windows/` für Kunden ohne Docker: direktes IMAP/OAuth, lokaler SQLite-Cache, Credential Manager, Produktions-Feature-Parität (Liste, Lesen, Composer, Suche, Signaturen, Shortcuts, Hinweise). Optik ist WinUI, nicht 1:1 die React-CSS-UI.
 - Docker, Web-App und Tauri-Server-Hülle (`desktop/`) bleiben unverändert und parallel nutzbar.
-- CI: `.github/workflows/windows-native.yml` (ZIP-Release `native-v1.0.0`).
+- CI: `.github/workflows/windows-native.yml` — Inno-Setup-Wizard (`*-Setup.exe`) plus portable ZIP (`native-v1.0.1`).
 
 #### 1.4.16 (2026-09-13)
 - PDF-Vorschau und Anhänge: iframe/`<img>` schicken keinen Bearer-Header. Vorschau lädt per `fetch` mit Session und zeigt ein Blob; Download und Inline-Bilder hängen `?token=` an (wie der WebSocket). Statt `{"error":"Nicht angemeldet"}` im Viewer kommt bei Fehlern eine klare Meldung.
@@ -129,12 +129,14 @@ Eigenständige App unter `windows/` — **kein Docker, kein Pulse-Login, keine S
 
 | | |
 |---|---|
-| Version | **1.0.0** (eigene Linie) |
+| Version | **1.0.1** (eigene Linie) |
 | App-ID | `de.bangertech.pulsemail.winui` |
 | Daten | `%LOCALAPPDATA%\PulseMail\mail.db` |
 | Secrets | Windows Credential Manager |
-| Build | Actions → **Windows Native App** → Artifact / Release `native-v1.0.0` |
+| Build | Actions → **Windows Native App** → `PulseMail-Native-*-Setup.exe` (Inno-Wizard) + ZIP |
 | Lokal | `cd windows && dotnet publish …` (siehe `windows/README.md`) |
+
+**Design:** WinUI-eigene Oberfläche (Feature-Parität zur Produktions-App), **nicht** pixelidentisch zur React-Web-UI. Die Tauri-Hülle lädt weiterhin exakt die Docker-Web-App.
 
 **Erster Start:** Postfach-Assistent (Gmail / Outlook / Custom IMAP) oder OAuth PKCE (Client-IDs unter Einstellungen → OAuth).
 

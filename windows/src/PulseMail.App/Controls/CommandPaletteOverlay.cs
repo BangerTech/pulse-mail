@@ -28,7 +28,7 @@ public sealed class CommandPaletteOverlay : UserControl
             Width = 480,
             Padding = new Thickness(16),
             Spacing = 8,
-            Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"]
+            Background = PulseMail.App.Helpers.ThemeBrushes.Elevated()
         };
         panel.Children.Add(new TextBlock { Text = "Befehle", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
         panel.Children.Add(_filter);
@@ -42,7 +42,7 @@ public sealed class CommandPaletteOverlay : UserControl
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = new Thickness(0, 80, 0, 0)
         };
-        var root = new Grid { Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(140, 0, 0, 0)) };
+        var root = new Grid { Background = PulseMail.App.Helpers.ThemeBrushes.Overlay() };
         root.Children.Add(border);
         root.PointerPressed += (s, e) =>
         {

@@ -41,7 +41,7 @@ public sealed class AccountSetupOverlay : UserControl
             Width = 420,
             Spacing = 10,
             Padding = new Thickness(28),
-            Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"]
+            Background = PulseMail.App.Helpers.ThemeBrushes.Elevated()
         };
         panel.Children.Add(new TextBlock { Text = "Pulse Mail", FontSize = 24, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center });
         panel.Children.Add(new TextBlock { Text = "Postfach hinzufügen — kein Server, kein Extra-Login.", Opacity = 0.7, TextWrapping = TextWrapping.Wrap, HorizontalAlignment = HorizontalAlignment.Center });
@@ -78,7 +78,7 @@ public sealed class AccountSetupOverlay : UserControl
             HorizontalAlignment = HorizontalAlignment.Center
         };
 
-        var root = new Grid { Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(180, 0, 0, 0)) };
+        var root = new Grid { Background = PulseMail.App.Helpers.ThemeBrushes.Overlay() };
         root.Children.Add(border);
         Content = root;
     }

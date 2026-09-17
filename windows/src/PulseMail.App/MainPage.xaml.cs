@@ -33,6 +33,11 @@ public sealed partial class MainPage : Page
             await ViewModel.RefreshMessagesAsync();
         };
         SettingsOverlay.Closed += (_, _) => ViewModel.CloseSettings();
+        SettingsOverlay.ThemeChanged += (_, theme) =>
+        {
+            ViewModel.Theme = theme;
+            ApplyTheme();
+        };
         SettingsOverlay.AccountsChanged += (_, _) =>
         {
             ViewModel.RefreshAccounts();
@@ -73,6 +78,7 @@ public sealed partial class MainPage : Page
     public async Task InitializeAsync()
     {
         await ViewModel.LoadAsync();
+        ApplyTheme();
         SetupOverlay.Bind(App.Mail);
         SettingsOverlay.Bind(App.Mail);
         if (ViewModel.Compose is not null)
@@ -82,12 +88,19 @@ public sealed partial class MainPage : Page
 
     private void ApplyTheme()
     {
-        RequestedTheme = ViewModel.Theme switch
+        var theme = ViewModel.Theme switch
         {
             "light" => ElementTheme.Light,
             "dark" => ElementTheme.Dark,
             _ => ElementTheme.Default
         };
+        RequestedTheme = theme;
+        if (_window.Content is FrameworkElement fe)
+            fe.RequestedTheme = theme;
+
+        // Rebuild open mail for dark/light HTML stylesheet
+        if (ViewModel.SelectedMessage is not null)
+            _ = ViewModel.OpenMessageAsync(ViewModel.SelectedMessage);
     }
 
     private void RefreshAttachments()

@@ -9,6 +9,7 @@ public sealed class SettingsOverlay : UserControl
 {
     public event EventHandler? Closed;
     public event EventHandler? AccountsChanged;
+    public event EventHandler<string>? ThemeChanged;
 
     private SettingsViewModel? _vm;
     private readonly Frame _frame = new();
@@ -45,7 +46,7 @@ public sealed class SettingsOverlay : UserControl
         {
             Width = 900,
             Height = 660,
-            Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"]
+            Background = PulseMail.App.Helpers.ThemeBrushes.Elevated()
         };
         card.Children.Add(_nav);
         card.Children.Add(close);
@@ -57,7 +58,7 @@ public sealed class SettingsOverlay : UserControl
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Center
         };
-        var root = new Grid { Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(160, 0, 0, 0)) };
+        var root = new Grid { Background = PulseMail.App.Helpers.ThemeBrushes.Overlay() };
         root.Children.Add(border);
         root.PointerPressed += (s, e) =>
         {
@@ -186,7 +187,12 @@ public sealed class SettingsOverlay : UserControl
         panel.Children.Add(new TextBlock { Text = "Darstellung", FontSize = 20, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
         if (_vm is null) return panel;
 
-        panel.Children.Add(LabeledCombo("Theme", new[] { "system", "light", "dark" }, _vm.Theme, v => { _vm.Theme = v; _vm.SaveAppearance(); }));
+        panel.Children.Add(LabeledCombo("Theme", new[] { "system", "light", "dark" }, _vm.Theme, v =>
+        {
+            _vm.Theme = v;
+            _vm.SaveAppearance();
+            ThemeChanged?.Invoke(this, v);
+        }));
         panel.Children.Add(LabeledCombo("Dichte", new[] { "comfortable", "compact" }, _vm.Density, v => { _vm.Density = v; _vm.SaveAppearance(); }));
         panel.Children.Add(LabeledCombo("Vorschau", new[] { "right", "bottom" }, _vm.PreviewPane, v => { _vm.PreviewPane = v; _vm.SaveAppearance(); }));
         panel.Children.Add(LabeledToggle("Externe Bilder laden", _vm.LoadRemoteImages, v => { _vm.LoadRemoteImages = v; _vm.SaveAppearance(); }));

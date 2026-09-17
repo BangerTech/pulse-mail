@@ -209,6 +209,7 @@ public partial class MainViewModel : ObservableObject
                 }
                 catch { }
             }
+            // Prefer actual page theme when available via UISettings above.
             ReadingHtml = Core.Html.MailHtmlBuilder.BuildDocument(
                 ReadingMessage.BodyHtml, ReadingMessage.BodyText, cid, block, dark, allow);
 
@@ -484,8 +485,14 @@ public partial class MailListItem : ObservableObject
 
     public string DisplayDate =>
         Message.Date is { } d
-            ? (d.Date == DateTime.UtcNow.Date ? d.ToLocalTime().ToString("HH:mm") : d.ToLocalTime().ToString("dd.MM.yy"))
+            ? (d.ToLocalTime().Date == DateTime.Now.Date
+                ? d.ToLocalTime().ToString("HH:mm")
+                : d.ToLocalTime().ToString("dd.MM.yy"))
             : "";
+
+    public bool IsUnread => !Message.IsSeen;
+    public string SubjectText => string.IsNullOrWhiteSpace(Message.Subject) ? "(kein Betreff)" : Message.Subject!;
+    public string SnippetText => Message.Snippet ?? "";
 }
 
 public sealed class CommandItem

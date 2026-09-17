@@ -41,29 +41,48 @@ jobs:
           -p:WindowsAppSDKSelfContained=true
           -o artifacts/PulseMail-native
 
-      - name: Zip artifact
+      - name: Zip portable
         shell: pwsh
         run: |
-          Compress-Archive -Path artifacts/PulseMail-native/* -DestinationPath artifacts/PulseMail-Native-1.0.0-win-x64.zip -Force
+          Compress-Archive -Path artifacts/PulseMail-native/* -DestinationPath artifacts/PulseMail-Native-1.0.1-win-x64.zip -Force
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup -y --no-progress
+
+      - name: Build Setup wizard
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" windows\installer\PulseMail.iss
+          Get-ChildItem artifacts\PulseMail-Native-*-Setup.exe | Format-Table Name, Length
 
       - uses: actions/upload-artifact@v4
         with:
           name: pulse-mail-native-windows
-          path: artifacts/PulseMail-Native-1.0.0-win-x64.zip
+          path: |
+            artifacts/PulseMail-Native-1.0.1-Setup.exe
+            artifacts/PulseMail-Native-1.0.1-win-x64.zip
           if-no-files-found: error
 
       - name: Release
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: native-v1.0.0
-          name: Pulse Mail Native 1.0.0
+          tag_name: native-v1.0.1
+          name: Pulse Mail Native 1.0.1
           body: |
             Eigenständige WinUI-3-App (kein Docker, kein Server).
-            ZIP entpacken und `PulseMail.App.exe` starten.
+
+            **Installer (empfohlen):** `PulseMail-Native-1.0.1-Setup.exe`
+            Wizard: Sprache → Zielordner → Startmenü → Desktop-Verknüpfung → Installieren → Fertig → App starten.
+
+            **Portable:** `PulseMail-Native-1.0.1-win-x64.zip` entpacken und `PulseMail.App.exe` starten.
+
             Beim ersten Start Postfach hinzufügen (IMAP oder OAuth).
             Die Tauri-Server-Hülle (`desktop/`) bleibt ein separates Produkt.
-          files: artifacts/PulseMail-Native-1.0.0-win-x64.zip
+          files: |
+            artifacts/PulseMail-Native-1.0.1-Setup.exe
+            artifacts/PulseMail-Native-1.0.1-win-x64.zip
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
