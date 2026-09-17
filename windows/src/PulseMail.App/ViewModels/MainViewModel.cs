@@ -290,6 +290,20 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>True when the effective theme is dark (respecting "system").</summary>
+    public bool IsDarkTheme()
+    {
+        if (Theme == "dark") return true;
+        if (Theme == "light") return false;
+        try
+        {
+            var settings = new Windows.UI.ViewManagement.UISettings();
+            var color = settings.GetColorValue(Windows.UI.ViewManagement.UIColorType.Background);
+            return color.R < 128;
+        }
+        catch { return false; }
+    }
+
     [RelayCommand]
     public async Task OpenMessageAsync(MailListItem item)
     {
@@ -314,17 +328,7 @@ public partial class MainViewModel : ObservableObject
 
             var allow = _mail.Db.GetImageAllowlist();
             var block = !LoadRemoteImages;
-            var dark = Theme == "dark";
-            if (Theme == "system")
-            {
-                try
-                {
-                    var settings = new Windows.UI.ViewManagement.UISettings();
-                    var color = settings.GetColorValue(Windows.UI.ViewManagement.UIColorType.Background);
-                    dark = color.R < 128;
-                }
-                catch { }
-            }
+            var dark = IsDarkTheme();
             ReadingHtml = Core.Html.MailHtmlBuilder.BuildDocument(
                 ReadingMessage.BodyHtml, ReadingMessage.BodyText, cid, block, dark, allow);
 
@@ -631,40 +635,6 @@ public partial class MailListItem : ObservableObject
     public string SubjectText => string.IsNullOrWhiteSpace(Message.Subject) ? "(kein Betreff)" : Message.Subject!;
     public string SnippetText => Message.Snippet ?? "";
 
-    public Brush RowBackground => IsActive
-        ? ResolveBrush("PulseAccentSoft", 0x33, 0x0A, 0x84, 0xFF)
-        : new SolidColorBrush(Windows.UI.Color.FromArgb(0, 0, 0, 0));
-
-    public Brush PrimaryTextBrush => IsActive
-        ? ResolveBrush("PulseAccent", 0xFF, 0x0A, 0x84, 0xFF)
-        : ResolveBrush("PulseTextPrimary", 0xFF, 0xF5, 0xF5, 0xF7);
-
-    public Brush SecondaryTextBrush => IsActive
-        ? ResolveBrush("PulseAccent", 0xFF, 0x0A, 0x84, 0xFF)
-        : ResolveBrush("PulseTextSecondary", 0xFF, 0x98, 0x98, 0x9D);
-
-    public Brush TertiaryTextBrush => IsActive
-        ? ResolveBrush("PulseAccent", 0xFF, 0x0A, 0x84, 0xFF)
-        : ResolveBrush("PulseTextTertiary", 0xFF, 0x6E, 0x6E, 0x73);
-
-    public Brush BadgeBackground => IsActive
-        ? ResolveBrush("PulseAccentSoft", 0x33, 0x0A, 0x84, 0xFF)
-        : ResolveBrush("PulseAccent", 0xFF, 0x0A, 0x84, 0xFF);
-
-    public Brush BadgeForeground => IsActive
-        ? ResolveBrush("PulseAccent", 0xFF, 0x0A, 0x84, 0xFF)
-        : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255));
-
-    partial void OnIsActiveChanged(bool value)
-    {
-        OnPropertyChanged(nameof(RowBackground));
-        OnPropertyChanged(nameof(PrimaryTextBrush));
-        OnPropertyChanged(nameof(SecondaryTextBrush));
-        OnPropertyChanged(nameof(TertiaryTextBrush));
-        OnPropertyChanged(nameof(BadgeBackground));
-        OnPropertyChanged(nameof(BadgeForeground));
-    }
-
     public async void SetAvatarBytes(byte[] bytes)
     {
         try
@@ -678,17 +648,6 @@ public partial class MailListItem : ObservableObject
             HasAvatarImage = true;
         }
         catch { }
-    }
-
-    private static Brush ResolveBrush(string key, byte a, byte r, byte g, byte b)
-    {
-        try
-        {
-            if (Microsoft.UI.Xaml.Application.Current.Resources.TryGetValue(key, out var v) && v is Brush brush)
-                return brush;
-        }
-        catch { }
-        return new SolidColorBrush(Windows.UI.Color.FromArgb(a, r, g, b));
     }
 }
 

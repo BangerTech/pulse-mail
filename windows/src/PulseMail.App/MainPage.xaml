@@ -22,9 +22,19 @@
           <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
 
-        <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.ToggleSidebarCommand}" ToolTipService.ToolTip="Seitenleiste ([)">
-          <controls:PulseIcon Icon="sidebar" IconSize="16" StrokeBrush="{ThemeResource PulseTextSecondary}"/>
-        </Button>
+        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.ToggleSidebarCommand}" ToolTipService.ToolTip="Seitenleiste ([)">
+            <controls:PulseIcon Icon="sidebar" IconSize="16" StrokeBrush="{ThemeResource PulseTextSecondary}"/>
+          </Button>
+          <Button Command="{x:Bind ViewModel.NewMailCommand}" Style="{StaticResource AccentButtonStyle}"
+                  Height="32" CornerRadius="8" Padding="12,0" FontSize="13" FontWeight="SemiBold"
+                  ToolTipService.ToolTip="Neue E-Mail (N)">
+            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+              <controls:PulseIcon Icon="compose" IconSize="15" StrokeBrush="White"/>
+              <TextBlock Text="Neue E-Mail" VerticalAlignment="Center" Foreground="White"/>
+            </StackPanel>
+          </Button>
+        </StackPanel>
 
         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="2" VerticalAlignment="Center">
           <Button Style="{StaticResource PulseToolbarButton}" Command="{x:Bind ViewModel.ArchiveSelectedCommand}" ToolTipService.ToolTip="Archivieren (E)">
@@ -82,23 +92,13 @@
       </Grid.ColumnDefinitions>
 
       <!-- Sidebar -->
-      <Border Grid.Column="0" Background="{ThemeResource PulseBgSidebar}" Padding="10,10,10,8"
+      <Border Grid.Column="0" Background="{ThemeResource PulseBgSidebar}" Padding="10,12,10,8"
               BorderBrush="{ThemeResource PulseBorder}" BorderThickness="0,0,1,0">
         <Grid>
           <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
           </Grid.RowDefinitions>
-          <Button Command="{x:Bind ViewModel.NewMailCommand}" Style="{StaticResource AccentButtonStyle}"
-                  Height="36" HorizontalAlignment="Stretch" Margin="0,0,0,10"
-                  CornerRadius="10" FontSize="13" FontWeight="SemiBold"
-                  ToolTipService.ToolTip="Neue E-Mail (N)">
-            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
-              <controls:PulseIcon Icon="compose" IconSize="15" StrokeBrush="White"/>
-              <TextBlock Text="Neue E-Mail" VerticalAlignment="Center" Foreground="White"/>
-            </StackPanel>
-          </Button>
-          <ScrollViewer Grid.Row="1">
+          <ScrollViewer Grid.Row="0">
             <StackPanel Spacing="2">
               <Button Style="{StaticResource PulseSidebarButton}" Click="UnifiedInbox_Click">
                 <Grid>
@@ -183,7 +183,7 @@
           <ListView.ItemTemplate>
             <DataTemplate x:DataType="vm:MailListItem">
               <Grid Padding="6,11,14,11" ColumnSpacing="10"
-                    Background="{x:Bind RowBackground, Mode=OneWay}"
+                    Background="Transparent"
                     BorderBrush="{ThemeResource PulseBorder}" BorderThickness="0,0,0,1">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="10"/>
@@ -213,25 +213,25 @@
 
                 <StackPanel Grid.Column="2" Spacing="2">
                   <TextBlock Text="{x:Bind PrimaryLabel}" FontSize="13" TextTrimming="CharacterEllipsis"
-                             Foreground="{x:Bind PrimaryTextBrush, Mode=OneWay}"
+                             Foreground="{ThemeResource PulseTextPrimary}"
                              FontWeight="{x:Bind IsUnread, Converter={StaticResource BoolToFontWeightConverter}}"/>
                   <TextBlock Text="{x:Bind SubjectText}" FontSize="13" TextTrimming="CharacterEllipsis"
-                             Foreground="{x:Bind PrimaryTextBrush, Mode=OneWay}"
+                             Foreground="{ThemeResource PulseTextPrimary}"
                              FontWeight="{x:Bind IsUnread, Converter={StaticResource BoolToFontWeightConverter}}"/>
                   <TextBlock Text="{x:Bind SnippetText}" FontSize="12"
-                             Foreground="{x:Bind SecondaryTextBrush, Mode=OneWay}"
+                             Foreground="{ThemeResource PulseTextSecondary}"
                              TextTrimming="CharacterEllipsis" MaxLines="1"/>
                 </StackPanel>
 
                 <StackPanel Grid.Column="3" Spacing="4" HorizontalAlignment="Right">
                   <TextBlock Text="{x:Bind DisplayDate}" FontSize="11"
-                             Foreground="{x:Bind TertiaryTextBrush, Mode=OneWay}"/>
-                  <Border Background="{x:Bind BadgeBackground, Mode=OneWay}" CornerRadius="8" Padding="6,1"
+                             Foreground="{ThemeResource PulseTextTertiary}"/>
+                  <Border Background="{ThemeResource PulseAccentSoft}" CornerRadius="8" Padding="6,1"
                           HorizontalAlignment="Right"
                           Visibility="{x:Bind ThreadCount, Converter={StaticResource ThreadCountVisibilityConverter}}">
                     <StackPanel Orientation="Horizontal" Spacing="2">
-                      <controls:PulseIcon Icon="chevronRight" IconSize="10" StrokeBrush="{x:Bind BadgeForeground, Mode=OneWay}"/>
-                      <TextBlock Text="{x:Bind ThreadCount}" Foreground="{x:Bind BadgeForeground, Mode=OneWay}" FontSize="11" FontWeight="SemiBold"/>
+                      <controls:PulseIcon Icon="chevronRight" IconSize="10" StrokeBrush="{ThemeResource PulseAccent}"/>
+                      <TextBlock Text="{x:Bind ThreadCount}" Foreground="{ThemeResource PulseAccent}" FontSize="11" FontWeight="SemiBold"/>
                     </StackPanel>
                   </Border>
                 </StackPanel>

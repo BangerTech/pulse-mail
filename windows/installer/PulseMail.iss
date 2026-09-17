@@ -1,6 +1,6 @@
 ; Pulse Mail Native — Inno Setup wizard installer
 #define MyAppName "Pulse Mail"
-#define MyAppVersion "1.0.5"
+#define MyAppVersion "1.0.6"
 #define MyAppPublisher "BangerTech"
 #define MyAppURL "https://github.com/BangerTech/pulse-mail"
 #define MyAppExeName "PulseMail.App.exe"

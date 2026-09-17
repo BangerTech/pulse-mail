@@ -29,6 +29,12 @@
           <SolidColorBrush x:Key="PulseSuccess" Color="#34C759"/>
           <SolidColorBrush x:Key="PulseFlagged" Color="#FF9500"/>
           <SolidColorBrush x:Key="PulseOverlay" Color="#52000000"/>
+          <!-- ListViewItem selection = accent-soft (matches web app) -->
+          <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="#1F007AFF"/>
+          <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="#29007AFF"/>
+          <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="#29007AFF"/>
+          <SolidColorBrush x:Key="ListViewItemBackgroundPointerOver" Color="#0A000000"/>
+          <SolidColorBrush x:Key="ListViewItemBackgroundPressed" Color="#0F000000"/>
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
           <SolidColorBrush x:Key="PulseBgSidebar" Color="#1C1C1E"/>
@@ -48,6 +54,12 @@
           <SolidColorBrush x:Key="PulseSuccess" Color="#30D158"/>
           <SolidColorBrush x:Key="PulseFlagged" Color="#FF9F0A"/>
           <SolidColorBrush x:Key="PulseOverlay" Color="#8C000000"/>
+          <!-- ListViewItem selection = accent-soft (matches web app) -->
+          <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="#330A84FF"/>
+          <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="#3D0A84FF"/>
+          <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="#3D0A84FF"/>
+          <SolidColorBrush x:Key="ListViewItemBackgroundPointerOver" Color="#0DFFFFFF"/>
+          <SolidColorBrush x:Key="ListViewItemBackgroundPressed" Color="#14FFFFFF"/>
         </ResourceDictionary>
         <ResourceDictionary x:Key="Default">
           <SolidColorBrush x:Key="PulseBgSidebar" Color="#F4F6FB"/>
@@ -67,6 +79,12 @@
           <SolidColorBrush x:Key="PulseSuccess" Color="#34C759"/>
           <SolidColorBrush x:Key="PulseFlagged" Color="#FF9500"/>
           <SolidColorBrush x:Key="PulseOverlay" Color="#52000000"/>
+          <!-- ListViewItem selection = accent-soft (matches web app) -->
+          <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="#1F007AFF"/>
+          <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="#29007AFF"/>
+          <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="#29007AFF"/>
+          <SolidColorBrush x:Key="ListViewItemBackgroundPointerOver" Color="#0A000000"/>
+          <SolidColorBrush x:Key="ListViewItemBackgroundPressed" Color="#0F000000"/>
         </ResourceDictionary>
       </ResourceDictionary.ThemeDictionaries>
 

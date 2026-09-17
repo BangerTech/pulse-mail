@@ -14,6 +14,19 @@ public sealed class MailWebView : UserControl
         _ = EnsureAsync();
     }
 
+    /// <summary>Match the WebView canvas to the current theme so there is no
+    /// white flash before the mail HTML paints its own background.</summary>
+    public void SetBackground(bool dark)
+    {
+        try
+        {
+            _web.DefaultBackgroundColor = dark
+                ? Windows.UI.Color.FromArgb(255, 0x1A, 0x1B, 0x1F)
+                : Windows.UI.Color.FromArgb(255, 0xFF, 0xFF, 0xFF);
+        }
+        catch { }
+    }
+
     private async Task EnsureAsync()
     {
         await _web.EnsureCoreWebView2Async();

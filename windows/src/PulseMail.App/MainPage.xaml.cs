@@ -98,6 +98,8 @@ public sealed partial class MainPage : Page
         if (_window.Content is FrameworkElement fe)
             fe.RequestedTheme = theme;
 
+        MailBodyView.SetBackground(ViewModel.IsDarkTheme());
+
         // Rebuild open mail for dark/light HTML stylesheet
         if (ViewModel.SelectedMessage is not null)
             _ = ViewModel.OpenMessageAsync(ViewModel.SelectedMessage);
@@ -237,7 +239,7 @@ public sealed partial class MainPage : Page
     private void MailList_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
         if (ViewModel.ReadingMessage is null || ViewModel.ReadingHtml is null) return;
-        var w = new ReaderWindow(ViewModel.ReadingMessage, ViewModel.ReadingHtml);
+        var w = new ReaderWindow(ViewModel.ReadingMessage, ViewModel.ReadingHtml, ViewModel.IsDarkTheme());
         w.Activate();
     }
 

@@ -40,11 +40,14 @@ public static class MailHtmlBuilder
             <meta charset="utf-8"/>
             <meta name="viewport" content="width=device-width, initial-scale=1"/>
             <style>
-              html, body { margin: 0; padding: 0; height: auto !important; background: transparent; }
+              :root { color-scheme: {{(darkMode ? "dark" : "light")}}; }
+              html, body { margin: 0; padding: 0; height: auto !important; min-height: 0 !important; }
+              html { background: {{(darkMode ? "#1a1b1f" : "#ffffff")}}; }
               body {
-                font: 15px/1.45 system-ui, "Segoe UI", sans-serif;
-                color: {{(darkMode ? "#f5f5f7" : "#1c1c1e")}};
-                padding: 12px 16px;
+                font: 15px/1.65 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+                color: {{(darkMode ? "#f5f5f7" : "#1d1d1f")}};
+                background: {{(darkMode ? "#1a1b1f" : "#ffffff")}};
+                padding: 16px 20px;
                 word-wrap: break-word;
                 overflow-wrap: anywhere;
               }
