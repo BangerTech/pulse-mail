@@ -15,61 +15,77 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: windows
     steps:
       - uses: actions/checkout@v4
 
+      # Pin to .NET 8 — SDK 10 on windows-latest breaks WinAppSDK PRI tasks
+      # (missing Microsoft.Build.Packaging.Pri.Tasks under sdk\10.0.x).
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
 
+      - name: Setup VS MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Show SDK
+        shell: pwsh
+        run: |
+          dotnet --info
+          if (-not (Test-Path global.json)) { throw "windows/global.json missing" }
+          Get-Content global.json
+
       - name: Restore
-        run: dotnet restore windows/PulseMail.sln
+        run: dotnet restore PulseMail.sln
 
       - name: Test Core
-        run: dotnet test windows/src/PulseMail.Core.Tests/PulseMail.Core.Tests.csproj --configuration Release --no-restore
+        run: dotnet test src/PulseMail.Core.Tests/PulseMail.Core.Tests.csproj --configuration Release --no-restore
 
+      # Publish via VS MSBuild so Appx/PRI tasks resolve from Visual Studio, not the .NET SDK tree
       - name: Publish unpackaged
-        run: >
-          dotnet publish windows/src/PulseMail.App/PulseMail.App.csproj
-          -c Release
-          -r win-x64
-          --self-contained true
-          -p:Platform=x64
-          -p:PublishSingleFile=false
-          -p:WindowsPackageType=None
-          -p:WindowsAppSDKSelfContained=true
-          -o artifacts/PulseMail-native
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:GITHUB_WORKSPACE "artifacts\PulseMail-native"
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          msbuild src\PulseMail.App\PulseMail.App.csproj `
+            /restore `
+            /t:Publish `
+            /p:Configuration=Release `
+            /p:Platform=x64 `
+            /p:RuntimeIdentifier=win-x64 `
+            /p:SelfContained=true `
+            /p:PublishSingleFile=false `
+            /p:WindowsPackageType=None `
+            /p:WindowsAppSDKSelfContained=true `
+            /p:PublishDir="$out\\" `
+            /p:TargetFramework=net8.0-windows10.0.19041.0 `
+            /v:m
 
       - name: Verify publish output
         shell: pwsh
+        working-directory: ${{ github.workspace }}
         run: |
           $exe = "artifacts/PulseMail-native/PulseMail.App.exe"
           if (-not (Test-Path $exe)) { throw "Missing $exe" }
           Get-ChildItem artifacts/PulseMail-native -Name | Select-Object -First 40
-          # Critical native deps for unpackaged WinUI
-          $need = @(
-            "Microsoft.WindowsAppRuntime.Release.Net.dll",
-            "Microsoft.WinUI.dll",
-            "e_sqlite3.dll"
-          )
-          foreach ($n in $need) {
-            $hit = Get-ChildItem artifacts/PulseMail-native -Recurse -Filter $n -ErrorAction SilentlyContinue | Select-Object -First 1
-            if (-not $hit) { Write-Warning "Missing optional/expected file: $n" }
-            else { Write-Host "Found $($hit.FullName)" }
-          }
 
       - name: Zip portable
         shell: pwsh
+        working-directory: ${{ github.workspace }}
         run: |
           Compress-Archive -Path artifacts/PulseMail-native/* -DestinationPath artifacts/PulseMail-Native-1.0.2-win-x64.zip -Force
 
       - name: Install Inno Setup
         shell: pwsh
+        working-directory: ${{ github.workspace }}
         run: choco install innosetup -y --no-progress
 
       - name: Build Setup wizard
         shell: pwsh
+        working-directory: ${{ github.workspace }}
         run: |
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" windows\installer\PulseMail.iss
           Get-ChildItem artifacts\PulseMail-Native-*-Setup.exe | Format-Table Name, Length
