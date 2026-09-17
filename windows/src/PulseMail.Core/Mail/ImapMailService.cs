@@ -126,8 +126,9 @@ public sealed class ImapMailService : IAsyncDisposable
         {
             try
             {
+                if (e.UniqueId is not { } uid) return;
                 var flags = FlagsToJson(e.Flags);
-                _db.UpdateFlags(account.Id, "INBOX", (uint)e.UniqueId.Id, flags);
+                _db.UpdateFlags(account.Id, "INBOX", uid.Id, flags);
                 MessagesUpdated?.Invoke(this, new MessagesUpdatedEventArgs { AccountId = account.Id, Folder = "INBOX" });
             }
             catch { }

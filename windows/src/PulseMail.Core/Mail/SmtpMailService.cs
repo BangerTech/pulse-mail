@@ -71,7 +71,7 @@ public sealed class SmtpMailService
             ?? "Drafts";
         var folder = await imap.GetFolderAsync(drafts, ct);
         await folder.OpenAsync(MailKit.FolderAccess.ReadWrite, ct);
-        await folder.AppendAsync(message, MailKit.MessageFlags.Draft, ct);
+        await folder.AppendAsync(new MailKit.AppendRequest(message, MailKit.MessageFlags.Draft), ct);
         await imap.DisconnectAsync(true, ct);
     }
 
