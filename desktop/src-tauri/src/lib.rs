@@ -200,6 +200,38 @@ fn attach_menu(app: &AppHandle) -> tauri::Result<()> {
   Ok(())
 }
 
+fn sanitize_filename(name: &str) -> String {
+  let cleaned: String = name
+    .chars()
+    .map(|c| match c {
+      '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
+      _ => c,
+    })
+    .collect();
+  if cleaned.trim().is_empty() {
+    "download".into()
+  } else {
+    cleaned
+  }
+}
+
+/// Opens a native “Save As” dialog and writes the attachment bytes.
+#[tauri::command]
+fn save_attachment(filename: String, base64: String) -> Result<String, String> {
+  use base64::Engine;
+  let bytes = base64::engine::general_purpose::STANDARD
+    .decode(base64.trim())
+    .map_err(|e| e.to_string())?;
+  let suggested = sanitize_filename(&filename);
+  let path = rfd::FileDialog::new()
+    .set_file_name(&suggested)
+    .set_title("Anhang speichern")
+    .save_file()
+    .ok_or_else(|| "abgebrochen".to_string())?;
+  std::fs::write(&path, &bytes).map_err(|e| e.to_string())?;
+  Ok(path.to_string_lossy().into_owned())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -208,7 +240,8 @@ pub fn run() {
       get_server_url,
       save_server_url,
       set_dock_badge,
-      clear_dock_badge
+      clear_dock_badge,
+      save_attachment
     ])
     .setup(|app| {
       attach_menu(app.handle())?;

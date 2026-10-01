@@ -107,24 +107,49 @@ function junkRatio(text) {
 
 const MAX_JUNK = 0.02;
 
+// UTF-8 bytes misread as Latin-1/CP1252 look like "Ã¼" / "Ã¤" / "Â§" etc.
+// Match C2/C3 lead-byte artefacts that almost never appear in real German/EU text.
+function looksLikeMojibake(text) {
+  if (!text) return false;
+  return /Ã[\u0080-\u00BF]|Â[\u00A0-\u00BF]|â€[\u0080-\u00FF]/.test(text);
+}
+
+// Re-interpret Latin-1 code units as UTF-8 bytes. Turns "BÃ¼rgermeister" → "Bürgermeister".
+function repairMojibake(text) {
+  if (!looksLikeMojibake(text)) return text;
+  try {
+    const repaired = Buffer.from(text, 'latin1').toString('utf8');
+    if (
+      repaired &&
+      repaired !== text &&
+      !looksLikeMojibake(repaired) &&
+      junkRatio(repaired) <= MAX_JUNK &&
+      junkRatio(repaired) <= junkRatio(text)
+    ) {
+      return repaired;
+    }
+  } catch {}
+  return text;
+}
+
 // Try several charsets and keep the most plausible result. Real-world mails
 // from older systems arrive as ISO-8859-1 or windows-1252 even when the header
-// claims UTF-8. Note that single-byte charsets never produce replacement
-// characters, so scoring purely on those would always pick them; junkRatio
-// counts control characters as well and avoids that trap.
+// claims UTF-8 — and vice versa (UTF-8 body labelled as Latin-1 → mojibake).
+// Single-byte charsets never produce replacement characters, so scoring purely
+// on those would always pick them; junkRatio + mojibake penalty avoid that trap.
 function bestDecode(buffer, preferred) {
   const candidates = [];
-  if (preferred) candidates.push(preferred);
-  for (const cs of ['utf-8', 'windows-1252', 'iso-8859-1']) {
-    if (!candidates.includes(cs)) candidates.push(cs);
+  // Prefer utf-8 when scores tie: declared Latin-1 of real UTF-8 is the common bug.
+  for (const cs of ['utf-8', preferred, 'windows-1252', 'iso-8859-1']) {
+    if (cs && !candidates.includes(cs)) candidates.push(cs);
   }
   let best = null;
   for (const cs of candidates) {
     try {
       const decoded = decodeCharset(buffer, cs);
-      const score = junkRatio(decoded);
-      if (score === 0) return decoded;
+      const score = junkRatio(decoded) + (looksLikeMojibake(decoded) ? 0.5 : 0);
       if (!best || score < best.score) best = { text: decoded, score };
+      if (score === 0) return decoded;
     } catch {}
   }
   return best ? best.text : buffer.toString('utf8');
@@ -159,7 +184,7 @@ export function repairEncodedText(text, charset) {
     if (next === out) break;
     out = next;
   }
-  return out;
+  return repairMojibake(out);
 }
 
 export function decodeMimeWords(value) {
@@ -180,13 +205,13 @@ export function decodeBody(buffer, charset, encoding) {
   if (!buffer) return '';
   try {
     const transferred = decodeTransfer(buffer, encoding);
-    const text = decodeCharset(transferred, charset);
+    const text = bestDecode(transferred, charset);
 
     // Safety net against double transfer-decoding: if applying the encoding
     // produced junk while the untouched buffer reads as clean text, the
     // payload had already been decoded upstream. Keep the clean version.
     if (encoding && junkRatio(text) > MAX_JUNK) {
-      const asIs = decodeCharset(buffer, charset);
+      const asIs = bestDecode(buffer, charset);
       if (junkRatio(asIs) < junkRatio(text)) {
         return repairEncodedText(decodeMimeWords(asIs), charset);
       }

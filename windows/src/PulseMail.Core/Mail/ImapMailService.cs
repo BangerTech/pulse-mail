@@ -5,6 +5,7 @@ using MimeKit;
 using PulseMail.Core.Data;
 using PulseMail.Core.Models;
 using PulseMail.Core.Security;
+using PulseMail.Core.Text;
 using PulseMail.Core.Threading;
 using System.Text.Json;
 
@@ -516,11 +517,11 @@ public sealed class ImapMailService : IAsyncDisposable
 
     private static void ApplyMime(CachedMessage cached, MimeMessage msg)
     {
-        cached.BodyHtml = msg.HtmlBody;
-        cached.BodyText = msg.TextBody;
+        cached.BodyHtml = TextEncodingFix.Repair(msg.HtmlBody);
+        cached.BodyText = TextEncodingFix.Repair(msg.TextBody);
         if (string.IsNullOrEmpty(cached.Snippet))
         {
-            var plain = msg.TextBody ?? StripTags(msg.HtmlBody ?? "");
+            var plain = cached.BodyText ?? StripTags(cached.BodyHtml ?? "");
             cached.Snippet = plain.Length > 200 ? plain[..200] : plain;
         }
 

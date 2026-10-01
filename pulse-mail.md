@@ -2,7 +2,7 @@
 
 ## Version
 
-Aktuelle Version: **1.5.0** — Quelle ist `frontend/package.json`, Anzeige unter Einstellungen → Info (`__APP_VERSION__` / `__APP_BUILD__` aus dem Vite-Build). Fallback in `frontend/src/shared/version.ts`. Backend `package.json` und `desktop/` halten dieselbe Versionsnummer. Die **native WinUI-App** unter `windows/` hat eine eigene Versionslinie ab **1.0.0**.
+Aktuelle Version: **1.5.3** — Quelle ist `frontend/package.json`, Anzeige unter Einstellungen → Info (`__APP_VERSION__` / `__APP_BUILD__` aus dem Vite-Build). Fallback in `frontend/src/shared/version.ts`. Backend `package.json` und `desktop/` halten dieselbe Versionsnummer. Die **native WinUI-App** unter `windows/` hat eine eigene Versionslinie ab **1.0.0**.
 
 **Bei jeder inhaltlichen Änderung** (nicht nur beim nächsten Commit):
 
@@ -11,6 +11,18 @@ Aktuelle Version: **1.5.0** — Quelle ist `frontend/package.json`, Anzeige unte
 3. Commit mit der neuen Versionsnummer
 
 ### Changelog
+
+#### 1.5.3 (2026-10-01)
+- **Desktop Speichern-unter:** Anhänge öffnen einen nativen Windows-Dialog (`rfd`) zur Pfadwahl statt still in den Download-Ordner zu schreiben. Dafür neuen Desktop-Installer installieren.
+
+#### 1.5.2 (2026-10-01)
+- **Anhang-Download WebView2:** `.ai`-Dateien (PDF-kompatibel) wurden fälschlich als `application/pdf` ausgeliefert — Desktop öffnete nichts/Viewer. Content-Type bleibt jetzt PostScript; Download nutzt Speichern-Dialog / Direktlink statt Blob-`<a download>` (von WebView2 ignoriert).
+- Tauri: neues Command `save_attachment` speichert nach `%USERPROFILE%\Downloads` (braucht neuen Desktop-Build).
+
+#### 1.5.1 (2026-09-30)
+- **Anhang-Download (Desktop/WebView2):** Klick speichert die Datei per `fetch` + Blob + `<a download>` statt `window.open`. Damit funktionieren auch `.ai`/unbekannte Typen in der Windows-Desktop-App (WebView2 hat keinen Download-Manager für `Content-Disposition: attachment`).
+- **Zeichensatz:** Mojibake wie `BÃ¼rgermeister` → `Bürgermeister` wird in `repairEncodedText` repariert; `decodeBody` bevorzugt UTF-8 und bestraft Latin-1-Fehldecodierung. Betrifft Web und bereits gecachte Bodies beim erneuten Öffnen.
+- **Native WinUI 1.0.7:** Anhänge öffnen einen Speichern-Dialog (`FileSavePicker`) statt `LaunchUriAsync` (scheiterte still ohne Standardprogramm). Gleiche Mojibake-Reparatur beim Lesen/Cachen.
 
 #### 1.5.0 (2026-09-17)
 - **Native Windows-App (WinUI 3)** unter `windows/` für Kunden ohne Docker: direktes IMAP/OAuth, lokaler SQLite-Cache, Credential Manager, Produktions-Feature-Parität (Liste, Lesen, Composer, Suche, Signaturen, Shortcuts, Hinweise). Optik ist WinUI, nicht 1:1 die React-CSS-UI.
@@ -133,7 +145,7 @@ Eigenständige App unter `windows/` — **kein Docker, kein Pulse-Login, keine S
 
 | | |
 |---|---|
-| Version | **1.0.1** (eigene Linie) |
+| Version | **1.0.7** (eigene Linie) |
 | App-ID | `de.bangertech.pulsemail.winui` |
 | Daten | `%LOCALAPPDATA%\PulseMail\mail.db` |
 | Secrets | Windows Credential Manager |
@@ -390,8 +402,8 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Statische Datei `frontend/public/notify.wav`. Der Player wird beim Gesten-Klick nur entsperrt, spielt den Ding aber nicht nach — sonst hörte man ihn erst beim Öffnen der neuen Mail.
 
 ### Info (eigener Einstellungs-Reiter)
-- Version aus `frontend/package.json` (aktuell **1.5.0**), Build-Zeitpunkt aus dem Vite-Build (`__APP_VERSION__`, `__APP_BUILD__`)
-- Hinweis-Berechtigung und Tonkanal-Status. Titelzeile der Einstellungen zeigt `v1.5.0`
+- Version aus `frontend/package.json` (aktuell **1.5.3**), Build-Zeitpunkt aus dem Vite-Build (`__APP_VERSION__`, `__APP_BUILD__`)
+- Hinweis-Berechtigung und Tonkanal-Status. Titelzeile der Einstellungen zeigt `v1.5.3`
 - Profilbild setzen/entfernen (siehe App-Benutzer)
 
 ### MIME / Anzeige

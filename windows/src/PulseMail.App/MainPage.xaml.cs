@@ -179,21 +179,71 @@ public sealed partial class MainPage : Page
     {
         if (sender is not Button { Tag: AttachmentMeta att } || ViewModel.ReadingMessage is null) return;
         var msg = ViewModel.ReadingMessage;
-        var data = await App.Mail.Imap.DownloadAttachmentAsync(msg.AccountId, msg.Folder, msg.Uid, att.Filename);
-        if (data is null) return;
 
-        var path = Path.Combine(Core.AppPaths.AttachmentsCacheDir, att.Filename);
-        await File.WriteAllBytesAsync(path, data);
-        if (att.Filename.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) ||
-            att.ContentType.Contains("pdf", StringComparison.OrdinalIgnoreCase))
+        byte[]? data;
+        try
         {
-            var reader = new PdfPreviewWindow(path, att.Filename);
-            reader.Activate();
+            data = await App.Mail.Imap.DownloadAttachmentAsync(msg.AccountId, msg.Folder, msg.Uid, att.Filename);
         }
-        else
+        catch
         {
-            await Windows.System.Launcher.LaunchUriAsync(new Uri(path));
+            return;
         }
+        if (data is null || data.Length == 0) return;
+
+        var isPdf = att.Filename.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) ||
+                    att.ContentType.Contains("pdf", StringComparison.OrdinalIgnoreCase);
+
+        // Always offer a real Save dialog — LaunchUriAsync fails silently for
+        // types without a default handler (.ai, .eps, …) and in WebView-less WinUI.
+        try
+        {
+            var picker = new Windows.Storage.Pickers.FileSavePicker();
+            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindowInstance);
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+            picker.SuggestedFileName = att.Filename;
+            var ext = Path.GetExtension(att.Filename);
+            if (string.IsNullOrEmpty(ext)) ext = ".bin";
+            picker.DefaultFileExtension = ext;
+            picker.FileTypeChoices.Add(ext.TrimStart('.').ToUpperInvariant(), new List<string> { ext });
+
+            var file = await picker.PickSaveFileAsync();
+            if (file is null) return;
+            await Windows.Storage.FileIO.WriteBytesAsync(file, data);
+
+            if (isPdf)
+            {
+                var reader = new PdfPreviewWindow(file.Path, att.Filename);
+                reader.Activate();
+            }
+        }
+        catch
+        {
+            // Fallback: write to cache and try to open
+            var path = Path.Combine(Core.AppPaths.AttachmentsCacheDir, SanitizeFileName(att.Filename));
+            await File.WriteAllBytesAsync(path, data);
+            if (isPdf)
+            {
+                var reader = new PdfPreviewWindow(path, att.Filename);
+                reader.Activate();
+            }
+            else
+            {
+                try
+                {
+                    var storage = await Windows.Storage.StorageFile.GetFileFromPathAsync(path);
+                    await Windows.System.Launcher.LaunchFileAsync(storage);
+                }
+                catch { }
+            }
+        }
+    }
+
+    private static string SanitizeFileName(string name)
+    {
+        foreach (var c in Path.GetInvalidFileNameChars())
+            name = name.Replace(c, '_');
+        return string.IsNullOrWhiteSpace(name) ? "attachment" : name;
     }
 
     private async void UnifiedInbox_Click(object sender, RoutedEventArgs e)

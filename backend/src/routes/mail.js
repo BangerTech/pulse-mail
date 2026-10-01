@@ -419,8 +419,13 @@ export default function mailRouter(db, broadcast = () => {}) {
       const filename = att.filename || req.params.filename;
       const type = sniffContentType(filename, att.contentType, buf);
       const asInline = inline === '1';
+      const safeName = String(filename).replace(/["\r\n]/g, '');
       res.set('Content-Type', type);
-      res.set('Content-Disposition', `${asInline ? 'inline' : 'attachment'}; filename="${String(filename).replace(/"/g, '')}"`);
+      res.set(
+        'Content-Disposition',
+        `${asInline ? 'inline' : 'attachment'}; filename="${safeName}"; filename*=UTF-8''${encodeURIComponent(safeName)}`
+      );
+      res.set('X-Content-Type-Options', 'nosniff');
       res.set('Cache-Control', 'private, max-age=3600');
       res.send(buf);
     } catch (err) {
@@ -637,6 +642,13 @@ function normalizeCid(cid) {
 function sniffContentType(filename, contentType, buf) {
   const name = String(filename || '').toLowerCase();
   const type = String(contentType || '').toLowerCase();
+  // PDF-compatible .ai/.eps start with %PDF- but must keep their real type,
+  // otherwise WebView2 opens a PDF viewer instead of downloading.
+  if (name.endsWith('.ai') || name.endsWith('.eps') || name.endsWith('.ps')) {
+    return type.includes('postscript') || type.includes('illustrator') || type.includes('eps')
+      ? type
+      : (type || 'application/postscript');
+  }
   if (type.includes('pdf') || name.endsWith('.pdf')) return 'application/pdf';
   if (buf && buf.length >= 5 && buf.slice(0, 5).toString('ascii') === '%PDF-') return 'application/pdf';
   return contentType || 'application/octet-stream';

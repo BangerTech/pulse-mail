@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using PulseMail.Core.Models;
+using PulseMail.Core.Text;
 using System.Text.Json;
 
 namespace PulseMail.Core.Data;
@@ -531,8 +532,8 @@ public sealed class MailDatabase : IDisposable
         Snippet = NullStr(r, "snippet"),
         Flags = NullStr(r, "flags") ?? "[]",
         HasAttachments = r.GetInt32(r.GetOrdinal("has_attachments")) == 1,
-        BodyHtml = NullStr(r, "body_html"),
-        BodyText = NullStr(r, "body_text"),
+        BodyHtml = TextEncodingFix.Repair(NullStr(r, "body_html")),
+        BodyText = TextEncodingFix.Repair(NullStr(r, "body_text")),
         AttachmentsMeta = NullStr(r, "attachments_meta"),
         InReplyTo = NullStr(r, "in_reply_to"),
         ReferencesHeader = NullStr(r, "references_header"),

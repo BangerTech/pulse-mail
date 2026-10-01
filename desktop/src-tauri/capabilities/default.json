@@ -6,6 +6,12 @@
     "core:default",
     "core:window:allow-set-overlay-icon",
     "core:window:allow-request-user-attention",
-    "notification:default"
+    "notification:default",
+    {
+      "identifier": "allow-save-attachment",
+      "commands": {
+        "allow": ["save_attachment"]
+      }
+    }
   ]
 }

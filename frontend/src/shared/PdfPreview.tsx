@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Icon } from '../components/Icon';
 import { useFocusTrap } from './useFocusTrap';
 import { authHeaders } from '../api';
+import { downloadUrl } from './download';
 
 interface Props {
   src: string;
@@ -48,20 +49,7 @@ export function PdfPreview({ src, filename, onClose, downloadHref }: Props) {
   }, [src]);
 
   async function download() {
-    const href = downloadHref || src;
-    try {
-      const res = await fetch(href, { headers: authHeaders() });
-      if (!res.ok) throw new Error();
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      window.open(href, '_blank', 'noopener');
-    }
+    await downloadUrl(downloadHref || src, filename);
   }
 
   return (

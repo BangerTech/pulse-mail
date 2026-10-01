@@ -12,6 +12,7 @@ import { PdfPreview } from '../shared/PdfPreview';
 import { isPdfAttachment } from '../shared/pdf';
 import SenderAvatar from '../shared/SenderAvatar';
 import { authedUrl } from '../api';
+import { downloadUrl } from '../shared/download';
 import '../shared/shared.css';
 import '../styles/mailcontent.css';
 
@@ -102,10 +103,11 @@ function MailContentInner({
   // sender is not on the allowlist.
   const [loadRemoteOnce, setLoadRemoteOnce] = useState(false);
   const [previewPdf, setPreviewPdf] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState<string | null>(null);
   const messageKey = selectedMessage
     ? `${selectedMessage.accountId ?? ''}:${selectedMessage.uid}`
     : '';
-  useEffect(() => { setLoadRemoteOnce(false); setPreviewPdf(null); }, [messageKey]);
+  useEffect(() => { setLoadRemoteOnce(false); setPreviewPdf(null); setDownloading(null); }, [messageKey]);
 
   // Re-render when the allowlist changes (e.g. after adding the sender).
   const [allowlistTick, setAllowlistTick] = useState(0);
@@ -180,14 +182,19 @@ function MailContentInner({
     return authedUrl(`/api/mail/${mailAccountId}/attachment/${selectedMessage!.uid}/${encodeURIComponent(filename)}?folder=${encodeURIComponent(mailFolder)}${inline ? '&inline=1' : ''}`);
   }
 
-  function downloadAttachment(filename: string) {
+  async function downloadAttachment(filename: string) {
     if (!mailAccountId) return;
-    window.open(attachmentUrl(filename), '_blank');
+    setDownloading(filename);
+    try {
+      await downloadUrl(attachmentUrl(filename), filename);
+    } finally {
+      setDownloading(null);
+    }
   }
 
   function openAttachment(att: { filename: string; contentType?: string }) {
     if (isPdfAttachment(att)) setPreviewPdf(att.filename);
-    else downloadAttachment(att.filename);
+    else void downloadAttachment(att.filename);
   }
 
   const isImage = (type?: string) => !!type && type.toLowerCase().startsWith('image/');
@@ -319,11 +326,14 @@ function MailContentInner({
                 key={att.filename}
                 className={`attachment-chip ${pdf ? 'pdf' : ''}`}
                 onClick={() => openAttachment(att)}
-                title={pdf ? 'PDF-Vorschau' : 'Herunterladen'}
+                disabled={downloading === att.filename}
+                title={pdf ? 'PDF-Vorschau' : downloading === att.filename ? 'Wird gespeichert…' : 'Herunterladen'}
               >
                 <Icon name={pdf ? 'pdf' : 'download'} size={14} />
                 <span className="attachment-name">{att.filename}</span>
-                <span className="attachment-size">{formatSize(att.size)}</span>
+                <span className="attachment-size">
+                  {downloading === att.filename ? 'Speichern…' : formatSize(att.size)}
+                </span>
               </button>
             );
           })}
