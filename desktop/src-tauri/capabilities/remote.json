@@ -15,6 +15,10 @@
     "core:window:allow-set-overlay-icon",
     "core:window:allow-request-user-attention",
     "notification:default",
+    "allow-get-server-url",
+    "allow-save-server-url",
+    "allow-set-dock-badge",
+    "allow-clear-dock-badge",
     "allow-save-attachment"
   ]
 }

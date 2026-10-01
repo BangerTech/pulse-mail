@@ -2,7 +2,7 @@
 
 ## Version
 
-Aktuelle Version: **1.5.3** — Quelle ist `frontend/package.json`, Anzeige unter Einstellungen → Info (`__APP_VERSION__` / `__APP_BUILD__` aus dem Vite-Build). Fallback in `frontend/src/shared/version.ts`. Backend `package.json` und `desktop/` halten dieselbe Versionsnummer. Die **native WinUI-App** unter `windows/` hat eine eigene Versionslinie ab **1.0.0**.
+Aktuelle Version: **1.5.4** — Quelle ist `frontend/package.json`, Anzeige unter Einstellungen → Info (`__APP_VERSION__` / `__APP_BUILD__` aus dem Vite-Build). Fallback in `frontend/src/shared/version.ts`. Backend `package.json` und `desktop/` halten dieselbe Versionsnummer. Die **native WinUI-App** unter `windows/` hat eine eigene Versionslinie ab **1.0.0**.
 
 **Bei jeder inhaltlichen Änderung** (nicht nur beim nächsten Commit):
 
@@ -11,6 +11,9 @@ Aktuelle Version: **1.5.3** — Quelle ist `frontend/package.json`, Anzeige unte
 3. Commit mit der neuen Versionsnummer
 
 ### Changelog
+
+#### 1.5.4 (2026-10-01)
+- **Desktop-Hülle:** ACL erlaubt wieder `save_server_url` / Dock-Badge / Anhang-Speichern (Fix für „Command … not allowed by ACL“ nach 1.5.3).
 
 #### 1.5.3 (2026-10-01)
 - **Desktop Speichern-unter:** Anhänge öffnen einen nativen Windows-Dialog (`rfd`) zur Pfadwahl statt still in den Download-Ordner zu schreiben. Dafür neuen Desktop-Installer installieren.
@@ -402,8 +405,8 @@ Neue Spalten werden in `backend/src/db.js` Funktion `migrate()` per `ALTER TABLE
 - Statische Datei `frontend/public/notify.wav`. Der Player wird beim Gesten-Klick nur entsperrt, spielt den Ding aber nicht nach — sonst hörte man ihn erst beim Öffnen der neuen Mail.
 
 ### Info (eigener Einstellungs-Reiter)
-- Version aus `frontend/package.json` (aktuell **1.5.3**), Build-Zeitpunkt aus dem Vite-Build (`__APP_VERSION__`, `__APP_BUILD__`)
-- Hinweis-Berechtigung und Tonkanal-Status. Titelzeile der Einstellungen zeigt `v1.5.3`
+- Version aus `frontend/package.json` (aktuell **1.5.4**), Build-Zeitpunkt aus dem Vite-Build (`__APP_VERSION__`, `__APP_BUILD__`)
+- Hinweis-Berechtigung und Tonkanal-Status. Titelzeile der Einstellungen zeigt `v1.5.4`
 - Profilbild setzen/entfernen (siehe App-Benutzer)
 
 ### MIME / Anzeige
