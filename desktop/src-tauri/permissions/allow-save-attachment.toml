@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-save-attachment"
+description = "Allows saving mail attachments through a native Save As dialog."
+commands.allow = ["save_attachment"]
